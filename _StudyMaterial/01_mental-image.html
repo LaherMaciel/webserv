@@ -1,0 +1,1115 @@
+<title>webserv — the mental image</title>
+
+<style>
+  :root {
+    --paper:       #F5F6F8;
+    --raised:      #FFFFFF;
+    --sunk:        #ECEEF2;
+    --ink:         #12161C;
+    --ink-soft:    #4A5361;
+    --ink-faint:   #6E7787;
+    --rule:        #D9DDE4;
+    --accent:      #A8501B;
+    --accent-bg:   #F4E7DC;
+    --signal:      #0F6E6A;
+    --signal-bg:   #DCEDEB;
+    --alarm:       #9B1C2E;
+    --alarm-bg:    #F6E2E5;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10131A;
+      --raised:    #171B24;
+      --sunk:      #0A0D13;
+      --ink:       #E8EBF0;
+      --ink-soft:  #9BA5B4;
+      --ink-faint: #78828F;
+      --rule:      #2A3040;
+      --accent:    #E08A4E;
+      --accent-bg: #2B1D13;
+      --signal:    #3FB5AE;
+      --signal-bg: #0E2422;
+      --alarm:     #E8607A;
+      --alarm-bg:  #2B1219;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #10131A;
+    --raised:    #171B24;
+    --sunk:      #0A0D13;
+    --ink:       #E8EBF0;
+    --ink-soft:  #9BA5B4;
+    --ink-faint: #78828F;
+    --rule:      #2A3040;
+    --accent:    #E08A4E;
+    --accent-bg: #2B1D13;
+    --signal:    #3FB5AE;
+    --signal-bg: #0E2422;
+    --alarm:     #E8607A;
+    --alarm-bg:  #2B1219;
+  }
+
+  :root[data-theme="light"] {
+    --paper:     #F5F6F8;
+    --raised:    #FFFFFF;
+    --sunk:      #ECEEF2;
+    --ink:       #12161C;
+    --ink-soft:  #4A5361;
+    --ink-faint: #6E7787;
+    --rule:      #D9DDE4;
+    --accent:    #A8501B;
+    --accent-bg: #F4E7DC;
+    --signal:    #0F6E6A;
+    --signal-bg: #DCEDEB;
+    --alarm:     #9B1C2E;
+    --alarm-bg:  #F6E2E5;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns:
+      minmax(1.25rem, 1fr)
+      min(68ch, calc(100% - 2.5rem))
+      minmax(1.25rem, 1fr);
+    row-gap: 0;
+  }
+  .wrap > * { grid-column: 2; }
+  .bleed {
+    grid-column: 1 / -1;
+    width: min(104ch, calc(100% - 2.5rem));
+    margin-inline: auto;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 1.1rem;
+  }
+  .standfirst {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 3.25rem 0 0; }
+  section + section { border-top: 1px solid var(--rule); margin-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.42rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  h2 .num {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2.25rem 0 0.4rem;
+  }
+  .deck {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  p { margin-bottom: 1.1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  section > p:last-of-type { margin-bottom: 1.5rem; }
+
+  strong { font-weight: 640; }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  ul, ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-faint); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ---------- wire samples ---------- */
+
+  .wire {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+  .wire-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.6rem 1rem 0;
+  }
+  .wire pre {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.75;
+    padding: 0.5rem 1rem 1rem;
+    white-space: pre;
+  }
+  .wire .k  { color: var(--accent); font-weight: 600; }
+  .k2 { color: var(--signal); font-weight: 600; }
+  .wire .c  { color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.75; }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 2rem 0 2.25rem;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+  }
+  figure .svg-scroll { overflow-x: auto; padding: 1.5rem 1.25rem 0.5rem; }
+  figure svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+  figcaption {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 0.9rem 1.5rem 1.35rem;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.75rem;
+    text-wrap: pretty;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .d-box   { fill: var(--sunk); stroke: var(--ink-soft); stroke-width: 1.25; }
+  .d-box-a { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  .d-box-s { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.5; }
+  .d-box-x { fill: var(--alarm-bg); stroke: var(--alarm); stroke-width: 1.5; }
+  .d-line  { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .d-line-a{ stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-line-s{ stroke: var(--signal); stroke-width: 1.75; fill: none; }
+  .d-line-x{ stroke: var(--alarm); stroke-width: 1.5; fill: none; }
+  .d-dash  { stroke-dasharray: 4 3; }
+  .d-t     { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .d-t-sm  { fill: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+  .d-t-a   { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-s   { fill: var(--signal); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-x   { fill: var(--alarm); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-b   { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .d-fill-a { fill: var(--accent); }
+  .d-fill-s { fill: var(--signal); }
+  .d-fill-n { fill: var(--ink-soft); }
+  .d-fill-x { fill: var(--alarm); }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    background: var(--raised);
+    padding: 1.1rem 1.25rem;
+    margin: 1.75rem 0;
+  }
+  .callout.alarm { border-left-color: var(--alarm); }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 0.45rem;
+  }
+  .callout.alarm .tag { color: var(--alarm); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 1.5rem 0 1.75rem; border: 1px solid var(--rule); background: var(--raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.65rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: transparent; padding: 0; color: var(--accent); }
+  .num-col { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+
+  .zeros { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .zeros li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+  .zeros li:last-child { border-bottom: none; }
+  .zeros .mark {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--alarm);
+    background: var(--alarm-bg);
+    padding: 0.15rem 0.4rem;
+    height: fit-content;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- question block ---------- */
+
+  details {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    margin-bottom: 0.6rem;
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--accent);
+    display: inline-block;
+    width: 1.1em;
+  }
+  details[open] summary::before { content: "▾"; }
+  details .body { padding: 0 1rem 1rem 2.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+  details .body p:last-child { margin-bottom: 0; }
+
+  footer.end {
+    margin-top: 3.5rem;
+    padding: 2rem 0 4rem;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">42 Lisboa · project brief</div>
+  <h1>webserv:<br>the mental image</h1>
+  <p class="standfirst">
+    You are writing the program that a browser talks to. Everything else in this project
+    is a consequence of that one sentence — and this page is the picture behind it.
+  </p>
+  <div class="masthead-meta">
+    <span><b>Subject</b> v24.1</span>
+    <span><b>Language</b> C++98</span>
+    <span><b>Methods</b> GET · POST · DELETE</span>
+    <span><b>Constraint</b> one poll(), never block</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">01 — the whole project in one exchange</span>What you are actually building</h2>
+  <p class="deck">
+    A web server is a program that holds a socket open, waits for someone to send it text,
+    and sends text back. That is genuinely all it is. The difficulty is never one exchange —
+    it is a hundred of them at once, on one thread, without ever freezing.
+  </p>
+
+  <p>
+    When you type an address into a browser, the browser opens a TCP connection to your machine
+    and writes some plain, human-readable text into it. Your program reads that text, decides what
+    it means, and writes different text back. If the text you write back is well-formed, the browser
+    renders a page. If it is off by a single byte, the browser shows nothing and tells you nothing.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 300" role="img" aria-label="A browser opens a TCP connection to the server's listening socket; the server accepts it, creating a separate connection socket per client, then reads a request and writes a response.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-n"/>
+          </marker>
+          <marker id="ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+        </defs>
+
+        <!-- clients -->
+        <text x="20" y="26" class="d-t-sm">CLIENTS</text>
+        <rect x="20" y="40" width="140" height="46" class="d-box"/>
+        <text x="90" y="68" class="d-t" text-anchor="middle">browser A</text>
+        <rect x="20" y="112" width="140" height="46" class="d-box"/>
+        <text x="90" y="140" class="d-t" text-anchor="middle">browser B</text>
+        <rect x="20" y="184" width="140" height="46" class="d-box"/>
+        <text x="90" y="212" class="d-t" text-anchor="middle">curl / telnet</text>
+
+        <!-- your process -->
+        <rect x="330" y="24" width="520" height="248" class="d-line d-dash" fill="none"/>
+        <text x="344" y="16" class="d-t-sm">YOUR PROCESS — ONE THREAD, NO FORK (except CGI)</text>
+
+        <!-- listening socket -->
+        <rect x="358" y="112" width="150" height="46" class="d-box-s"/>
+        <text x="433" y="133" class="d-t-s" text-anchor="middle">listening fd</text>
+        <text x="433" y="149" class="d-t-sm" text-anchor="middle">port 8080</text>
+
+        <!-- connection sockets -->
+        <rect x="600" y="40" width="150" height="46" class="d-box-a"/>
+        <text x="675" y="61" class="d-t-a" text-anchor="middle">conn fd 5</text>
+        <text x="675" y="77" class="d-t-sm" text-anchor="middle">state: READING</text>
+
+        <rect x="600" y="112" width="150" height="46" class="d-box-a"/>
+        <text x="675" y="133" class="d-t-a" text-anchor="middle">conn fd 6</text>
+        <text x="675" y="149" class="d-t-sm" text-anchor="middle">state: WRITING</text>
+
+        <rect x="600" y="184" width="150" height="46" class="d-box-a"/>
+        <text x="675" y="205" class="d-t-a" text-anchor="middle">conn fd 7</text>
+        <text x="675" y="221" class="d-t-sm" text-anchor="middle">state: READING</text>
+
+        <!-- connect arrows -->
+        <path d="M 160 63 L 352 128" class="d-line" marker-end="url(#ar)"/>
+        <path d="M 160 135 L 352 135" class="d-line" marker-end="url(#ar)"/>
+        <path d="M 160 207 L 352 142" class="d-line" marker-end="url(#ar)"/>
+        <text x="250" y="105" class="d-t-sm" text-anchor="middle">connect()</text>
+
+        <!-- accept arrows -->
+        <path d="M 508 128 L 594 63" class="d-line-s" marker-end="url(#ar)"/>
+        <path d="M 508 135 L 594 135" class="d-line-s" marker-end="url(#ar)"/>
+        <path d="M 508 142 L 594 207" class="d-line-s" marker-end="url(#ar)"/>
+        <text x="551" y="176" class="d-t-s" text-anchor="middle">accept()</text>
+
+        <!-- bytes -->
+        <text x="440" y="262" class="d-t-a" text-anchor="middle">the listening fd only makes new fds — it never carries page data</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>One socket listens; every client gets its own.</b> <code>accept()</code> on the listening
+      descriptor hands you a brand-new descriptor for that one conversation. The listening fd never
+      carries a request or a response — it is a factory. Each connection fd carries one conversation
+      and, crucially, <b>its own state</b>: at any instant fd 5 may be half-read while fd 6 is half-written.
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="num">02 — the bytes</span>What a request and a response really look like</h2>
+  <p class="deck">
+    There is no magic layer. HTTP is text with a strict shape, and every line ends
+    with carriage-return + line-feed — <code>\r\n</code>, both characters, always.
+  </p>
+
+  <p>
+    Here is a real request, exactly as it arrives in your <code>recv()</code> buffer. The
+    <span class="k2">→</span> marks are where <code>\r\n</code> sits; they are not visible characters,
+    but they are bytes you must count.
+  </p>
+
+  <div class="wire">
+    <div class="wire-label">bytes arriving on the connection fd</div>
+<pre><span class="k">GET</span> <span class="k">/index.html</span> <span class="k">HTTP/1.1</span><span class="crlf">→</span>
+Host: localhost:8080<span class="crlf">→</span>
+User-Agent: Mozilla/5.0<span class="crlf">→</span>
+Accept: text/html<span class="crlf">→</span>
+Connection: keep-alive<span class="crlf">→</span>
+<span class="crlf">→</span>   <span class="c">← blank line: headers are over</span></pre>
+  </div>
+
+  <p>
+    Line one is the <strong>request line</strong>: method, target, version. Then headers, one per line,
+    <code>Name: value</code>. Then a blank line. For a GET, that blank line is the end of the message —
+    there is nothing after it.
+  </p>
+
+  <p>And what you must write back:</p>
+
+  <div class="wire">
+    <div class="wire-label">bytes you send on the same fd</div>
+<pre><span class="k">HTTP/1.1</span> <span class="k">200</span> <span class="k">OK</span><span class="crlf">→</span>
+Content-Type: text/html<span class="crlf">→</span>
+Content-Length: 38<span class="crlf">→</span>
+<span class="crlf">→</span>
+&lt;html&gt;&lt;body&gt;&lt;h1&gt;Hi&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;</pre>
+  </div>
+
+  <p>
+    Line one is the <strong>status line</strong>: version, code, reason phrase. Then headers, then a blank
+    line, then the body. <code>Content-Length</code> is a promise: it says the body is exactly that many
+    bytes. Break the promise and the browser hangs waiting for bytes that never come, or cuts your page
+    off mid-tag — with no error message either way.
+  </p>
+
+  <div class="callout">
+    <span class="tag">Try this before you write any code</span>
+    <p>
+      Run <code>curl -v http://example.com</code> and read what scrolls past. Lines starting with
+      <code>&gt;</code> are what curl sent; <code>&lt;</code> is what came back. That is the entire
+      protocol, visible, in one command. Then run it against nginx on your own machine and compare.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">03 — the question that designs your parser</span>How do you know the message ended?</h2>
+  <p class="deck">
+    TCP gives you a stream of bytes with no message boundaries. One <code>recv()</code> may hand you half
+    a request, or two requests stuck together. So: when have you read enough to stop and act?
+  </p>
+
+  <p>
+    There are exactly <strong>three</strong> answers, and which one applies is decided by the headers.
+    If you can state all three before you write the parser, the parser designs itself. If you can't,
+    you will discover them by crashing into them.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 340" role="img" aria-label="Three framing cases: a GET ends at the blank line; a POST with Content-Length ends after exactly N body bytes; a chunked POST ends at a zero-size chunk.">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+        </defs>
+
+        <!-- case 1 -->
+        <text x="14" y="26" class="d-t-b">CASE 1 — no body</text>
+        <text x="14" y="43" class="d-t-sm">GET, DELETE, or any request with neither header</text>
+        <rect x="14" y="54" width="230" height="34" class="d-box"/>
+        <text x="129" y="76" class="d-t" text-anchor="middle">request line + headers</text>
+        <rect x="244" y="54" width="70" height="34" class="d-box-a"/>
+        <text x="279" y="76" class="d-t-a" text-anchor="middle">\r\n</text>
+        <path d="M 322 71 L 400 71" class="d-line-a" marker-end="url(#ar2)"/>
+        <text x="412" y="76" class="d-t-a">DONE — the blank line is the whole answer</text>
+
+        <!-- case 2 -->
+        <text x="14" y="132" class="d-t-b">CASE 2 — Content-Length: 27</text>
+        <text x="14" y="149" class="d-t-sm">the header states the body size up front</text>
+        <rect x="14" y="160" width="230" height="34" class="d-box"/>
+        <text x="129" y="182" class="d-t" text-anchor="middle">request line + headers</text>
+        <rect x="244" y="160" width="40" height="34" class="d-box-a"/>
+        <text x="264" y="182" class="d-t-a" text-anchor="middle">\r\n</text>
+        <rect x="284" y="160" width="180" height="34" class="d-box-s"/>
+        <text x="374" y="182" class="d-t-s" text-anchor="middle">exactly 27 bytes</text>
+        <path d="M 472 177 L 540 177" class="d-line-a" marker-end="url(#ar2)"/>
+        <text x="552" y="182" class="d-t-a">DONE — count them and stop</text>
+
+        <!-- case 3 -->
+        <text x="14" y="238" class="d-t-b">CASE 3 — Transfer-Encoding: chunked</text>
+        <text x="14" y="255" class="d-t-sm">size is unknown when sending starts; each piece announces itself</text>
+        <rect x="14" y="266" width="150" height="34" class="d-box"/>
+        <text x="89" y="288" class="d-t" text-anchor="middle">headers</text>
+        <rect x="164" y="266" width="40" height="34" class="d-box-a"/>
+        <text x="184" y="288" class="d-t-a" text-anchor="middle">\r\n</text>
+        <rect x="204" y="266" width="46" height="34" class="d-box-s"/>
+        <text x="227" y="288" class="d-t-s" text-anchor="middle">1B</text>
+        <rect x="250" y="266" width="86" height="34" class="d-box"/>
+        <text x="293" y="288" class="d-t" text-anchor="middle">27 bytes</text>
+        <rect x="336" y="266" width="46" height="34" class="d-box-s"/>
+        <text x="359" y="288" class="d-t-s" text-anchor="middle">A</text>
+        <rect x="382" y="266" width="70" height="34" class="d-box"/>
+        <text x="417" y="288" class="d-t" text-anchor="middle">10 bytes</text>
+        <rect x="452" y="266" width="46" height="34" class="d-box-x"/>
+        <text x="475" y="288" class="d-t-x" text-anchor="middle">0</text>
+        <path d="M 506 283 L 570 283" class="d-line-a" marker-end="url(#ar2)"/>
+        <text x="582" y="288" class="d-t-a">DONE — size 0 means the end</text>
+        <text x="14" y="322" class="d-t-sm">sizes are in hexadecimal — 1B = 27, A = 10</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>The headers tell you where the message ends — <code>recv()</code> never does.</b>
+      A return value of 0 from <code>recv()</code> means the client closed the connection, not
+      that the request finished. Treating "recv returned less than my buffer" as "the request is
+      complete" is the single most common way this project breaks.
+    </figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="tag">Why this matters for CGI later</span>
+    <p>
+      A CGI script has no concept of chunks — it reads its body from stdin until end-of-file, and it
+      trusts <code>CONTENT_LENGTH</code>. So a chunked request must be <strong>un-chunked by you</strong>
+      before the script ever sees it. That requirement in the subject is not arbitrary; it falls directly
+      out of case 3 not existing in CGI's world.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">04 — the constraint that shapes everything</span>Why <code>poll()</code> exists</h2>
+  <p class="deck">
+    One process. One thread. A hundred clients. Some of them slow, some of them malicious,
+    one of them a browser that opened a connection and then said nothing at all.
+  </p>
+
+  <p>
+    A normal <code>read()</code> on a socket <strong>blocks</strong>: if no data has arrived, your program
+    stops there, doing nothing, until data comes. With one thread, one silent client freezes every other
+    client on the server. That is why the naive version fails, and it is why the subject bans blocking.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 330" role="img" aria-label="Left: a blocking read on a silent client stops the single thread, starving two other ready clients. Right: poll reports which descriptors are ready, and the server services only those, never blocking.">
+        <defs>
+          <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-n"/>
+          </marker>
+          <marker id="ar3s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-s"/>
+          </marker>
+        </defs>
+
+        <!-- LEFT: blocking -->
+        <text x="14" y="24" class="d-t-x">✗ BLOCKING — what not to do</text>
+        <rect x="14" y="38" width="386" height="266" class="d-line-x d-dash" fill="none"/>
+
+        <rect x="40" y="66" width="120" height="40" class="d-box"/>
+        <text x="100" y="91" class="d-t" text-anchor="middle">client A (silent)</text>
+        <rect x="40" y="126" width="120" height="40" class="d-box"/>
+        <text x="100" y="151" class="d-t" text-anchor="middle">client B (ready)</text>
+        <rect x="40" y="186" width="120" height="40" class="d-box"/>
+        <text x="100" y="211" class="d-t" text-anchor="middle">client C (ready)</text>
+
+        <rect x="240" y="126" width="130" height="40" class="d-box-x"/>
+        <text x="305" y="145" class="d-t-x" text-anchor="middle">read(A)</text>
+        <text x="305" y="160" class="d-t-sm" text-anchor="middle">blocked forever</text>
+
+        <path d="M 162 86 L 234 132" class="d-line-x" marker-end="url(#ar3)"/>
+        <path d="M 162 146 L 234 146" class="d-line-x d-dash"/>
+        <path d="M 162 206 L 234 160" class="d-line-x d-dash"/>
+        <text x="196" y="238" class="d-t-x" text-anchor="middle">✗</text>
+        <text x="305" y="196" class="d-t-sm" text-anchor="middle">B and C are starved</text>
+        <text x="305" y="212" class="d-t-sm" text-anchor="middle">by a client that</text>
+        <text x="305" y="228" class="d-t-sm" text-anchor="middle">sent nothing</text>
+        <text x="207" y="286" class="d-t-x" text-anchor="middle">one quiet client stops the whole server</text>
+
+        <!-- RIGHT: poll -->
+        <text x="440" y="24" class="d-t-s">✓ POLL — readiness first, then act</text>
+        <rect x="440" y="38" width="426" height="266" class="d-line-s d-dash" fill="none"/>
+
+        <rect x="466" y="66" width="120" height="40" class="d-box"/>
+        <text x="526" y="91" class="d-t" text-anchor="middle">client A (silent)</text>
+        <rect x="466" y="126" width="120" height="40" class="d-box"/>
+        <text x="526" y="151" class="d-t" text-anchor="middle">client B (ready)</text>
+        <rect x="466" y="186" width="120" height="40" class="d-box"/>
+        <text x="526" y="211" class="d-t" text-anchor="middle">client C (ready)</text>
+
+        <rect x="646" y="106" width="120" height="80" class="d-box-s"/>
+        <text x="706" y="140" class="d-t-s" text-anchor="middle">poll()</text>
+        <text x="706" y="157" class="d-t-sm" text-anchor="middle">asks: who is</text>
+        <text x="706" y="172" class="d-t-sm" text-anchor="middle">ready right now?</text>
+
+        <path d="M 588 86  L 640 120" class="d-line d-dash"/>
+        <path d="M 588 146 L 640 146" class="d-line-s" marker-end="url(#ar3s)"/>
+        <path d="M 588 206 L 640 172" class="d-line-s" marker-end="url(#ar3s)"/>
+
+        <path d="M 772 146 L 830 146" class="d-line-s" marker-end="url(#ar3s)"/>
+        <text x="800" y="132" class="d-t-s" text-anchor="middle">B, C</text>
+
+        <text x="653" y="228" class="d-t-sm">A is simply not in the ready list —</text>
+        <text x="653" y="244" class="d-t-sm">so you never touch it, and never wait</text>
+        <text x="653" y="286" class="d-t-s">nobody blocks anybody</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b><code>poll()</code> answers one question: which of my descriptors can I touch right now
+      without waiting?</b> You call it once, at the top of your loop, with every descriptor you own —
+      the listening socket included. It sleeps until at least one is ready, then hands you the list.
+      You act only on that list. This is why checking <code>errno</code> after a read is forbidden:
+      readiness is the poller's answer, and asking <code>errno</code> instead means you read something
+      you had no permission to read.
+    </figcaption>
+  </figure>
+
+  <div class="callout alarm">
+    <span class="tag">This is a grade-zero rule, not a style preference</span>
+    <p>
+      One <code>poll()</code> for everything. It must watch readable <em>and</em> writable at the same
+      time. Never read or write a socket or pipe that <code>poll()</code> did not just report ready.
+      Regular disk files are exempt in subject v24.1 — but the older evaluation sheet is stricter,
+      and being stricter costs you nothing.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">05 — the heart of the program</span>Each connection is a state machine</h2>
+  <p class="deck">
+    This is the idea that turns a thousand special cases into six boxes and a handful of arrows.
+    If you understand one diagram on this page, make it this one.
+  </p>
+
+  <p>
+    A connection is not an event, it is a <strong>lifecycle</strong>. At any moment it is somewhere
+    specific: still collecting the request, working out the answer, pushing bytes out, or finished.
+    "Readable" means something different in each place. When each connection object knows its own
+    state, <code>poll()</code> becomes trivial to act on — you look at the state, and the state tells
+    you what to do.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 400" role="img" aria-label="Connection state machine: from accepted, a connection reads a request with a self-loop for partial reads, processes it, writes the response with a self-loop for partial writes, then either returns to reading for keep-alive or closes. A client hangup sends any state to closed.">
+        <defs>
+          <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+          <marker id="ar4n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-n"/>
+          </marker>
+          <marker id="ar4x" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-x"/>
+          </marker>
+        </defs>
+
+        <!-- accepted -->
+        <rect x="20" y="150" width="112" height="52" class="d-box-s"/>
+        <text x="76" y="173" class="d-t-s" text-anchor="middle">ACCEPTED</text>
+        <text x="76" y="189" class="d-t-sm" text-anchor="middle">new fd</text>
+
+        <!-- reading -->
+        <rect x="196" y="150" width="140" height="52" class="d-box-a"/>
+        <text x="266" y="173" class="d-t-a" text-anchor="middle">READING</text>
+        <text x="266" y="189" class="d-t-sm" text-anchor="middle">want: readable</text>
+
+        <!-- processing -->
+        <rect x="400" y="150" width="140" height="52" class="d-box"/>
+        <text x="470" y="173" class="d-t-b" text-anchor="middle">PROCESSING</text>
+        <text x="470" y="189" class="d-t-sm" text-anchor="middle">no I/O wanted</text>
+
+        <!-- writing -->
+        <rect x="604" y="150" width="140" height="52" class="d-box-a"/>
+        <text x="674" y="173" class="d-t-a" text-anchor="middle">WRITING</text>
+        <text x="674" y="189" class="d-t-sm" text-anchor="middle">want: writable</text>
+
+        <!-- closed -->
+        <rect x="790" y="150" width="76" height="52" class="d-box-x"/>
+        <text x="828" y="180" class="d-t-x" text-anchor="middle">CLOSED</text>
+
+        <!-- main arrows -->
+        <path d="M 134 176 L 190 176" class="d-line-s" marker-end="url(#ar4n)"/>
+        <path d="M 338 176 L 394 176" class="d-line-a" marker-end="url(#ar4)"/>
+        <text x="366" y="166" class="d-t-sm" text-anchor="middle">complete</text>
+        <path d="M 542 176 L 598 176" class="d-line-a" marker-end="url(#ar4)"/>
+        <text x="570" y="166" class="d-t-sm" text-anchor="middle">answer ready</text>
+        <path d="M 746 176 L 784 176" class="d-line-x" marker-end="url(#ar4x)"/>
+        <text x="765" y="166" class="d-t-sm" text-anchor="middle">close</text>
+
+        <!-- self loops -->
+        <path d="M 226 148 C 226 108, 306 108, 306 148" class="d-line-a" marker-end="url(#ar4)"/>
+        <text x="266" y="108" class="d-t-a" text-anchor="middle">partial read</text>
+        <text x="266" y="94" class="d-t-sm" text-anchor="middle">keep the bytes, stay here</text>
+
+        <path d="M 634 148 C 634 108, 714 108, 714 148" class="d-line-a" marker-end="url(#ar4)"/>
+        <text x="674" y="108" class="d-t-a" text-anchor="middle">partial write</text>
+        <text x="674" y="94" class="d-t-sm" text-anchor="middle">remember the offset</text>
+
+        <!-- keep-alive return -->
+        <path d="M 674 204 C 674 268, 266 268, 266 206" class="d-line-s" marker-end="url(#ar4n)"/>
+        <text x="470" y="284" class="d-t-s" text-anchor="middle">keep-alive: same fd, next request, clean slate</text>
+
+        <!-- hangup -->
+        <path d="M 266 204 C 266 340, 828 340, 828 206" class="d-line-x d-dash" marker-end="url(#ar4x)"/>
+        <text x="470" y="356" class="d-t-x" text-anchor="middle">client hangs up — from ANY state, free the buffers and drop the fd</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>The two self-loops are the whole trick.</b> A partial read is not a failure — it is the normal
+      case, and you stay in <code>READING</code> with the bytes you got. A partial write is the same on
+      the way out: <code>send()</code> may accept 4 KB of your 2 MB response, so you store how far you
+      got and wait for <code>poll()</code> to say writable again. Students who forget the write offset
+      get a server that works perfectly on small files and corrupts every large one.
+    </figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="tag">The eval question this answers</span>
+    <p>
+      "A connection is halfway through writing a large response and <code>poll()</code> reports it
+      writable again — what do you do?" Answer: continue from the stored offset, send what you can,
+      update the offset. Not restart. Not buffer-and-hope. The state object already knows where it was.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">06 — from URL to file</span>The config decides everything</h2>
+  <p class="deck">
+    The subject hands you a design problem most students have never had: invent a configuration
+    format. nginx is your reference for what a consistent one looks like.
+  </p>
+
+  <p>
+    A request arrives with a path. Which file on disk is that? The answer is not string concatenation —
+    it is a lookup through the config, and the subject spells out the exact example: if
+    <code>/kapouet</code> is rooted to <code>/tmp/www</code>, then <code>/kapouet/pouic/toto/pouet</code>
+    must resolve to <code>/tmp/www/pouic/toto/pouet</code>. Notice what happened to the matched prefix:
+    it was <strong>replaced</strong>, not kept.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 350" role="img" aria-label="A request is routed by port and Host to a server block, then by longest path prefix to a location block, whose root replaces the matched prefix to produce a filesystem path.">
+        <defs>
+          <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+        </defs>
+
+        <!-- request -->
+        <rect x="14" y="20" width="852" height="46" class="d-box"/>
+        <text x="30" y="42" class="d-t-sm">INCOMING</text>
+        <text x="30" y="58" class="d-t">GET /kapouet/pouic/toto/pouet HTTP/1.1   ·   Host: localhost:8080   ·   arrived on port 8080</text>
+
+        <!-- step 1 -->
+        <path d="M 440 68 L 440 92" class="d-line-a" marker-end="url(#ar5)"/>
+        <rect x="140" y="96" width="600" height="52" class="d-box-s"/>
+        <text x="156" y="118" class="d-t-s">STEP 1 — pick the server block</text>
+        <text x="156" y="136" class="d-t-sm">match the listening port, then the Host header against server_name; no match → the default server for that port</text>
+
+        <!-- step 2 -->
+        <path d="M 440 150 L 440 174" class="d-line-a" marker-end="url(#ar5)"/>
+        <rect x="140" y="178" width="600" height="52" class="d-box-s"/>
+        <text x="156" y="200" class="d-t-s">STEP 2 — pick the location block</text>
+        <text x="156" y="218" class="d-t-sm">longest matching path prefix wins:  /kapouet  beats  /  — this block owns the request</text>
+
+        <!-- step 3 -->
+        <path d="M 440 232 L 440 256" class="d-line-a" marker-end="url(#ar5)"/>
+        <rect x="140" y="260" width="600" height="70" class="d-box-a"/>
+        <text x="156" y="282" class="d-t-a">STEP 3 — swap the prefix for the root</text>
+        <text x="156" y="303" class="d-t-sm">/kapouet</text>
+        <text x="230" y="303" class="d-t">/pouic/toto/pouet</text>
+        <text x="156" y="322" class="d-t-a">/tmp/www</text>
+        <text x="230" y="322" class="d-t">/pouic/toto/pouet</text>
+        <text x="470" y="303" class="d-t-sm">← matched prefix is discarded</text>
+        <text x="470" y="322" class="d-t-sm">← root takes its place = the file to open</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Everything the location block carries applies after this point:</b> allowed methods
+      (wrong one → <code>405</code>, and you must list the allowed ones), redirects, the index file to
+      serve when the path is a directory, whether to autoindex, the upload directory, and which file
+      extensions run as CGI. Route matching is where most of the config's real behaviour lives.
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="num">07 — the fossil</span>CGI, and what a "backend" actually is</h2>
+  <p class="deck">
+    Before frameworks, this was the dynamic web: the server runs a program and sends you
+    whatever it prints. Understanding it is understanding what Django and Node abstracted away.
+  </p>
+
+  <p>
+    CGI has no library and no API. The server puts the request into <strong>environment variables</strong>,
+    pipes the body to the child's standard input, runs an interpreter, and reads the answer from the
+    child's standard output. That is the entire interface, unchanged since 1993.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 380" role="img" aria-label="The server creates two pipes, forks, and in the child redirects stdin and stdout to the pipes, changes directory, and execs the interpreter with request data supplied as environment variables; the parent keeps both pipe ends in poll and enforces a timeout.">
+        <defs>
+          <marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+          <marker id="ar6s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-s"/>
+          </marker>
+        </defs>
+
+        <!-- parent -->
+        <rect x="14" y="60" width="180" height="150" class="d-box-a"/>
+        <text x="104" y="88" class="d-t-a" text-anchor="middle">your server</text>
+        <text x="104" y="108" class="d-t-sm" text-anchor="middle">(the parent)</text>
+        <text x="104" y="136" class="d-t-sm" text-anchor="middle">holds both pipe</text>
+        <text x="104" y="152" class="d-t-sm" text-anchor="middle">ends in poll()</text>
+        <text x="104" y="180" class="d-t-sm" text-anchor="middle">never blocks,</text>
+        <text x="104" y="196" class="d-t-sm" text-anchor="middle">never waits</text>
+
+        <!-- pipes -->
+        <path d="M 196 108 L 320 108" class="d-line-a" marker-end="url(#ar6)"/>
+        <text x="258" y="98" class="d-t-a" text-anchor="middle">pipe → stdin</text>
+        <text x="258" y="124" class="d-t-sm" text-anchor="middle">the request body</text>
+
+        <path d="M 320 172 L 196 172" class="d-line-s" marker-end="url(#ar6s)"/>
+        <text x="258" y="162" class="d-t-s" text-anchor="middle">stdout → pipe</text>
+        <text x="258" y="188" class="d-t-sm" text-anchor="middle">headers + page</text>
+
+        <!-- child -->
+        <rect x="322" y="60" width="200" height="150" class="d-box-s"/>
+        <text x="422" y="88" class="d-t-s" text-anchor="middle">fork() + execve()</text>
+        <text x="422" y="112" class="d-t-sm" text-anchor="middle">dup2 stdin / stdout</text>
+        <text x="422" y="132" class="d-t-sm" text-anchor="middle">chdir to script's dir</text>
+        <text x="422" y="152" class="d-t-sm" text-anchor="middle">so relative paths work</text>
+        <text x="422" y="180" class="d-t" text-anchor="middle">python3 script.py</text>
+
+        <!-- env -->
+        <rect x="560" y="40" width="306" height="190" class="d-box"/>
+        <text x="576" y="64" class="d-t-b">the environment — the only way in</text>
+        <text x="576" y="90" class="d-t-a">REQUEST_METHOD</text><text x="740" y="90" class="d-t-sm">POST</text>
+        <text x="576" y="112" class="d-t-a">QUERY_STRING</text><text x="740" y="112" class="d-t-sm">name=laher</text>
+        <text x="576" y="134" class="d-t-a">CONTENT_LENGTH</text><text x="740" y="134" class="d-t-sm">27</text>
+        <text x="576" y="156" class="d-t-a">CONTENT_TYPE</text><text x="740" y="156" class="d-t-sm">text/plain</text>
+        <text x="576" y="178" class="d-t-a">PATH_INFO</text><text x="740" y="178" class="d-t-sm">/extra/path</text>
+        <text x="576" y="204" class="d-t-sm">the script receives no arguments and no request</text>
+        <text x="576" y="220" class="d-t-sm">object — you put every value here yourself</text>
+
+        <!-- timeout -->
+        <rect x="14" y="266" width="852" height="76" class="d-box-x"/>
+        <text x="30" y="292" class="d-t-x">THE TRAP EVALUATORS LOVE — a CGI script with an infinite loop</text>
+        <text x="30" y="314" class="d-t-sm">Your event loop must keep serving every other client while the child runs. Someone has to decide the child has had long enough,</text>
+        <text x="30" y="332" class="d-t-sm">kill it, and answer 504. That falls straight out of "the server must never hang" applied to the pipes you own.</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>The pipes are file descriptors like any other</b> — so they belong in the same
+      <code>poll()</code> as your sockets, and the child's runtime must not stall the loop.
+      If the script returns no <code>Content-Length</code>, end-of-file marks the end of its output,
+      exactly as un-chunking marked the end of its input.
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="num">08 — tomorrow's conversation</span>Where the work splits in two</h2>
+  <p class="deck">
+    Two people, one server. There is essentially one clean seam through this project,
+    and several messy ones. Agreeing the seam is the most valuable thing you can do with Beth
+    before either of you writes code.
+  </p>
+
+  <p>
+    The clean seam is between <strong>moving bytes</strong> and <strong>deciding what the bytes mean</strong>.
+    One side owns the socket, the poll loop, the connection state machine, and turning raw bytes into a
+    <code>Request</code> object — and turning a <code>Response</code> object back into bytes. The other
+    side owns everything that takes a <code>Request</code> and produces a <code>Response</code>: the config
+    file, route matching, static files, directory listings, uploads, DELETE, CGI.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 340" role="img" aria-label="Two halves of the project meet at a single interface: the transport half turns bytes into a Request object and a Response object back into bytes; the semantics half turns a Request into a Response. Neither half needs the other's internals.">
+        <defs>
+          <marker id="ar7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+        </defs>
+
+        <!-- left half -->
+        <rect x="14" y="46" width="330" height="248" class="d-box-a"/>
+        <text x="34" y="76" class="d-t-a">SIDE A — moving bytes</text>
+        <text x="34" y="104" class="d-t-sm">socket / bind / listen / accept</text>
+        <text x="34" y="126" class="d-t-sm">the single poll() loop</text>
+        <text x="34" y="148" class="d-t-sm">connection state machine</text>
+        <text x="34" y="170" class="d-t-sm">per-connection read + write buffers</text>
+        <text x="34" y="192" class="d-t-sm">request parser  (bytes → Request)</text>
+        <text x="34" y="214" class="d-t-sm">response writer (Response → bytes)</text>
+        <text x="34" y="236" class="d-t-sm">chunked decoding, timeouts, keep-alive</text>
+        <text x="34" y="272" class="d-t-sm">never asks WHY, only WHEN</text>
+
+        <!-- seam -->
+        <rect x="368" y="46" width="144" height="248" class="d-box-s"/>
+        <text x="440" y="76" class="d-t-s" text-anchor="middle">THE SEAM</text>
+        <text x="440" y="104" class="d-t-sm" text-anchor="middle">agree these two</text>
+        <text x="440" y="120" class="d-t-sm" text-anchor="middle">structs first —</text>
+        <text x="440" y="136" class="d-t-sm" text-anchor="middle">then work apart</text>
+        <rect x="388" y="156" width="104" height="52" class="d-box"/>
+        <text x="440" y="178" class="d-t-b" text-anchor="middle">Request</text>
+        <text x="440" y="195" class="d-t-sm" text-anchor="middle">method, path,</text>
+        <rect x="388" y="222" width="104" height="52" class="d-box"/>
+        <text x="440" y="244" class="d-t-b" text-anchor="middle">Response</text>
+        <text x="440" y="261" class="d-t-sm" text-anchor="middle">code, headers,</text>
+
+        <path d="M 346 140 L 382 140" class="d-line-a" marker-end="url(#ar7)"/>
+        <path d="M 498 250 L 534 250" class="d-line-a" marker-end="url(#ar7)"/>
+
+        <!-- right half -->
+        <rect x="536" y="46" width="330" height="248" class="d-box-a"/>
+        <text x="556" y="76" class="d-t-a">SIDE B — deciding the answer</text>
+        <text x="556" y="104" class="d-t-sm">config file parser</text>
+        <text x="556" y="126" class="d-t-sm">server block + route matching</text>
+        <text x="556" y="148" class="d-t-sm">static files, MIME types</text>
+        <text x="556" y="170" class="d-t-sm">autoindex, index files, redirects</text>
+        <text x="556" y="192" class="d-t-sm">uploads, DELETE, body size limit</text>
+        <text x="556" y="214" class="d-t-sm">CGI: env, fork, pipes</text>
+        <text x="556" y="236" class="d-t-sm">status codes, default error pages</text>
+        <text x="556" y="272" class="d-t-sm">never touches a socket</text>
+
+        <text x="440" y="318" class="d-t-s" text-anchor="middle">both sides can be built and tested independently — that is what makes it a real seam</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Why this seam and not another:</b> side B can be tested with a hand-built <code>Request</code>
+      and no network at all, and side A can be tested by echoing a fixed <code>Response</code> to every
+      request. Neither of you is blocked waiting for the other. Split by "you do GET, I do POST" instead
+      and you will both be editing the same parser on day one.
+    </figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="tag">Bring these to the conversation</span>
+    <p>
+      What exactly is in <code>Request</code> and <code>Response</code>? Who writes the config parser —
+      it is the biggest single lump on side B. Who owns the <code>Makefile</code> and the directory
+      layout? And which of you writes the first throwaway server that just accepts a connection and
+      replies <code>200 OK</code> to everything, so there is something real to build against on day one?
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">09 — before you write anything</span>The rules that end an evaluation</h2>
+  <p class="deck">
+    Most of these cannot be patched in later. They are consequences of the architecture,
+    which is why they belong in your head before the first line, not after the last.
+  </p>
+
+  <ul class="zeros">
+    <li><span class="mark">ZERO</span><span><b>Any crash, ever.</b> Segfault, uncaught exception, unexpected termination — even out of memory. The grade is 0 and the defence stops.</span></li>
+    <li><span class="mark">ZERO</span><span><b>Checking <code>errno</code> after read / recv / write / send</b> to decide what to do next. Readiness comes from <code>poll()</code>, and only from <code>poll()</code>.</span></li>
+    <li><span class="mark">ZERO</span><span><b>More than one <code>poll()</code></b>, or a poll that does not watch readable and writable simultaneously.</span></li>
+    <li><span class="mark">ZERO</span><span><b>Reading or writing a socket or pipe</b> that <code>poll()</code> did not report ready.</span></li>
+    <li><span class="mark">ZERO</span><span><b>A forbidden function</b>, an external library, or Boost. Also: <code>fork()</code> for anything except CGI, and <code>execve</code>-ing a real web server.</span></li>
+    <li><span class="mark">FLAG</span><span><b>Memory leaks</b>, or a relink on a second <code>make</code>. Both are flags rather than instant zeros, but both are trivially checkable and will be checked.</span></li>
+  </ul>
+
+  <p>
+    Two more that are not zeros but decide the grade: <strong>every status code must be correct</strong>,
+    and the server must survive a <code>siege -b</code> stress run at over <strong>99.5% availability</strong>
+    with flat memory and no hanging connections, indefinitely, without a restart.
+  </p>
+</section>
+
+<section>
+  <h2><span class="num">10 — check yourself</span>Questions to answer out loud</h2>
+  <p class="deck">
+    Not for the evaluator. For tomorrow — if you can answer these without notes, you can lead
+    the conversation instead of following it.
+  </p>
+
+  <details>
+    <summary>What are the three ways a request can end?</summary>
+    <div class="body"><p>No body at all (the blank line ends it); <code>Content-Length: N</code> (exactly N bytes follow the blank line); <code>Transfer-Encoding: chunked</code> (sized pieces until a zero-size chunk). The headers decide which — never the return value of <code>recv()</code>.</p></div>
+  </details>
+
+  <details>
+    <summary>Why can't you just call read() when a client connects?</summary>
+    <div class="body"><p>Because <code>read()</code> blocks until data arrives, and you have one thread. A client that connects and says nothing would freeze every other client. <code>poll()</code> exists so you only ever touch descriptors that are ready right now.</p></div>
+  </details>
+
+  <details>
+    <summary>What does accept() actually give you?</summary>
+    <div class="body"><p>A new file descriptor for that one conversation. The listening socket is a factory — it never carries request or response data. Each connection fd has its own buffers and its own state.</p></div>
+  </details>
+
+  <details>
+    <summary>You sent 4 KB of a 2 MB response and send() won't take more. Now what?</summary>
+    <div class="body"><p>Stay in <code>WRITING</code>, store the offset, return to the loop and serve other clients. When <code>poll()</code> reports that fd writable again, continue from the offset. Never restart the response, never block waiting.</p></div>
+  </details>
+
+  <details>
+    <summary>A CGI script gets no arguments and no request object. Where does it find the method and the body?</summary>
+    <div class="body"><p>The method, query string and content length come from <strong>environment variables</strong> you set before <code>execve</code>. The body arrives on its <strong>standard input</strong> through a pipe you created. You put every one of those there yourself.</p></div>
+  </details>
+
+  <details>
+    <summary>Why must a chunked body be un-chunked before the CGI sees it?</summary>
+    <div class="body"><p>CGI has no notion of chunking. It reads stdin to end-of-file and trusts <code>CONTENT_LENGTH</code> — and you cannot state a length you haven't finished receiving. So you decode the chunks, count the real total, and hand over a plain body.</p></div>
+  </details>
+
+  <details>
+    <summary>Two server blocks on the same port, and a request matching neither name. What happens?</summary>
+    <div class="body"><p>The first block declared for that port answers as the default server. This is exactly the case the evaluation sheet probes with <code>curl --resolve</code>, and the case where "it works in my browser" tells you nothing.</p></div>
+  </details>
+</section>
+
+<footer class="end">
+  Built for the webserv kickoff · subject v24.1 · sources: the subject PDF, the 2021 evaluation sheet
+  (used additively — an old sheet never grants permission to skip), and RFC 9110 / 9112.<br>
+  The fastest way to check any behaviour question: run it against nginx with the equivalent config,
+  run it against yours, and diff the two <code>curl -v</code> conversations.
+</footer>
+
+</div>

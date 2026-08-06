@@ -1,0 +1,468 @@
+<title>07 · Reading the disk — webserv functions</title>
+
+<style>
+  :root {
+    --paper:       #F5F6F8;
+    --raised:      #FFFFFF;
+    --sunk:        #ECEEF2;
+    --ink:         #12161C;
+    --ink-soft:    #4A5361;
+    --ink-faint:   #6E7787;
+    --rule:        #D9DDE4;
+    --accent:      #A8501B;
+    --accent-bg:   #F4E7DC;
+    --signal:      #0F6E6A;
+    --signal-bg:   #DCEDEB;
+    --alarm:       #9B1C2E;
+    --alarm-bg:    #F6E2E5;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10131A;
+      --raised:    #171B24;
+      --sunk:      #0A0D13;
+      --ink:       #E8EBF0;
+      --ink-soft:  #9BA5B4;
+      --ink-faint: #78828F;
+      --rule:      #2A3040;
+      --accent:    #E08A4E;
+      --accent-bg: #2B1D13;
+      --signal:    #3FB5AE;
+      --signal-bg: #0E2422;
+      --alarm:     #E8607A;
+      --alarm-bg:  #2B1219;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #10131A;
+    --raised:    #171B24;
+    --sunk:      #0A0D13;
+    --ink:       #E8EBF0;
+    --ink-soft:  #9BA5B4;
+    --ink-faint: #78828F;
+    --rule:      #2A3040;
+    --accent:    #E08A4E;
+    --accent-bg: #2B1D13;
+    --signal:    #3FB5AE;
+    --signal-bg: #0E2422;
+    --alarm:     #E8607A;
+    --alarm-bg:  #2B1219;
+  }
+
+  :root[data-theme="light"] {
+    --paper:     #F5F6F8;
+    --raised:    #FFFFFF;
+    --sunk:      #ECEEF2;
+    --ink:       #12161C;
+    --ink-soft:  #4A5361;
+    --ink-faint: #6E7787;
+    --rule:      #D9DDE4;
+    --accent:    #A8501B;
+    --accent-bg: #F4E7DC;
+    --signal:    #0F6E6A;
+    --signal-bg: #DCEDEB;
+    --alarm:     #9B1C2E;
+    --alarm-bg:  #F6E2E5;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns:
+      minmax(1.25rem, 1fr)
+      min(68ch, calc(100% - 2.5rem))
+      minmax(1.25rem, 1fr);
+    row-gap: 0;
+  }
+  .wrap > * { grid-column: 2; }
+  .bleed {
+    grid-column: 1 / -1;
+    width: min(104ch, calc(100% - 2.5rem));
+    margin-inline: auto;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 1.1rem;
+  }
+  .standfirst {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 3.25rem 0 0; }
+  section + section { border-top: 1px solid var(--rule); margin-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.42rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  h2 .num {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2.25rem 0 0.4rem;
+  }
+  .deck {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  p { margin-bottom: 1.1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  section > p:last-of-type { margin-bottom: 1.5rem; }
+
+  strong { font-weight: 640; }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  ul, ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-faint); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ---------- wire samples ---------- */
+
+  .wire {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+  .wire-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.6rem 1rem 0;
+  }
+  .wire pre {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.75;
+    padding: 0.5rem 1rem 1rem;
+    white-space: pre;
+  }
+  .wire .k  { color: var(--accent); font-weight: 600; }
+  .k2 { color: var(--signal); font-weight: 600; }
+  .wire .c  { color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.75; }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 2rem 0 2.25rem;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+  }
+  figure .svg-scroll { overflow-x: auto; padding: 1.5rem 1.25rem 0.5rem; }
+  figure svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+  figcaption {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 0.9rem 1.5rem 1.35rem;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.75rem;
+    text-wrap: pretty;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .d-box   { fill: var(--sunk); stroke: var(--ink-soft); stroke-width: 1.25; }
+  .d-box-a { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  .d-box-s { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.5; }
+  .d-box-x { fill: var(--alarm-bg); stroke: var(--alarm); stroke-width: 1.5; }
+  .d-line  { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .d-line-a{ stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-line-s{ stroke: var(--signal); stroke-width: 1.75; fill: none; }
+  .d-line-x{ stroke: var(--alarm); stroke-width: 1.5; fill: none; }
+  .d-dash  { stroke-dasharray: 4 3; }
+  .d-t     { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .d-t-sm  { fill: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+  .d-t-a   { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-s   { fill: var(--signal); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-x   { fill: var(--alarm); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-b   { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .d-fill-a { fill: var(--accent); }
+  .d-fill-s { fill: var(--signal); }
+  .d-fill-n { fill: var(--ink-soft); }
+  .d-fill-x { fill: var(--alarm); }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    background: var(--raised);
+    padding: 1.1rem 1.25rem;
+    margin: 1.75rem 0;
+  }
+  .callout.alarm { border-left-color: var(--alarm); }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 0.45rem;
+  }
+  .callout.alarm .tag { color: var(--alarm); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 1.5rem 0 1.75rem; border: 1px solid var(--rule); background: var(--raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.65rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: transparent; padding: 0; color: var(--accent); }
+  .num-col { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+
+  .zeros { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .zeros li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+  .zeros li:last-child { border-bottom: none; }
+  .zeros .mark {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--alarm);
+    background: var(--alarm-bg);
+    padding: 0.15rem 0.4rem;
+    height: fit-content;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- question block ---------- */
+
+  details {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    margin-bottom: 0.6rem;
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--accent);
+    display: inline-block;
+    width: 1.1em;
+  }
+  details[open] summary::before { content: "▾"; }
+  details .body { padding: 0 1rem 1rem 2.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+  details .body p:last-child { margin-bottom: 0; }
+
+  footer.end {
+    margin-top: 3.5rem;
+    padding: 2rem 0 4rem;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+<style>
+  .fnav { display:flex; flex-wrap:wrap; gap:0.35rem 0.9rem; align-items:baseline;
+          font-family:var(--mono); font-size:0.76rem; padding:1.75rem 0 0; }
+  .fnav a { text-decoration:none; border-bottom:1px solid var(--rule); padding-bottom:1px; }
+  .fnav a:hover { border-bottom-color:var(--accent); }
+  .fnav .sep { color:var(--ink-faint); }
+  .fnav .next { margin-left:auto; }
+  header.fhead { padding:1.25rem 0 2rem; border-bottom:2px solid var(--ink); }
+  header.fhead h1 { font-size:clamp(1.6rem,4.5vw,2.4rem); margin-bottom:0.75rem; }
+  header.fhead .blurb { color:var(--ink-soft); max-width:58ch; text-wrap:pretty; }
+  .fn { padding:2.25rem 0; border-bottom:1px solid var(--rule); }
+  .fn:last-of-type { border-bottom:none; }
+  .fn-name { font-family:var(--mono); font-size:1.12rem; font-weight:600; color:var(--accent);
+             display:flex; flex-wrap:wrap; gap:0.75rem; align-items:baseline; margin-bottom:0.7rem; }
+  .fn-hdr { font-family:var(--mono); font-size:0.72rem; color:var(--ink-faint); font-weight:400; }
+  .fn-sig { background:var(--sunk); border-left:2px solid var(--rule); font-family:var(--mono);
+            font-size:0.8rem; line-height:1.7; padding:0.6rem 0.9rem; margin-bottom:1rem;
+            overflow-x:auto; white-space:pre; }
+  .fn-row { display:grid; grid-template-columns:5.5rem 1fr; gap:0.9rem; margin-bottom:0.7rem; }
+  .fn-key { font-family:var(--mono); font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
+            color:var(--ink-faint); padding-top:0.28rem; }
+  .fn-val { text-wrap:pretty; }
+  .fn-row.warn .fn-key { color:var(--alarm); }
+  .fn-row.warn .fn-val { color:var(--ink); }
+  @media (max-width:560px){ .fn-row{ grid-template-columns:1fr; gap:0.15rem; } }
+  footer.ffoot { display:flex; flex-wrap:wrap; gap:0.9rem; justify-content:space-between;
+                 margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
+                 font-family:var(--mono); font-size:0.78rem; }
+  footer.ffoot a { text-decoration:none; }
+  .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
+             font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
+</style>
+
+<div class="wrap">
+  <nav class="fnav">
+    <a href="00_INDEX.html">← all functions</a>
+    <span class="sep">·</span><span class="sep">group 07 / 08</span>
+    <a class="next" href="08_errors.html">Errors, and the one that can fail you →</a>
+  </nav>
+
+  <header class="fhead">
+    <div class="eyebrow">allowed functions — group 07</div>
+    <h1>Reading the disk</h1>
+    <p class="blurb">Turning a resolved path into a response — and answering the three questions that decide the status code: does it exist, what is it, and may I read it.</p>
+  </header>
+
+  <div class="fn">
+    <div class="fn-name">stat<span class="fn-hdr">&lt;sys/stat.h&gt;</span></div>
+    <div class="fn-sig">int stat(const char *path, struct stat *buf);</div>
+    <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Fills a struct describing a path: its size, its permissions, and crucially its type.</div></div>
+    <div class="fn-row"><div class="fn-key">here</div><div class="fn-val"><strong>The first thing you do with a resolved path.</strong> <code>S_ISDIR(buf.st_mode)</code> decides between serving a file, serving the index file, or generating an autoindex. <code>st_size</code> gives you <code>Content-Length</code> for free.</div></div>
+    <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Returning <code>-1</code> is your <code>404</code>. Directory versus file is the branch the whole route logic hangs on.</div></div>
+  </div>
+  <div class="fn">
+    <div class="fn-name">access<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
+    <div class="fn-sig">int access(const char *path, int mode);</div>
+    <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Asks whether the current process may read, write, or execute a path — <code>R_OK</code>, <code>W_OK</code>, <code>X_OK</code>, <code>F_OK</code>.</div></div>
+    <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Distinguishes <code>403 Forbidden</code> from <code>404 Not Found</code>. The file exists but you cannot read it is a different answer from the file is not there.</div></div>
+    <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Getting 403 and 404 the right way round is exactly the kind of status-code accuracy the evaluation sheet checks.</div></div>
+  </div>
+  <div class="fn">
+    <div class="fn-name">open<span class="fn-hdr">&lt;fcntl.h&gt;</span></div>
+    <div class="fn-sig">int open(const char *path, int flags, mode_t mode);</div>
+    <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Opens a file and returns a descriptor.</div></div>
+    <div class="fn-row"><div class="fn-key">here</div><div class="fn-val"><code>O_RDONLY</code> to serve a static file; <code>O_WRONLY | O_CREAT | O_TRUNC</code> with a mode to write an upload.</div></div>
+    <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">The <code>mode</code> argument only matters with <code>O_CREAT</code> — but pass it anyway and your uploaded files will not land with random permissions.</div></div>
+  </div>
+  <div class="fn">
+    <div class="fn-name">opendir / readdir / closedir<span class="fn-hdr">&lt;dirent.h&gt;</span></div>
+    <div class="fn-sig">DIR *opendir(const char *name);
+struct dirent *readdir(DIR *dirp);
+int closedir(DIR *dirp);</div>
+    <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Walk the entries of a directory one at a time. <code>readdir</code> returns <code>NULL</code> when there are no more.</div></div>
+    <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">The autoindex feature, entirely: open the directory, loop the entries, generate an HTML list of links, close it.</div></div>
+    <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Skip <code>.</code> and <code>..</code>, or your listing links back on itself. Every <code>opendir</code> needs its <code>closedir</code>.</div></div>
+  </div>
+  <div class="fn">
+    <div class="fn-name">chdir<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
+    <div class="fn-sig">int chdir(const char *path);</div>
+    <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Changes the working directory of the process.</div></div>
+    <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Required by the subject for CGI: the script must run in its own directory so its relative file access works.</div></div>
+    <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val"><strong>Do this in the child, after <code>fork</code>, before <code>execve</code>.</strong> Doing it in the parent changes your whole server's working directory and breaks every other path you resolve.</div></div>
+  </div>
+
+  <p class="addhere">
+    Anything you learn about these — a man-page detail that bit you, a flag you had to look up,
+    a snippet that finally worked — belongs in this file, next to the function it explains.
+  </p>
+
+  <footer class="ffoot">
+    <span><a class="prev" href="06_descriptors.html">← Pipes and descriptor plumbing</a></span>
+    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a class="next" href="08_errors.html">Errors, and the one that can fail you →</a></span>
+  </footer>
+</div>

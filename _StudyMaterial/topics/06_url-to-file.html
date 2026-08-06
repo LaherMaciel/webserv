@@ -1,0 +1,484 @@
+<title>06 · From URL to file: the config decides everything — webserv</title>
+
+<style>
+  :root {
+    --paper:       #F5F6F8;
+    --raised:      #FFFFFF;
+    --sunk:        #ECEEF2;
+    --ink:         #12161C;
+    --ink-soft:    #4A5361;
+    --ink-faint:   #6E7787;
+    --rule:        #D9DDE4;
+    --accent:      #A8501B;
+    --accent-bg:   #F4E7DC;
+    --signal:      #0F6E6A;
+    --signal-bg:   #DCEDEB;
+    --alarm:       #9B1C2E;
+    --alarm-bg:    #F6E2E5;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10131A;
+      --raised:    #171B24;
+      --sunk:      #0A0D13;
+      --ink:       #E8EBF0;
+      --ink-soft:  #9BA5B4;
+      --ink-faint: #78828F;
+      --rule:      #2A3040;
+      --accent:    #E08A4E;
+      --accent-bg: #2B1D13;
+      --signal:    #3FB5AE;
+      --signal-bg: #0E2422;
+      --alarm:     #E8607A;
+      --alarm-bg:  #2B1219;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #10131A;
+    --raised:    #171B24;
+    --sunk:      #0A0D13;
+    --ink:       #E8EBF0;
+    --ink-soft:  #9BA5B4;
+    --ink-faint: #78828F;
+    --rule:      #2A3040;
+    --accent:    #E08A4E;
+    --accent-bg: #2B1D13;
+    --signal:    #3FB5AE;
+    --signal-bg: #0E2422;
+    --alarm:     #E8607A;
+    --alarm-bg:  #2B1219;
+  }
+
+  :root[data-theme="light"] {
+    --paper:     #F5F6F8;
+    --raised:    #FFFFFF;
+    --sunk:      #ECEEF2;
+    --ink:       #12161C;
+    --ink-soft:  #4A5361;
+    --ink-faint: #6E7787;
+    --rule:      #D9DDE4;
+    --accent:    #A8501B;
+    --accent-bg: #F4E7DC;
+    --signal:    #0F6E6A;
+    --signal-bg: #DCEDEB;
+    --alarm:     #9B1C2E;
+    --alarm-bg:  #F6E2E5;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns:
+      minmax(1.25rem, 1fr)
+      min(68ch, calc(100% - 2.5rem))
+      minmax(1.25rem, 1fr);
+    row-gap: 0;
+  }
+  .wrap > * { grid-column: 2; }
+  .bleed {
+    grid-column: 1 / -1;
+    width: min(104ch, calc(100% - 2.5rem));
+    margin-inline: auto;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 1.1rem;
+  }
+  .standfirst {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 3.25rem 0 0; }
+  section + section { border-top: 1px solid var(--rule); margin-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.42rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  h2 .num {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2.25rem 0 0.4rem;
+  }
+  .deck {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  p { margin-bottom: 1.1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  section > p:last-of-type { margin-bottom: 1.5rem; }
+
+  strong { font-weight: 640; }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  ul, ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-faint); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ---------- wire samples ---------- */
+
+  .wire {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+  .wire-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.6rem 1rem 0;
+  }
+  .wire pre {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.75;
+    padding: 0.5rem 1rem 1rem;
+    white-space: pre;
+  }
+  .wire .k  { color: var(--accent); font-weight: 600; }
+  .k2 { color: var(--signal); font-weight: 600; }
+  .wire .c  { color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.75; }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 2rem 0 2.25rem;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+  }
+  figure .svg-scroll { overflow-x: auto; padding: 1.5rem 1.25rem 0.5rem; }
+  figure svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+  figcaption {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 0.9rem 1.5rem 1.35rem;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.75rem;
+    text-wrap: pretty;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .d-box   { fill: var(--sunk); stroke: var(--ink-soft); stroke-width: 1.25; }
+  .d-box-a { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  .d-box-s { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.5; }
+  .d-box-x { fill: var(--alarm-bg); stroke: var(--alarm); stroke-width: 1.5; }
+  .d-line  { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .d-line-a{ stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-line-s{ stroke: var(--signal); stroke-width: 1.75; fill: none; }
+  .d-line-x{ stroke: var(--alarm); stroke-width: 1.5; fill: none; }
+  .d-dash  { stroke-dasharray: 4 3; }
+  .d-t     { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .d-t-sm  { fill: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+  .d-t-a   { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-s   { fill: var(--signal); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-x   { fill: var(--alarm); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-b   { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .d-fill-a { fill: var(--accent); }
+  .d-fill-s { fill: var(--signal); }
+  .d-fill-n { fill: var(--ink-soft); }
+  .d-fill-x { fill: var(--alarm); }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    background: var(--raised);
+    padding: 1.1rem 1.25rem;
+    margin: 1.75rem 0;
+  }
+  .callout.alarm { border-left-color: var(--alarm); }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 0.45rem;
+  }
+  .callout.alarm .tag { color: var(--alarm); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 1.5rem 0 1.75rem; border: 1px solid var(--rule); background: var(--raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.65rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: transparent; padding: 0; color: var(--accent); }
+  .num-col { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+
+  .zeros { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .zeros li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+  .zeros li:last-child { border-bottom: none; }
+  .zeros .mark {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--alarm);
+    background: var(--alarm-bg);
+    padding: 0.15rem 0.4rem;
+    height: fit-content;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- question block ---------- */
+
+  details {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    margin-bottom: 0.6rem;
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--accent);
+    display: inline-block;
+    width: 1.1em;
+  }
+  details[open] summary::before { content: "▾"; }
+  details .body { padding: 0 1rem 1rem 2.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+  details .body p:last-child { margin-bottom: 0; }
+
+  footer.end {
+    margin-top: 3.5rem;
+    padding: 2rem 0 4rem;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+<style>
+  .topicnav {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.9rem;
+    font-family: var(--mono); font-size: 0.76rem;
+    padding: 1.75rem 0 0;
+  }
+  .topicnav a { text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 1px; }
+  .topicnav a:hover { border-bottom-color: var(--accent); }
+  .navsep, .navhere { color: var(--ink-faint); }
+  .navnext { margin-left: auto; }
+  footer.topicfoot {
+    display: flex; flex-wrap: wrap; gap: 0.9rem; justify-content: space-between;
+    margin-top: 3rem; padding: 1.5rem 0 4rem; border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 0.78rem;
+  }
+  footer.topicfoot a { text-decoration: none; }
+  header.topichead { padding: 1.25rem 0 0; border-bottom: 2px solid var(--ink); padding-bottom: 2rem; }
+  header.topichead h1 { font-size: clamp(1.6rem, 4.5vw, 2.4rem); margin-bottom: 0; }
+  section:first-of-type { padding-top: 2.5rem; }
+  .addhere {
+    margin: 3rem 0 0; padding: 1rem 1.25rem;
+    border: 1px dashed var(--rule); background: transparent;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
+  }
+</style>
+
+<div class="wrap">
+  <nav class="topicnav">
+  <a href="../00_INDEX.html">← all topics</a>
+  <span class="navsep">·</span>
+  <span class="navhere">06 / 10</span>
+  <a class="navprev" href="05_connection-state-machine.html">← Each connection is a state machine</a><a class="navnext" href="07_cgi.html">CGI, and what a backend actually is →</a>
+</nav>
+  <header class="topichead">
+    <div class="eyebrow">topic 06 — from URL to file</div>
+    <h1>The config decides everything</h1>
+  </header>
+
+  <section>
+<p class="deck">
+    The subject hands you a design problem most students have never had: invent a configuration
+    format. nginx is your reference for what a consistent one looks like.
+  </p>
+
+  <p>
+    A request arrives with a path. Which file on disk is that? The answer is not string concatenation —
+    it is a lookup through the config, and the subject spells out the exact example: if
+    <code>/kapouet</code> is rooted to <code>/tmp/www</code>, then <code>/kapouet/pouic/toto/pouet</code>
+    must resolve to <code>/tmp/www/pouic/toto/pouet</code>. Notice what happened to the matched prefix:
+    it was <strong>replaced</strong>, not kept.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 350" role="img" aria-label="A request is routed by port and Host to a server block, then by longest path prefix to a location block, whose root replaces the matched prefix to produce a filesystem path.">
+        <defs>
+          <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+        </defs>
+
+        <!-- request -->
+        <rect x="14" y="20" width="852" height="46" class="d-box"/>
+        <text x="30" y="42" class="d-t-sm">INCOMING</text>
+        <text x="30" y="58" class="d-t">GET /kapouet/pouic/toto/pouet HTTP/1.1   ·   Host: localhost:8080   ·   arrived on port 8080</text>
+
+        <!-- step 1 -->
+        <path d="M 440 68 L 440 92" class="d-line-a" marker-end="url(#ar5)"/>
+        <rect x="140" y="96" width="600" height="52" class="d-box-s"/>
+        <text x="156" y="118" class="d-t-s">STEP 1 — pick the server block</text>
+        <text x="156" y="136" class="d-t-sm">match the listening port, then the Host header against server_name; no match → the default server for that port</text>
+
+        <!-- step 2 -->
+        <path d="M 440 150 L 440 174" class="d-line-a" marker-end="url(#ar5)"/>
+        <rect x="140" y="178" width="600" height="52" class="d-box-s"/>
+        <text x="156" y="200" class="d-t-s">STEP 2 — pick the location block</text>
+        <text x="156" y="218" class="d-t-sm">longest matching path prefix wins:  /kapouet  beats  /  — this block owns the request</text>
+
+        <!-- step 3 -->
+        <path d="M 440 232 L 440 256" class="d-line-a" marker-end="url(#ar5)"/>
+        <rect x="140" y="260" width="600" height="70" class="d-box-a"/>
+        <text x="156" y="282" class="d-t-a">STEP 3 — swap the prefix for the root</text>
+        <text x="156" y="303" class="d-t-sm">/kapouet</text>
+        <text x="230" y="303" class="d-t">/pouic/toto/pouet</text>
+        <text x="156" y="322" class="d-t-a">/tmp/www</text>
+        <text x="230" y="322" class="d-t">/pouic/toto/pouet</text>
+        <text x="470" y="303" class="d-t-sm">← matched prefix is discarded</text>
+        <text x="470" y="322" class="d-t-sm">← root takes its place = the file to open</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Everything the location block carries applies after this point:</b> allowed methods
+      (wrong one → <code>405</code>, and you must list the allowed ones), redirects, the index file to
+      serve when the path is a directory, whether to autoindex, the upload directory, and which file
+      extensions run as CGI. Route matching is where most of the config's real behaviour lives.
+    </figcaption>
+  </figure>
+  </section>
+
+  <p class="addhere">
+    Room to grow — anything you find on this topic (a video, a diagram, a paragraph in your own
+    words, a snippet worth keeping) belongs in this file. If one part of it gets big enough to
+    stand alone, it becomes <code>06a_&lt;subtopic&gt;.html</code> in this folder.
+  </p>
+
+  <footer class="topicfoot">
+    <span><a class="navprev" href="05_connection-state-machine.html">← Each connection is a state machine</a></span>
+    <span><a href="../00_INDEX.html">all topics</a></span>
+    <span><a class="navnext" href="07_cgi.html">CGI, and what a backend actually is →</a></span>
+  </footer>
+</div>

@@ -1,0 +1,509 @@
+<title>08 · Where the work splits in two — webserv</title>
+
+<style>
+  :root {
+    --paper:       #F5F6F8;
+    --raised:      #FFFFFF;
+    --sunk:        #ECEEF2;
+    --ink:         #12161C;
+    --ink-soft:    #4A5361;
+    --ink-faint:   #6E7787;
+    --rule:        #D9DDE4;
+    --accent:      #A8501B;
+    --accent-bg:   #F4E7DC;
+    --signal:      #0F6E6A;
+    --signal-bg:   #DCEDEB;
+    --alarm:       #9B1C2E;
+    --alarm-bg:    #F6E2E5;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10131A;
+      --raised:    #171B24;
+      --sunk:      #0A0D13;
+      --ink:       #E8EBF0;
+      --ink-soft:  #9BA5B4;
+      --ink-faint: #78828F;
+      --rule:      #2A3040;
+      --accent:    #E08A4E;
+      --accent-bg: #2B1D13;
+      --signal:    #3FB5AE;
+      --signal-bg: #0E2422;
+      --alarm:     #E8607A;
+      --alarm-bg:  #2B1219;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #10131A;
+    --raised:    #171B24;
+    --sunk:      #0A0D13;
+    --ink:       #E8EBF0;
+    --ink-soft:  #9BA5B4;
+    --ink-faint: #78828F;
+    --rule:      #2A3040;
+    --accent:    #E08A4E;
+    --accent-bg: #2B1D13;
+    --signal:    #3FB5AE;
+    --signal-bg: #0E2422;
+    --alarm:     #E8607A;
+    --alarm-bg:  #2B1219;
+  }
+
+  :root[data-theme="light"] {
+    --paper:     #F5F6F8;
+    --raised:    #FFFFFF;
+    --sunk:      #ECEEF2;
+    --ink:       #12161C;
+    --ink-soft:  #4A5361;
+    --ink-faint: #6E7787;
+    --rule:      #D9DDE4;
+    --accent:    #A8501B;
+    --accent-bg: #F4E7DC;
+    --signal:    #0F6E6A;
+    --signal-bg: #DCEDEB;
+    --alarm:     #9B1C2E;
+    --alarm-bg:  #F6E2E5;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns:
+      minmax(1.25rem, 1fr)
+      min(68ch, calc(100% - 2.5rem))
+      minmax(1.25rem, 1fr);
+    row-gap: 0;
+  }
+  .wrap > * { grid-column: 2; }
+  .bleed {
+    grid-column: 1 / -1;
+    width: min(104ch, calc(100% - 2.5rem));
+    margin-inline: auto;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 1.1rem;
+  }
+  .standfirst {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 3.25rem 0 0; }
+  section + section { border-top: 1px solid var(--rule); margin-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.42rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  h2 .num {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2.25rem 0 0.4rem;
+  }
+  .deck {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  p { margin-bottom: 1.1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  section > p:last-of-type { margin-bottom: 1.5rem; }
+
+  strong { font-weight: 640; }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  ul, ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-faint); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ---------- wire samples ---------- */
+
+  .wire {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+  .wire-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.6rem 1rem 0;
+  }
+  .wire pre {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.75;
+    padding: 0.5rem 1rem 1rem;
+    white-space: pre;
+  }
+  .wire .k  { color: var(--accent); font-weight: 600; }
+  .k2 { color: var(--signal); font-weight: 600; }
+  .wire .c  { color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.75; }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 2rem 0 2.25rem;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+  }
+  figure .svg-scroll { overflow-x: auto; padding: 1.5rem 1.25rem 0.5rem; }
+  figure svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+  figcaption {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 0.9rem 1.5rem 1.35rem;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.75rem;
+    text-wrap: pretty;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .d-box   { fill: var(--sunk); stroke: var(--ink-soft); stroke-width: 1.25; }
+  .d-box-a { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  .d-box-s { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.5; }
+  .d-box-x { fill: var(--alarm-bg); stroke: var(--alarm); stroke-width: 1.5; }
+  .d-line  { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .d-line-a{ stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-line-s{ stroke: var(--signal); stroke-width: 1.75; fill: none; }
+  .d-line-x{ stroke: var(--alarm); stroke-width: 1.5; fill: none; }
+  .d-dash  { stroke-dasharray: 4 3; }
+  .d-t     { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .d-t-sm  { fill: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+  .d-t-a   { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-s   { fill: var(--signal); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-x   { fill: var(--alarm); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-b   { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .d-fill-a { fill: var(--accent); }
+  .d-fill-s { fill: var(--signal); }
+  .d-fill-n { fill: var(--ink-soft); }
+  .d-fill-x { fill: var(--alarm); }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    background: var(--raised);
+    padding: 1.1rem 1.25rem;
+    margin: 1.75rem 0;
+  }
+  .callout.alarm { border-left-color: var(--alarm); }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 0.45rem;
+  }
+  .callout.alarm .tag { color: var(--alarm); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 1.5rem 0 1.75rem; border: 1px solid var(--rule); background: var(--raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.65rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: transparent; padding: 0; color: var(--accent); }
+  .num-col { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+
+  .zeros { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .zeros li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+  .zeros li:last-child { border-bottom: none; }
+  .zeros .mark {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--alarm);
+    background: var(--alarm-bg);
+    padding: 0.15rem 0.4rem;
+    height: fit-content;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- question block ---------- */
+
+  details {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    margin-bottom: 0.6rem;
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--accent);
+    display: inline-block;
+    width: 1.1em;
+  }
+  details[open] summary::before { content: "▾"; }
+  details .body { padding: 0 1rem 1rem 2.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+  details .body p:last-child { margin-bottom: 0; }
+
+  footer.end {
+    margin-top: 3.5rem;
+    padding: 2rem 0 4rem;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+<style>
+  .topicnav {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.9rem;
+    font-family: var(--mono); font-size: 0.76rem;
+    padding: 1.75rem 0 0;
+  }
+  .topicnav a { text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 1px; }
+  .topicnav a:hover { border-bottom-color: var(--accent); }
+  .navsep, .navhere { color: var(--ink-faint); }
+  .navnext { margin-left: auto; }
+  footer.topicfoot {
+    display: flex; flex-wrap: wrap; gap: 0.9rem; justify-content: space-between;
+    margin-top: 3rem; padding: 1.5rem 0 4rem; border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 0.78rem;
+  }
+  footer.topicfoot a { text-decoration: none; }
+  header.topichead { padding: 1.25rem 0 0; border-bottom: 2px solid var(--ink); padding-bottom: 2rem; }
+  header.topichead h1 { font-size: clamp(1.6rem, 4.5vw, 2.4rem); margin-bottom: 0; }
+  section:first-of-type { padding-top: 2.5rem; }
+  .addhere {
+    margin: 3rem 0 0; padding: 1rem 1.25rem;
+    border: 1px dashed var(--rule); background: transparent;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
+  }
+</style>
+
+<div class="wrap">
+  <nav class="topicnav">
+  <a href="../00_INDEX.html">← all topics</a>
+  <span class="navsep">·</span>
+  <span class="navhere">08 / 10</span>
+  <a class="navprev" href="07_cgi.html">← CGI, and what a backend actually is</a><a class="navnext" href="09_the-hard-zeros.html">The rules that end an evaluation →</a>
+</nav>
+  <header class="topichead">
+    <div class="eyebrow">topic 08 — tomorrow&#x27;s conversation</div>
+    <h1>Where the work splits in two</h1>
+  </header>
+
+  <section>
+<p class="deck">
+    Two people, one server. There is essentially one clean seam through this project,
+    and several messy ones. Agreeing the seam is the most valuable thing you can do with Beth
+    before either of you writes code.
+  </p>
+
+  <p>
+    The clean seam is between <strong>moving bytes</strong> and <strong>deciding what the bytes mean</strong>.
+    One side owns the socket, the poll loop, the connection state machine, and turning raw bytes into a
+    <code>Request</code> object — and turning a <code>Response</code> object back into bytes. The other
+    side owns everything that takes a <code>Request</code> and produces a <code>Response</code>: the config
+    file, route matching, static files, directory listings, uploads, DELETE, CGI.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 340" role="img" aria-label="Two halves of the project meet at a single interface: the transport half turns bytes into a Request object and a Response object back into bytes; the semantics half turns a Request into a Response. Neither half needs the other's internals.">
+        <defs>
+          <marker id="ar7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+        </defs>
+
+        <!-- left half -->
+        <rect x="14" y="46" width="330" height="248" class="d-box-a"/>
+        <text x="34" y="76" class="d-t-a">SIDE A — moving bytes</text>
+        <text x="34" y="104" class="d-t-sm">socket / bind / listen / accept</text>
+        <text x="34" y="126" class="d-t-sm">the single poll() loop</text>
+        <text x="34" y="148" class="d-t-sm">connection state machine</text>
+        <text x="34" y="170" class="d-t-sm">per-connection read + write buffers</text>
+        <text x="34" y="192" class="d-t-sm">request parser  (bytes → Request)</text>
+        <text x="34" y="214" class="d-t-sm">response writer (Response → bytes)</text>
+        <text x="34" y="236" class="d-t-sm">chunked decoding, timeouts, keep-alive</text>
+        <text x="34" y="272" class="d-t-sm">never asks WHY, only WHEN</text>
+
+        <!-- seam -->
+        <rect x="368" y="46" width="144" height="248" class="d-box-s"/>
+        <text x="440" y="76" class="d-t-s" text-anchor="middle">THE SEAM</text>
+        <text x="440" y="104" class="d-t-sm" text-anchor="middle">agree these two</text>
+        <text x="440" y="120" class="d-t-sm" text-anchor="middle">structs first —</text>
+        <text x="440" y="136" class="d-t-sm" text-anchor="middle">then work apart</text>
+        <rect x="388" y="156" width="104" height="52" class="d-box"/>
+        <text x="440" y="178" class="d-t-b" text-anchor="middle">Request</text>
+        <text x="440" y="195" class="d-t-sm" text-anchor="middle">method, path,</text>
+        <rect x="388" y="222" width="104" height="52" class="d-box"/>
+        <text x="440" y="244" class="d-t-b" text-anchor="middle">Response</text>
+        <text x="440" y="261" class="d-t-sm" text-anchor="middle">code, headers,</text>
+
+        <path d="M 346 140 L 382 140" class="d-line-a" marker-end="url(#ar7)"/>
+        <path d="M 498 250 L 534 250" class="d-line-a" marker-end="url(#ar7)"/>
+
+        <!-- right half -->
+        <rect x="536" y="46" width="330" height="248" class="d-box-a"/>
+        <text x="556" y="76" class="d-t-a">SIDE B — deciding the answer</text>
+        <text x="556" y="104" class="d-t-sm">config file parser</text>
+        <text x="556" y="126" class="d-t-sm">server block + route matching</text>
+        <text x="556" y="148" class="d-t-sm">static files, MIME types</text>
+        <text x="556" y="170" class="d-t-sm">autoindex, index files, redirects</text>
+        <text x="556" y="192" class="d-t-sm">uploads, DELETE, body size limit</text>
+        <text x="556" y="214" class="d-t-sm">CGI: env, fork, pipes</text>
+        <text x="556" y="236" class="d-t-sm">status codes, default error pages</text>
+        <text x="556" y="272" class="d-t-sm">never touches a socket</text>
+
+        <text x="440" y="318" class="d-t-s" text-anchor="middle">both sides can be built and tested independently — that is what makes it a real seam</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>Why this seam and not another:</b> side B can be tested with a hand-built <code>Request</code>
+      and no network at all, and side A can be tested by echoing a fixed <code>Response</code> to every
+      request. Neither of you is blocked waiting for the other. Split by "you do GET, I do POST" instead
+      and you will both be editing the same parser on day one.
+    </figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="tag">Bring these to the conversation</span>
+    <p>
+      What exactly is in <code>Request</code> and <code>Response</code>? Who writes the config parser —
+      it is the biggest single lump on side B. Who owns the <code>Makefile</code> and the directory
+      layout? And which of you writes the first throwaway server that just accepts a connection and
+      replies <code>200 OK</code> to everything, so there is something real to build against on day one?
+    </p>
+  </div>
+  </section>
+
+  <p class="addhere">
+    Room to grow — anything you find on this topic (a video, a diagram, a paragraph in your own
+    words, a snippet worth keeping) belongs in this file. If one part of it gets big enough to
+    stand alone, it becomes <code>08a_&lt;subtopic&gt;.html</code> in this folder.
+  </p>
+
+  <footer class="topicfoot">
+    <span><a class="navprev" href="07_cgi.html">← CGI, and what a backend actually is</a></span>
+    <span><a href="../00_INDEX.html">all topics</a></span>
+    <span><a class="navnext" href="09_the-hard-zeros.html">The rules that end an evaluation →</a></span>
+  </footer>
+</div>

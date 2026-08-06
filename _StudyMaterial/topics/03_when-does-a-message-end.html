@@ -1,0 +1,507 @@
+<title>03 · How do you know the message ended? — webserv</title>
+
+<style>
+  :root {
+    --paper:       #F5F6F8;
+    --raised:      #FFFFFF;
+    --sunk:        #ECEEF2;
+    --ink:         #12161C;
+    --ink-soft:    #4A5361;
+    --ink-faint:   #6E7787;
+    --rule:        #D9DDE4;
+    --accent:      #A8501B;
+    --accent-bg:   #F4E7DC;
+    --signal:      #0F6E6A;
+    --signal-bg:   #DCEDEB;
+    --alarm:       #9B1C2E;
+    --alarm-bg:    #F6E2E5;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10131A;
+      --raised:    #171B24;
+      --sunk:      #0A0D13;
+      --ink:       #E8EBF0;
+      --ink-soft:  #9BA5B4;
+      --ink-faint: #78828F;
+      --rule:      #2A3040;
+      --accent:    #E08A4E;
+      --accent-bg: #2B1D13;
+      --signal:    #3FB5AE;
+      --signal-bg: #0E2422;
+      --alarm:     #E8607A;
+      --alarm-bg:  #2B1219;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #10131A;
+    --raised:    #171B24;
+    --sunk:      #0A0D13;
+    --ink:       #E8EBF0;
+    --ink-soft:  #9BA5B4;
+    --ink-faint: #78828F;
+    --rule:      #2A3040;
+    --accent:    #E08A4E;
+    --accent-bg: #2B1D13;
+    --signal:    #3FB5AE;
+    --signal-bg: #0E2422;
+    --alarm:     #E8607A;
+    --alarm-bg:  #2B1219;
+  }
+
+  :root[data-theme="light"] {
+    --paper:     #F5F6F8;
+    --raised:    #FFFFFF;
+    --sunk:      #ECEEF2;
+    --ink:       #12161C;
+    --ink-soft:  #4A5361;
+    --ink-faint: #6E7787;
+    --rule:      #D9DDE4;
+    --accent:    #A8501B;
+    --accent-bg: #F4E7DC;
+    --signal:    #0F6E6A;
+    --signal-bg: #DCEDEB;
+    --alarm:     #9B1C2E;
+    --alarm-bg:  #F6E2E5;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns:
+      minmax(1.25rem, 1fr)
+      min(68ch, calc(100% - 2.5rem))
+      minmax(1.25rem, 1fr);
+    row-gap: 0;
+  }
+  .wrap > * { grid-column: 2; }
+  .bleed {
+    grid-column: 1 / -1;
+    width: min(104ch, calc(100% - 2.5rem));
+    margin-inline: auto;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 1.1rem;
+  }
+  .standfirst {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 3.25rem 0 0; }
+  section + section { border-top: 1px solid var(--rule); margin-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.42rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  h2 .num {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2.25rem 0 0.4rem;
+  }
+  .deck {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  p { margin-bottom: 1.1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  section > p:last-of-type { margin-bottom: 1.5rem; }
+
+  strong { font-weight: 640; }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  ul, ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-faint); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ---------- wire samples ---------- */
+
+  .wire {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+  .wire-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.6rem 1rem 0;
+  }
+  .wire pre {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.75;
+    padding: 0.5rem 1rem 1rem;
+    white-space: pre;
+  }
+  .wire .k  { color: var(--accent); font-weight: 600; }
+  .k2 { color: var(--signal); font-weight: 600; }
+  .wire .c  { color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.75; }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 2rem 0 2.25rem;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+  }
+  figure .svg-scroll { overflow-x: auto; padding: 1.5rem 1.25rem 0.5rem; }
+  figure svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+  figcaption {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 0.9rem 1.5rem 1.35rem;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.75rem;
+    text-wrap: pretty;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .d-box   { fill: var(--sunk); stroke: var(--ink-soft); stroke-width: 1.25; }
+  .d-box-a { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  .d-box-s { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.5; }
+  .d-box-x { fill: var(--alarm-bg); stroke: var(--alarm); stroke-width: 1.5; }
+  .d-line  { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .d-line-a{ stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-line-s{ stroke: var(--signal); stroke-width: 1.75; fill: none; }
+  .d-line-x{ stroke: var(--alarm); stroke-width: 1.5; fill: none; }
+  .d-dash  { stroke-dasharray: 4 3; }
+  .d-t     { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .d-t-sm  { fill: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+  .d-t-a   { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-s   { fill: var(--signal); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-x   { fill: var(--alarm); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-b   { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .d-fill-a { fill: var(--accent); }
+  .d-fill-s { fill: var(--signal); }
+  .d-fill-n { fill: var(--ink-soft); }
+  .d-fill-x { fill: var(--alarm); }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    background: var(--raised);
+    padding: 1.1rem 1.25rem;
+    margin: 1.75rem 0;
+  }
+  .callout.alarm { border-left-color: var(--alarm); }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 0.45rem;
+  }
+  .callout.alarm .tag { color: var(--alarm); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 1.5rem 0 1.75rem; border: 1px solid var(--rule); background: var(--raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.65rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: transparent; padding: 0; color: var(--accent); }
+  .num-col { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+
+  .zeros { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .zeros li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+  .zeros li:last-child { border-bottom: none; }
+  .zeros .mark {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--alarm);
+    background: var(--alarm-bg);
+    padding: 0.15rem 0.4rem;
+    height: fit-content;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- question block ---------- */
+
+  details {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    margin-bottom: 0.6rem;
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--accent);
+    display: inline-block;
+    width: 1.1em;
+  }
+  details[open] summary::before { content: "▾"; }
+  details .body { padding: 0 1rem 1rem 2.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+  details .body p:last-child { margin-bottom: 0; }
+
+  footer.end {
+    margin-top: 3.5rem;
+    padding: 2rem 0 4rem;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+<style>
+  .topicnav {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.9rem;
+    font-family: var(--mono); font-size: 0.76rem;
+    padding: 1.75rem 0 0;
+  }
+  .topicnav a { text-decoration: none; border-bottom: 1px solid var(--rule); padding-bottom: 1px; }
+  .topicnav a:hover { border-bottom-color: var(--accent); }
+  .navsep, .navhere { color: var(--ink-faint); }
+  .navnext { margin-left: auto; }
+  footer.topicfoot {
+    display: flex; flex-wrap: wrap; gap: 0.9rem; justify-content: space-between;
+    margin-top: 3rem; padding: 1.5rem 0 4rem; border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 0.78rem;
+  }
+  footer.topicfoot a { text-decoration: none; }
+  header.topichead { padding: 1.25rem 0 0; border-bottom: 2px solid var(--ink); padding-bottom: 2rem; }
+  header.topichead h1 { font-size: clamp(1.6rem, 4.5vw, 2.4rem); margin-bottom: 0; }
+  section:first-of-type { padding-top: 2.5rem; }
+  .addhere {
+    margin: 3rem 0 0; padding: 1rem 1.25rem;
+    border: 1px dashed var(--rule); background: transparent;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
+  }
+</style>
+
+<div class="wrap">
+  <nav class="topicnav">
+  <a href="../00_INDEX.html">← all topics</a>
+  <span class="navsep">·</span>
+  <span class="navhere">03 / 10</span>
+  <a class="navprev" href="02_the-bytes.html">← What a request and a response really look like</a><a class="navnext" href="04_why-poll-exists.html">Why poll() exists →</a>
+</nav>
+  <header class="topichead">
+    <div class="eyebrow">topic 03 — the question that designs your parser</div>
+    <h1>How do you know the message ended?</h1>
+  </header>
+
+  <section>
+<p class="deck">
+    TCP gives you a stream of bytes with no message boundaries. One <code>recv()</code> may hand you half
+    a request, or two requests stuck together. So: when have you read enough to stop and act?
+  </p>
+
+  <p>
+    There are exactly <strong>three</strong> answers, and which one applies is decided by the headers.
+    If you can state all three before you write the parser, the parser designs itself. If you can't,
+    you will discover them by crashing into them.
+  </p>
+
+  <figure class="bleed">
+    <div class="svg-scroll">
+      <svg viewBox="0 0 880 340" role="img" aria-label="Three framing cases: a GET ends at the blank line; a POST with Content-Length ends after exactly N body bytes; a chunked POST ends at a zero-size chunk.">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="d-fill-a"/>
+          </marker>
+        </defs>
+
+        <!-- case 1 -->
+        <text x="14" y="26" class="d-t-b">CASE 1 — no body</text>
+        <text x="14" y="43" class="d-t-sm">GET, DELETE, or any request with neither header</text>
+        <rect x="14" y="54" width="230" height="34" class="d-box"/>
+        <text x="129" y="76" class="d-t" text-anchor="middle">request line + headers</text>
+        <rect x="244" y="54" width="70" height="34" class="d-box-a"/>
+        <text x="279" y="76" class="d-t-a" text-anchor="middle">\r\n</text>
+        <path d="M 322 71 L 400 71" class="d-line-a" marker-end="url(#ar2)"/>
+        <text x="412" y="76" class="d-t-a">DONE — the blank line is the whole answer</text>
+
+        <!-- case 2 -->
+        <text x="14" y="132" class="d-t-b">CASE 2 — Content-Length: 27</text>
+        <text x="14" y="149" class="d-t-sm">the header states the body size up front</text>
+        <rect x="14" y="160" width="230" height="34" class="d-box"/>
+        <text x="129" y="182" class="d-t" text-anchor="middle">request line + headers</text>
+        <rect x="244" y="160" width="40" height="34" class="d-box-a"/>
+        <text x="264" y="182" class="d-t-a" text-anchor="middle">\r\n</text>
+        <rect x="284" y="160" width="180" height="34" class="d-box-s"/>
+        <text x="374" y="182" class="d-t-s" text-anchor="middle">exactly 27 bytes</text>
+        <path d="M 472 177 L 540 177" class="d-line-a" marker-end="url(#ar2)"/>
+        <text x="552" y="182" class="d-t-a">DONE — count them and stop</text>
+
+        <!-- case 3 -->
+        <text x="14" y="238" class="d-t-b">CASE 3 — Transfer-Encoding: chunked</text>
+        <text x="14" y="255" class="d-t-sm">size is unknown when sending starts; each piece announces itself</text>
+        <rect x="14" y="266" width="150" height="34" class="d-box"/>
+        <text x="89" y="288" class="d-t" text-anchor="middle">headers</text>
+        <rect x="164" y="266" width="40" height="34" class="d-box-a"/>
+        <text x="184" y="288" class="d-t-a" text-anchor="middle">\r\n</text>
+        <rect x="204" y="266" width="46" height="34" class="d-box-s"/>
+        <text x="227" y="288" class="d-t-s" text-anchor="middle">1B</text>
+        <rect x="250" y="266" width="86" height="34" class="d-box"/>
+        <text x="293" y="288" class="d-t" text-anchor="middle">27 bytes</text>
+        <rect x="336" y="266" width="46" height="34" class="d-box-s"/>
+        <text x="359" y="288" class="d-t-s" text-anchor="middle">A</text>
+        <rect x="382" y="266" width="70" height="34" class="d-box"/>
+        <text x="417" y="288" class="d-t" text-anchor="middle">10 bytes</text>
+        <rect x="452" y="266" width="46" height="34" class="d-box-x"/>
+        <text x="475" y="288" class="d-t-x" text-anchor="middle">0</text>
+        <path d="M 506 283 L 570 283" class="d-line-a" marker-end="url(#ar2)"/>
+        <text x="582" y="288" class="d-t-a">DONE — size 0 means the end</text>
+        <text x="14" y="322" class="d-t-sm">sizes are in hexadecimal — 1B = 27, A = 10</text>
+      </svg>
+    </div>
+    <figcaption>
+      <b>The headers tell you where the message ends — <code>recv()</code> never does.</b>
+      A return value of 0 from <code>recv()</code> means the client closed the connection, not
+      that the request finished. Treating "recv returned less than my buffer" as "the request is
+      complete" is the single most common way this project breaks.
+    </figcaption>
+  </figure>
+
+  <div class="callout">
+    <span class="tag">Why this matters for CGI later</span>
+    <p>
+      A CGI script has no concept of chunks — it reads its body from stdin until end-of-file, and it
+      trusts <code>CONTENT_LENGTH</code>. So a chunked request must be <strong>un-chunked by you</strong>
+      before the script ever sees it. That requirement in the subject is not arbitrary; it falls directly
+      out of case 3 not existing in CGI's world.
+    </p>
+  </div>
+  </section>
+
+  <p class="addhere">
+    Room to grow — anything you find on this topic (a video, a diagram, a paragraph in your own
+    words, a snippet worth keeping) belongs in this file. If one part of it gets big enough to
+    stand alone, it becomes <code>03a_&lt;subtopic&gt;.html</code> in this folder.
+  </p>
+
+  <footer class="topicfoot">
+    <span><a class="navprev" href="02_the-bytes.html">← What a request and a response really look like</a></span>
+    <span><a href="../00_INDEX.html">all topics</a></span>
+    <span><a class="navnext" href="04_why-poll-exists.html">Why poll() exists →</a></span>
+  </footer>
+</div>

@@ -1,0 +1,520 @@
+<title>webserv — the allowed functions</title>
+
+<style>
+  :root {
+    --paper:       #F5F6F8;
+    --raised:      #FFFFFF;
+    --sunk:        #ECEEF2;
+    --ink:         #12161C;
+    --ink-soft:    #4A5361;
+    --ink-faint:   #6E7787;
+    --rule:        #D9DDE4;
+    --accent:      #A8501B;
+    --accent-bg:   #F4E7DC;
+    --signal:      #0F6E6A;
+    --signal-bg:   #DCEDEB;
+    --alarm:       #9B1C2E;
+    --alarm-bg:    #F6E2E5;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10131A;
+      --raised:    #171B24;
+      --sunk:      #0A0D13;
+      --ink:       #E8EBF0;
+      --ink-soft:  #9BA5B4;
+      --ink-faint: #78828F;
+      --rule:      #2A3040;
+      --accent:    #E08A4E;
+      --accent-bg: #2B1D13;
+      --signal:    #3FB5AE;
+      --signal-bg: #0E2422;
+      --alarm:     #E8607A;
+      --alarm-bg:  #2B1219;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #10131A;
+    --raised:    #171B24;
+    --sunk:      #0A0D13;
+    --ink:       #E8EBF0;
+    --ink-soft:  #9BA5B4;
+    --ink-faint: #78828F;
+    --rule:      #2A3040;
+    --accent:    #E08A4E;
+    --accent-bg: #2B1D13;
+    --signal:    #3FB5AE;
+    --signal-bg: #0E2422;
+    --alarm:     #E8607A;
+    --alarm-bg:  #2B1219;
+  }
+
+  :root[data-theme="light"] {
+    --paper:     #F5F6F8;
+    --raised:    #FFFFFF;
+    --sunk:      #ECEEF2;
+    --ink:       #12161C;
+    --ink-soft:  #4A5361;
+    --ink-faint: #6E7787;
+    --rule:      #D9DDE4;
+    --accent:    #A8501B;
+    --accent-bg: #F4E7DC;
+    --signal:    #0F6E6A;
+    --signal-bg: #DCEDEB;
+    --alarm:     #9B1C2E;
+    --alarm-bg:  #F6E2E5;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns:
+      minmax(1.25rem, 1fr)
+      min(68ch, calc(100% - 2.5rem))
+      minmax(1.25rem, 1fr);
+    row-gap: 0;
+  }
+  .wrap > * { grid-column: 2; }
+  .bleed {
+    grid-column: 1 / -1;
+    width: min(104ch, calc(100% - 2.5rem));
+    margin-inline: auto;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 1.1rem;
+  }
+  .standfirst {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 3.25rem 0 0; }
+  section + section { border-top: 1px solid var(--rule); margin-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.42rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  h2 .num {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2.25rem 0 0.4rem;
+  }
+  .deck {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  p { margin-bottom: 1.1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  section > p:last-of-type { margin-bottom: 1.5rem; }
+
+  strong { font-weight: 640; }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  ul, ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-faint); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ---------- wire samples ---------- */
+
+  .wire {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+  .wire-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.6rem 1rem 0;
+  }
+  .wire pre {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.75;
+    padding: 0.5rem 1rem 1rem;
+    white-space: pre;
+  }
+  .wire .k  { color: var(--accent); font-weight: 600; }
+  .k2 { color: var(--signal); font-weight: 600; }
+  .wire .c  { color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.75; }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 2rem 0 2.25rem;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+  }
+  figure .svg-scroll { overflow-x: auto; padding: 1.5rem 1.25rem 0.5rem; }
+  figure svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+  figcaption {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 0.9rem 1.5rem 1.35rem;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.75rem;
+    text-wrap: pretty;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .d-box   { fill: var(--sunk); stroke: var(--ink-soft); stroke-width: 1.25; }
+  .d-box-a { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  .d-box-s { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.5; }
+  .d-box-x { fill: var(--alarm-bg); stroke: var(--alarm); stroke-width: 1.5; }
+  .d-line  { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .d-line-a{ stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-line-s{ stroke: var(--signal); stroke-width: 1.75; fill: none; }
+  .d-line-x{ stroke: var(--alarm); stroke-width: 1.5; fill: none; }
+  .d-dash  { stroke-dasharray: 4 3; }
+  .d-t     { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .d-t-sm  { fill: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+  .d-t-a   { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-s   { fill: var(--signal); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-x   { fill: var(--alarm); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-b   { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .d-fill-a { fill: var(--accent); }
+  .d-fill-s { fill: var(--signal); }
+  .d-fill-n { fill: var(--ink-soft); }
+  .d-fill-x { fill: var(--alarm); }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    background: var(--raised);
+    padding: 1.1rem 1.25rem;
+    margin: 1.75rem 0;
+  }
+  .callout.alarm { border-left-color: var(--alarm); }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 0.45rem;
+  }
+  .callout.alarm .tag { color: var(--alarm); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 1.5rem 0 1.75rem; border: 1px solid var(--rule); background: var(--raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.65rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: transparent; padding: 0; color: var(--accent); }
+  .num-col { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+
+  .zeros { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .zeros li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+  .zeros li:last-child { border-bottom: none; }
+  .zeros .mark {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--alarm);
+    background: var(--alarm-bg);
+    padding: 0.15rem 0.4rem;
+    height: fit-content;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- question block ---------- */
+
+  details {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    margin-bottom: 0.6rem;
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--accent);
+    display: inline-block;
+    width: 1.1em;
+  }
+  details[open] summary::before { content: "▾"; }
+  details .body { padding: 0 1rem 1rem 2.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+  details .body p:last-child { margin-bottom: 0; }
+
+  footer.end {
+    margin-top: 3.5rem;
+    padding: 2rem 0 4rem;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+<style>
+  .tlist { list-style:none; padding:0; margin:2rem 0 0; }
+  .tcard { margin:0; border-top:1px solid var(--rule); }
+  .tcard:last-child { border-bottom:1px solid var(--rule); }
+  .tcard-link { display:grid; grid-template-columns:auto 1fr; gap:1.1rem;
+                 padding:1.15rem 0.5rem 1.15rem 0.25rem; text-decoration:none; color:inherit; }
+  .tcard-link:hover { background:var(--raised); }
+  .tcard-num { font-family:var(--mono); font-size:0.78rem; font-weight:600; color:var(--accent);
+                padding-top:0.22rem; font-variant-numeric:tabular-nums; }
+  .tcard-body { display:flex; flex-direction:column; gap:0.3rem; }
+  .tcard-title { font-family:var(--mono); font-size:1rem; font-weight:600; }
+  .tcard-desc { font-size:0.9rem; color:var(--ink-soft); line-height:1.5; text-wrap:pretty; }
+  .tcard-fns { font-family:var(--mono); font-size:0.74rem; color:var(--ink-faint); line-height:1.7; }
+  .tcard-link:hover .tcard-title { color:var(--accent); }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">42 Lisboa · webserv · reference</div>
+  <h1>The allowed<br>functions</h1>
+  <p class="standfirst">
+    Every external function the subject permits — 39 of them — grouped by the job they do,
+    with what each one is for in this project and what it will do to you if you get it wrong.
+  </p>
+  <div class="masthead-meta">
+    <span><b>Source</b> subject v24.1, page 7</span>
+    <span><b>Groups</b> 8</span>
+    <span><b>Entries</b> 39</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">the list</span>Grouped by what they are for</h2>
+  <p class="deck">
+    Functions that do the same job with different spellings share a file — there is no reason to
+    read about <code>htons</code> and <code>htonl</code> in two places.
+  </p>
+  <ul class="tlist">
+      <li class="tcard">
+        <a class="tcard-link" href="01_sockets.html">
+          <span class="tcard-num">01</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Making a socket exist</span>
+            <span class="tcard-desc">The seven calls that turn nothing into a listening endpoint a browser can connect to. Run in this order, once per <code>host:port</code> in your config.</span>
+            <span class="tcard-fns">socket · setsockopt · bind · listen · accept · getsockname · connect</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="02_io.html">
+          <span class="tcard-num">02</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Moving bytes</span>
+            <span class="tcard-desc">Four calls that read and write, and two that end a conversation. Every one of them may do <em>less</em> than you asked — that is the normal case, not an error.</span>
+            <span class="tcard-fns">recv · send · read · write · close · shutdown</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="03_readiness.html">
+          <span class="tcard-num">03</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Asking who is ready</span>
+            <span class="tcard-desc"><strong>Pick exactly one of these and use it for everything.</strong> They all answer the same question — which of my descriptors can I touch right now without blocking — and differ only in how they scale and where they exist.</span>
+            <span class="tcard-fns">poll · select · epoll_create · kqueue</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="04_numbers-and-names.html">
+          <span class="tcard-num">04</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Byte order and addresses</span>
+            <span class="tcard-desc">Small helpers with one job: making sure the number you wrote is the number the network reads.</span>
+            <span class="tcard-fns">htons · ntohs · getaddrinfo · getprotobyname</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="05_processes.html">
+          <span class="tcard-num">05</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Running a CGI</span>
+            <span class="tcard-desc"><code>fork</code> is banned in this project for everything except CGI. These five calls are the whole of that exception.</span>
+            <span class="tcard-fns">fork · execve · waitpid · kill · signal</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="06_descriptors.html">
+          <span class="tcard-num">06</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Pipes and descriptor plumbing</span>
+            <span class="tcard-desc">How the CGI child ends up reading the request body on its stdin and writing the page to its stdout without knowing anything about your server.</span>
+            <span class="tcard-fns">pipe · dup2 · dup · fcntl · socketpair</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="07_filesystem.html">
+          <span class="tcard-num">07</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Reading the disk</span>
+            <span class="tcard-desc">Turning a resolved path into a response — and answering the three questions that decide the status code: does it exist, what is it, and may I read it.</span>
+            <span class="tcard-fns">stat · access · open · opendir · chdir</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="08_errors.html">
+          <span class="tcard-num">08</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Errors, and the one that can fail you</span>
+            <span class="tcard-desc">Two harmless string helpers, and one macro that is on the allowed list yet will end your evaluation if you use it in the wrong place.</span>
+            <span class="tcard-fns">errno · strerror · gai_strerror</span>
+          </span>
+        </a>
+      </li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">before you read</span>Three things true of the whole list</h2>
+  <p>
+    <strong>Being on the list is permission to link it, not permission to use it however you like.</strong>
+    <code>errno</code> is the trap: allowed, and yet branching on it after a read or write ends the
+    evaluation. Group 08 spells this out.
+  </p>
+  <p>
+    <strong>Almost every call here returns something you must check.</strong> The evaluation sheet
+    calls out checking only <code>-1</code> or only <code>0</code> as insufficient for the I/O calls —
+    you check both, and act differently on each.
+  </p>
+  <p>
+    <strong>Prefer the C++ header spelling.</strong> <code>&lt;cstring&gt;</code> over
+    <code>&lt;string.h&gt;</code>, <code>&lt;csignal&gt;</code> over <code>&lt;signal.h&gt;</code>.
+    The subject asks for it explicitly, and it is free.
+  </p>
+</section>
+
+<footer class="end">
+  Function list transcribed from the subject PDF v24.1, page 7 · behaviour notes from the POSIX man
+  pages · project-specific warnings from the subject text and the 2021 evaluation sheet.
+</footer>
+
+</div>

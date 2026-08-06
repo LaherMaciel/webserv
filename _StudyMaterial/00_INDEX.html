@@ -1,0 +1,543 @@
+<title>webserv — study index</title>
+
+<style>
+  :root {
+    --paper:       #F5F6F8;
+    --raised:      #FFFFFF;
+    --sunk:        #ECEEF2;
+    --ink:         #12161C;
+    --ink-soft:    #4A5361;
+    --ink-faint:   #6E7787;
+    --rule:        #D9DDE4;
+    --accent:      #A8501B;
+    --accent-bg:   #F4E7DC;
+    --signal:      #0F6E6A;
+    --signal-bg:   #DCEDEB;
+    --alarm:       #9B1C2E;
+    --alarm-bg:    #F6E2E5;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10131A;
+      --raised:    #171B24;
+      --sunk:      #0A0D13;
+      --ink:       #E8EBF0;
+      --ink-soft:  #9BA5B4;
+      --ink-faint: #78828F;
+      --rule:      #2A3040;
+      --accent:    #E08A4E;
+      --accent-bg: #2B1D13;
+      --signal:    #3FB5AE;
+      --signal-bg: #0E2422;
+      --alarm:     #E8607A;
+      --alarm-bg:  #2B1219;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #10131A;
+    --raised:    #171B24;
+    --sunk:      #0A0D13;
+    --ink:       #E8EBF0;
+    --ink-soft:  #9BA5B4;
+    --ink-faint: #78828F;
+    --rule:      #2A3040;
+    --accent:    #E08A4E;
+    --accent-bg: #2B1D13;
+    --signal:    #3FB5AE;
+    --signal-bg: #0E2422;
+    --alarm:     #E8607A;
+    --alarm-bg:  #2B1219;
+  }
+
+  :root[data-theme="light"] {
+    --paper:     #F5F6F8;
+    --raised:    #FFFFFF;
+    --sunk:      #ECEEF2;
+    --ink:       #12161C;
+    --ink-soft:  #4A5361;
+    --ink-faint: #6E7787;
+    --rule:      #D9DDE4;
+    --accent:    #A8501B;
+    --accent-bg: #F4E7DC;
+    --signal:    #0F6E6A;
+    --signal-bg: #DCEDEB;
+    --alarm:     #9B1C2E;
+    --alarm-bg:  #F6E2E5;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns:
+      minmax(1.25rem, 1fr)
+      min(68ch, calc(100% - 2.5rem))
+      minmax(1.25rem, 1fr);
+    row-gap: 0;
+  }
+  .wrap > * { grid-column: 2; }
+  .bleed {
+    grid-column: 1 / -1;
+    width: min(104ch, calc(100% - 2.5rem));
+    margin-inline: auto;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.5rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.1rem);
+    line-height: 1.06;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 1.1rem;
+  }
+  .standfirst {
+    font-size: 1.18rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 54ch;
+    text-wrap: pretty;
+  }
+  .masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin-top: 2rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.03em;
+  }
+  .masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding: 3.25rem 0 0; }
+  section + section { border-top: 1px solid var(--rule); margin-top: 3.25rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 1.42rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin-bottom: 0.5rem;
+  }
+  h2 .num {
+    display: block;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+  h3 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 2.25rem 0 0.4rem;
+  }
+  .deck {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 1.5rem;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  p { margin-bottom: 1.1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  section > p:last-of-type { margin-bottom: 1.5rem; }
+
+  strong { font-weight: 640; }
+  em.term { font-style: normal; font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  ul, ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-faint); }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ---------- wire samples ---------- */
+
+  .wire {
+    background: var(--raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+  .wire-label {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.6rem 1rem 0;
+  }
+  .wire pre {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.75;
+    padding: 0.5rem 1rem 1rem;
+    white-space: pre;
+  }
+  .wire .k  { color: var(--accent); font-weight: 600; }
+  .k2 { color: var(--signal); font-weight: 600; }
+  .wire .c  { color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.75; }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 2rem 0 2.25rem;
+    background: var(--raised);
+    border: 1px solid var(--rule);
+  }
+  figure .svg-scroll { overflow-x: auto; padding: 1.5rem 1.25rem 0.5rem; }
+  figure svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+  figcaption {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding: 0.9rem 1.5rem 1.35rem;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.75rem;
+    text-wrap: pretty;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* svg primitives */
+  .d-box   { fill: var(--sunk); stroke: var(--ink-soft); stroke-width: 1.25; }
+  .d-box-a { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5; }
+  .d-box-s { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.5; }
+  .d-box-x { fill: var(--alarm-bg); stroke: var(--alarm); stroke-width: 1.5; }
+  .d-line  { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .d-line-a{ stroke: var(--accent); stroke-width: 1.75; fill: none; }
+  .d-line-s{ stroke: var(--signal); stroke-width: 1.75; fill: none; }
+  .d-line-x{ stroke: var(--alarm); stroke-width: 1.5; fill: none; }
+  .d-dash  { stroke-dasharray: 4 3; }
+  .d-t     { fill: var(--ink); font-family: var(--mono); font-size: 12px; }
+  .d-t-sm  { fill: var(--ink-soft); font-family: var(--mono); font-size: 10.5px; }
+  .d-t-a   { fill: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-s   { fill: var(--signal); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-x   { fill: var(--alarm); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .d-t-b   { fill: var(--ink); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .d-fill-a { fill: var(--accent); }
+  .d-fill-s { fill: var(--signal); }
+  .d-fill-n { fill: var(--ink-soft); }
+  .d-fill-x { fill: var(--alarm); }
+
+  /* ---------- callouts ---------- */
+
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    background: var(--raised);
+    padding: 1.1rem 1.25rem;
+    margin: 1.75rem 0;
+  }
+  .callout.alarm { border-left-color: var(--alarm); }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 0.45rem;
+  }
+  .callout.alarm .tag { color: var(--alarm); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .tablewrap { overflow-x: auto; margin: 1.5rem 0 1.75rem; border: 1px solid var(--rule); background: var(--raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.65rem 1rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: transparent; padding: 0; color: var(--accent); }
+  .num-col { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- checklist ---------- */
+
+  .zeros { list-style: none; padding: 0; margin: 1.5rem 0; }
+  .zeros li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+  .zeros li:last-child { border-bottom: none; }
+  .zeros .mark {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--alarm);
+    background: var(--alarm-bg);
+    padding: 0.15rem 0.4rem;
+    height: fit-content;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- question block ---------- */
+
+  details {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    margin-bottom: 0.6rem;
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸";
+    color: var(--accent);
+    display: inline-block;
+    width: 1.1em;
+  }
+  details[open] summary::before { content: "▾"; }
+  details .body { padding: 0 1rem 1rem 2.1rem; font-size: 0.94rem; color: var(--ink-soft); }
+  details .body p:last-child { margin-bottom: 0; }
+
+  footer.end {
+    margin-top: 3.5rem;
+    padding: 2rem 0 4rem;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+<style>
+  .tlist { list-style: none; padding: 0; margin: 2rem 0 0; display: flex; flex-direction: column; gap: 0; }
+  .tcard { margin: 0; border-top: 1px solid var(--rule); }
+  .tcard:last-child { border-bottom: 1px solid var(--rule); }
+  .tcard-link {
+    display: grid; grid-template-columns: auto 1fr; gap: 1.1rem;
+    padding: 1.1rem 0.5rem 1.1rem 0.25rem; text-decoration: none; color: inherit;
+    transition: background 0.12s ease;
+  }
+  .tcard-link:hover { background: var(--raised); }
+  .tcard-num {
+    font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
+    color: var(--accent); padding-top: 0.22rem; font-variant-numeric: tabular-nums;
+  }
+  .tcard-body { display: flex; flex-direction: column; gap: 0.2rem; }
+  .tcard-title { font-family: var(--mono); font-size: 1rem; font-weight: 600; color: var(--ink); }
+  .tcard-desc { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; text-wrap: pretty; }
+  .tcard-link:hover .tcard-title { color: var(--accent); }
+  .howto { margin-top: 2.5rem; }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">42 Lisboa · webserv · study material</div>
+  <h1>webserv:<br>the mental image</h1>
+  <p class="standfirst">
+    You are writing the program that a browser talks to. Everything else in this project
+    is a consequence of that one sentence. Ten topics, one file each — take them in order.
+  </p>
+  <div class="masthead-meta">
+    <span><b>Subject</b> v24.1</span>
+    <span><b>Language</b> C++98</span>
+    <span><b>Methods</b> GET · POST · DELETE</span>
+    <span><b>Constraint</b> one poll(), never block</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">the map</span>Ten topics, in the order they make sense</h2>
+  <p class="deck">
+    Each one is a separate file in <code>topics/</code>, so it can grow without dragging
+    the others with it. Read top to bottom the first time — every topic assumes the one before it.
+  </p>
+
+  <ul class="tlist">
+      <li class="tcard">
+        <a class="tcard-link" href="topics/01_what-you-are-building.html">
+          <span class="tcard-num">01</span>
+          <span class="tcard-body">
+            <span class="tcard-title">What you are actually building</span>
+            <span class="tcard-desc">One socket listens, every client gets its own. Why <code>accept()</code> hands you a new descriptor, and what a server actually is.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/02_the-bytes.html">
+          <span class="tcard-num">02</span>
+          <span class="tcard-body">
+            <span class="tcard-title">The bytes</span>
+            <span class="tcard-desc">A real request and a real response, annotated line by line. <code>\r\n</code>, the blank line, and the promise <code>Content-Length</code> makes.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/03_when-does-a-message-end.html">
+          <span class="tcard-num">03</span>
+          <span class="tcard-body">
+            <span class="tcard-title">When does a message end?</span>
+            <span class="tcard-desc">The three framing answers — no body, <code>Content-Length</code>, chunked. Answer this and the parser designs itself.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/04_why-poll-exists.html">
+          <span class="tcard-num">04</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Why poll() exists</span>
+            <span class="tcard-desc">Blocking versus readiness, drawn side by side. One silent client must not freeze the other ninety-nine.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/05_connection-state-machine.html">
+          <span class="tcard-num">05</span>
+          <span class="tcard-body">
+            <span class="tcard-title">The connection state machine</span>
+            <span class="tcard-desc">The centrepiece. Partial reads, partial writes, keep-alive, hangup — six boxes that replace a thousand special cases.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/06_url-to-file.html">
+          <span class="tcard-num">06</span>
+          <span class="tcard-body">
+            <span class="tcard-title">From URL to file</span>
+            <span class="tcard-desc">Port and Host pick the server block, longest prefix picks the route, and the root replaces the matched prefix.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/07_cgi.html">
+          <span class="tcard-num">07</span>
+          <span class="tcard-body">
+            <span class="tcard-title">CGI</span>
+            <span class="tcard-desc">Environment variables, two pipes, <code>fork</code> and <code>execve</code>. What every web framework was built on top of.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/08_where-the-work-splits.html">
+          <span class="tcard-num">08</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Where the work splits in two</span>
+            <span class="tcard-desc">Moving bytes versus deciding what they mean, meeting at a <code>Request</code> and a <code>Response</code>. The conversation to have with Beth.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/09_the-hard-zeros.html">
+          <span class="tcard-num">09</span>
+          <span class="tcard-body">
+            <span class="tcard-title">The hard zeros</span>
+            <span class="tcard-desc">The rules that end an evaluation on the spot — and why most of them are architecture, not detail.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard">
+        <a class="tcard-link" href="topics/10_check-yourself.html">
+          <span class="tcard-num">10</span>
+          <span class="tcard-body">
+            <span class="tcard-title">Check yourself</span>
+            <span class="tcard-desc">Seven questions to answer out loud, without notes, before the kickoff.</span>
+          </span>
+        </a>
+      </li>
+  </ul>
+</section>
+
+<section class="howto">
+  <h2><span class="num">how this folder works</span>Where things go</h2>
+  <p>
+    <strong>One topic, one file.</strong> When you find a video, an article, or a paragraph worth
+    keeping, it goes in that topic's file — not in a general pile. Six months from now the question
+    "where did I read that thing about chunked bodies?" has exactly one answer.
+  </p>
+  <p>
+    <strong>When a topic outgrows its file,</strong> it splits: a deep dive on <code>poll()</code>
+    becomes <code>topics/04a_poll-internals.html</code>, sitting next to its parent. The numbering
+    keeps the reading order visible in the file listing itself.
+  </p>
+  <p>
+    <strong><code>LINKS.md</code> is the running source list</strong> — every URL used on this
+    project, added as it's found, so nothing has to be re-found later.
+  </p>
+  <p>
+    <strong>The README is the destination, not this folder.</strong> This is the workshop: rough,
+    growing, and allowed to be wrong. What survives gets rewritten into the README in your own
+    words — the way NetPractice's did.
+  </p>
+</section>
+
+<footer class="end">
+  Sources: the subject PDF (v24.1), the 2021 evaluation sheet — used additively, an old sheet never
+  grants permission to skip — and RFC 9110 / 9112.<br>
+  The fastest way to settle any behaviour question: run it against nginx with the equivalent config,
+  run it against yours, and diff the two <code>curl -v</code> conversations.
+</footer>
+
+</div>
