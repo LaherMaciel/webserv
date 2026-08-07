@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 06 / 08</span>
     <a class="next" href="07_filesystem.html">Reading the disk →</a>
   </nav>
@@ -417,34 +420,34 @@
     <p class="blurb">How the CGI child ends up reading the request body on its stdin and writing the page to its stdout without knowing anything about your server.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-pipe">
     <div class="fn-name">pipe<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">int pipe(int pipefd[2]);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Creates a one-way channel and fills the array with two fds: <code>[0]</code> to read from, <code>[1]</code> to write to.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Two per CGI request — one to push the body in, one to pull the output out. Both of your ends belong in the poll set like any other descriptor.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val"><strong>Close the ends you do not use, in both processes.</strong> If the parent keeps the write end of the output pipe open, it never sees end-of-file and waits forever for a script that already finished.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-dup2">
     <div class="fn-name">dup2<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">int dup2(int oldfd, int newfd);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Makes <code>newfd</code> refer to the same thing as <code>oldfd</code>, closing whatever <code>newfd</code> was first.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">The heart of CGI, in the child, after <code>fork</code>: <code>dup2(in[0], STDIN_FILENO)</code> and <code>dup2(out[1], STDOUT_FILENO)</code>. Now the script's ordinary <code>print</code> lands in your pipe.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">This is the entire magic of "the server reads the script's stdout". There is nothing else to it.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-dup">
     <div class="fn-name">dup<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">int dup(int oldfd);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Same idea, but the kernel picks the new number instead of you.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Occasionally used to stash a descriptor before overwriting it. <code>dup2</code> is what you actually need.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-fcntl">
     <div class="fn-name">fcntl<span class="fn-hdr">&lt;fcntl.h&gt;</span></div>
     <div class="fn-sig">int fcntl(int fd, int cmd, ...);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Gets or sets flags on a descriptor.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val"><code>fcntl(fd, F_SETFL, O_NONBLOCK)</code> — making sockets non-blocking so a read that has no data returns immediately instead of freezing you.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val"><strong>On macOS the subject allows only <code>F_SETFL</code>, <code>O_NONBLOCK</code> and <code>FD_CLOEXEC</code>.</strong> Any other flag is forbidden. Keep to those three and the same code is legal everywhere.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-socketpair">
     <div class="fn-name">socketpair<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int socketpair(int domain, int type, int protocol, int sv[2]);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Like <code>pipe</code>, but both ends are sockets and both directions work.</div></div>
@@ -458,7 +461,7 @@
 
   <footer class="ffoot">
     <span><a class="prev" href="05_processes.html">← Running a CGI</a></span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span><a class="next" href="07_filesystem.html">Reading the disk →</a></span>
   </footer>
 </div>

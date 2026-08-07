@@ -396,6 +396,29 @@
     font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
   }
 </style>
+<style>
+  a.fnlink {
+    color: var(--signal); text-decoration: none;
+    border-bottom: 1px dotted var(--signal);
+  }
+  a.fnlink:hover { border-bottom-style: solid; background: var(--signal-bg); }
+  a.fnlink code { background: transparent; padding: 0; color: inherit; }
+  .fnstrip {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.75rem;
+    margin: 1.75rem 0 0; padding: 0.8rem 1rem;
+    border: 1px solid var(--rule); border-left: 3px solid var(--signal);
+    background: var(--raised);
+  }
+  .fnstrip-label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-right: 0.25rem;
+  }
+  .fnstrip a {
+    font-family: var(--mono); font-size: 0.8rem; color: var(--signal);
+    text-decoration: none; border-bottom: 1px solid var(--rule);
+  }
+  .fnstrip a:hover { border-bottom-color: var(--signal); }
+</style>
 
 <div class="wrap">
   <nav class="topicnav">
@@ -409,6 +432,8 @@
     <h1>Questions to answer out loud</h1>
   </header>
 
+  <div class="fnstrip"><span class="fnstrip-label">functions on this page</span><a href="../functions/02_io.html#fn-recv">recv</a> <a href="../functions/02_io.html#fn-read">read</a> <a href="../functions/03_readiness.html#fn-poll">poll</a> <a href="../functions/05_processes.html#fn-execve">execve</a></div>
+
   <section>
 <p class="deck">
     Not for the evaluator. For tomorrow — if you can answer these without notes, you can lead
@@ -417,12 +442,12 @@
 
   <details>
     <summary>What are the three ways a request can end?</summary>
-    <div class="body"><p>No body at all (the blank line ends it); <code>Content-Length: N</code> (exactly N bytes follow the blank line); <code>Transfer-Encoding: chunked</code> (sized pieces until a zero-size chunk). The headers decide which — never the return value of <code>recv()</code>.</p></div>
+    <div class="body"><p>No body at all (the blank line ends it); <code>Content-Length: N</code> (exactly N bytes follow the blank line); <code>Transfer-Encoding: chunked</code> (sized pieces until a zero-size chunk). The headers decide which — never the return value of <a class="fnlink" href="../functions/02_io.html#fn-recv" title="what recv does"><code>recv()</code></a>.</p></div>
   </details>
 
   <details>
     <summary>Why can't you just call read() when a client connects?</summary>
-    <div class="body"><p>Because <code>read()</code> blocks until data arrives, and you have one thread. A client that connects and says nothing would freeze every other client. <code>poll()</code> exists so you only ever touch descriptors that are ready right now.</p></div>
+    <div class="body"><p>Because <a class="fnlink" href="../functions/02_io.html#fn-read" title="what read does"><code>read()</code></a> blocks until data arrives, and you have one thread. A client that connects and says nothing would freeze every other client. <a class="fnlink" href="../functions/03_readiness.html#fn-poll" title="what poll does"><code>poll()</code></a> exists so you only ever touch descriptors that are ready right now.</p></div>
   </details>
 
   <details>
@@ -437,7 +462,7 @@
 
   <details>
     <summary>A CGI script gets no arguments and no request object. Where does it find the method and the body?</summary>
-    <div class="body"><p>The method, query string and content length come from <strong>environment variables</strong> you set before <code>execve</code>. The body arrives on its <strong>standard input</strong> through a pipe you created. You put every one of those there yourself.</p></div>
+    <div class="body"><p>The method, query string and content length come from <strong>environment variables</strong> you set before <a class="fnlink" href="../functions/05_processes.html#fn-execve" title="what execve does"><code>execve</code></a>. The body arrives on its <strong>standard input</strong> through a pipe you created. You put every one of those there yourself.</p></div>
   </details>
 
   <details>

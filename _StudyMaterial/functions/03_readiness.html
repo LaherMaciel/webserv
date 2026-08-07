@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 03 / 08</span>
     <a class="next" href="04_numbers-and-names.html">Byte order and addresses →</a>
   </nav>
@@ -417,21 +420,21 @@
     <p class="blurb"><strong>Pick exactly one of these and use it for everything.</strong> They all answer the same question — which of my descriptors can I touch right now without blocking — and differ only in how they scale and where they exist.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-poll">
     <div class="fn-name">poll<span class="fn-hdr">&lt;poll.h&gt;</span></div>
     <div class="fn-sig">int poll(struct pollfd *fds, nfds_t nfds, int timeout);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">You hand it an array of <code>{fd, events, revents}</code>. It sleeps until at least one fd is ready, fills in <code>revents</code>, and returns how many are ready.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">The default choice: portable across Linux and macOS, no fd-number ceiling, and one array you rebuild or maintain each loop. Set <code>events</code> to <code>POLLIN</code>, <code>POLLOUT</code>, or both — the subject requires watching read and write simultaneously.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Also check <code>POLLHUP</code> and <code>POLLERR</code> in <code>revents</code>: the client vanished, and that connection has to be cleaned up from whatever state it was in.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-select">
     <div class="fn-name">select<span class="fn-hdr">&lt;sys/select.h&gt;</span></div>
     <div class="fn-sig">int select(int nfds, fd_set *r, fd_set *w, fd_set *e, struct timeval *timeout);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">The oldest of the four. Same question, answered with bitmasks instead of an array.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Works, and the evaluation sheet is written in its vocabulary. <code>FD_SET</code>, <code>FD_CLR</code>, <code>FD_ISSET</code>, <code>FD_ZERO</code> are explicitly allowed.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Hard-capped at <code>FD_SETSIZE</code> (usually 1024) and it <strong>rewrites your fd_sets every call</strong>, so they must be rebuilt from scratch each loop.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-epoll-create">
     <div class="fn-name">epoll_create / epoll_ctl / epoll_wait<span class="fn-hdr">&lt;sys/epoll.h&gt;</span></div>
     <div class="fn-sig">int epoll_create(int size);
 int epoll_ctl(int epfd, int op, int fd, struct epoll_event *ev);
@@ -440,7 +443,7 @@ int epoll_wait(int epfd, struct epoll_event *evs, int maxevents, int timeout);</
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Faster at high connection counts and genuinely nicer to use — but it exists only on Linux.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val"><strong>Breaks your three-target rule.</strong> Your MacBook has no epoll, so an epoll-only server will not build there. Choosing epoll means writing a kqueue path too.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-kqueue">
     <div class="fn-name">kqueue / kevent<span class="fn-hdr">&lt;sys/event.h&gt;</span></div>
     <div class="fn-sig">int kqueue(void);
 int kevent(int kq, const struct kevent *cl, int nc, struct kevent *el, int ne, const struct timespec *t);</div>
@@ -456,7 +459,7 @@ int kevent(int kq, const struct kevent *cl, int nc, struct kevent *el, int ne, c
 
   <footer class="ffoot">
     <span><a class="prev" href="02_io.html">← Moving bytes</a></span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span><a class="next" href="04_numbers-and-names.html">Byte order and addresses →</a></span>
   </footer>
 </div>

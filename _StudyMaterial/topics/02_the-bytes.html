@@ -396,6 +396,29 @@
     font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
   }
 </style>
+<style>
+  a.fnlink {
+    color: var(--signal); text-decoration: none;
+    border-bottom: 1px dotted var(--signal);
+  }
+  a.fnlink:hover { border-bottom-style: solid; background: var(--signal-bg); }
+  a.fnlink code { background: transparent; padding: 0; color: inherit; }
+  .fnstrip {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.75rem;
+    margin: 1.75rem 0 0; padding: 0.8rem 1rem;
+    border: 1px solid var(--rule); border-left: 3px solid var(--signal);
+    background: var(--raised);
+  }
+  .fnstrip-label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-right: 0.25rem;
+  }
+  .fnstrip a {
+    font-family: var(--mono); font-size: 0.8rem; color: var(--signal);
+    text-decoration: none; border-bottom: 1px solid var(--rule);
+  }
+  .fnstrip a:hover { border-bottom-color: var(--signal); }
+</style>
 
 <div class="wrap">
   <nav class="topicnav">
@@ -409,6 +432,8 @@
     <h1>What a request and a response really look like</h1>
   </header>
 
+  <div class="fnstrip"><span class="fnstrip-label">functions on this page</span><a href="../functions/02_io.html#fn-recv">recv</a></div>
+
   <section>
 <p class="deck">
     There is no magic layer. HTTP is text with a strict shape, and every line ends
@@ -416,7 +441,7 @@
   </p>
 
   <p>
-    Here is a real request, exactly as it arrives in your <code>recv()</code> buffer. The
+    Here is a real request, exactly as it arrives in your <a class="fnlink" href="../functions/02_io.html#fn-recv" title="what recv does"><code>recv()</code></a> buffer. The
     <span class="k2">→</span> marks are where <code>\r\n</code> sits; they are not visible characters,
     but they are bytes you must count.
   </p>

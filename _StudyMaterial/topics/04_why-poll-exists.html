@@ -396,6 +396,29 @@
     font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
   }
 </style>
+<style>
+  a.fnlink {
+    color: var(--signal); text-decoration: none;
+    border-bottom: 1px dotted var(--signal);
+  }
+  a.fnlink:hover { border-bottom-style: solid; background: var(--signal-bg); }
+  a.fnlink code { background: transparent; padding: 0; color: inherit; }
+  .fnstrip {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.75rem;
+    margin: 1.75rem 0 0; padding: 0.8rem 1rem;
+    border: 1px solid var(--rule); border-left: 3px solid var(--signal);
+    background: var(--raised);
+  }
+  .fnstrip-label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-right: 0.25rem;
+  }
+  .fnstrip a {
+    font-family: var(--mono); font-size: 0.8rem; color: var(--signal);
+    text-decoration: none; border-bottom: 1px solid var(--rule);
+  }
+  .fnstrip a:hover { border-bottom-color: var(--signal); }
+</style>
 
 <div class="wrap">
   <nav class="topicnav">
@@ -406,8 +429,10 @@
 </nav>
   <header class="topichead">
     <div class="eyebrow">topic 04 — the constraint that shapes everything</div>
-    <h1>Why <code>poll()</code> exists</h1>
+    <h1>Why <a class="fnlink" href="../functions/03_readiness.html#fn-poll" title="what poll does"><code>poll()</code></a> exists</h1>
   </header>
+
+  <div class="fnstrip"><span class="fnstrip-label">functions on this page</span><a href="../functions/03_readiness.html#fn-poll">poll</a> <a href="../functions/02_io.html#fn-read">read</a> <a href="../functions/08_errors.html#fn-errno">errno</a></div>
 
   <section>
 <p class="deck">
@@ -416,7 +441,7 @@
   </p>
 
   <p>
-    A normal <code>read()</code> on a socket <strong>blocks</strong>: if no data has arrived, your program
+    A normal <a class="fnlink" href="../functions/02_io.html#fn-read" title="what read does"><code>read()</code></a> on a socket <strong>blocks</strong>: if no data has arrived, your program
     stops there, doing nothing, until data comes. With one thread, one silent client freezes every other
     client on the server. That is why the naive version fails, and it is why the subject bans blocking.
   </p>
@@ -489,7 +514,7 @@
       <b><code>poll()</code> answers one question: which of my descriptors can I touch right now
       without waiting?</b> You call it once, at the top of your loop, with every descriptor you own —
       the listening socket included. It sleeps until at least one is ready, then hands you the list.
-      You act only on that list. This is why checking <code>errno</code> after a read is forbidden:
+      You act only on that list. This is why checking <a class="fnlink" href="../functions/08_errors.html#fn-errno" title="what errno does"><code>errno</code></a> after a read is forbidden:
       readiness is the poller's answer, and asking <code>errno</code> instead means you read something
       you had no permission to read.
     </figcaption>

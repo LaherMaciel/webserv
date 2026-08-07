@@ -396,6 +396,29 @@
     font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
   }
 </style>
+<style>
+  a.fnlink {
+    color: var(--signal); text-decoration: none;
+    border-bottom: 1px dotted var(--signal);
+  }
+  a.fnlink:hover { border-bottom-style: solid; background: var(--signal-bg); }
+  a.fnlink code { background: transparent; padding: 0; color: inherit; }
+  .fnstrip {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.75rem;
+    margin: 1.75rem 0 0; padding: 0.8rem 1rem;
+    border: 1px solid var(--rule); border-left: 3px solid var(--signal);
+    background: var(--raised);
+  }
+  .fnstrip-label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-right: 0.25rem;
+  }
+  .fnstrip a {
+    font-family: var(--mono); font-size: 0.8rem; color: var(--signal);
+    text-decoration: none; border-bottom: 1px solid var(--rule);
+  }
+  .fnstrip a:hover { border-bottom-color: var(--signal); }
+</style>
 
 <div class="wrap">
   <nav class="topicnav">
@@ -409,6 +432,8 @@
     <h1>The rules that end an evaluation</h1>
   </header>
 
+  <div class="fnstrip"><span class="fnstrip-label">functions on this page</span><a href="../functions/08_errors.html#fn-errno">errno</a> <a href="../functions/03_readiness.html#fn-poll">poll</a> <a href="../functions/05_processes.html#fn-fork">fork</a> <a href="../functions/05_processes.html#fn-execve">execve</a></div>
+
   <section>
 <p class="deck">
     Most of these cannot be patched in later. They are consequences of the architecture,
@@ -417,10 +442,10 @@
 
   <ul class="zeros">
     <li><span class="mark">ZERO</span><span><b>Any crash, ever.</b> Segfault, uncaught exception, unexpected termination — even out of memory. The grade is 0 and the defence stops.</span></li>
-    <li><span class="mark">ZERO</span><span><b>Checking <code>errno</code> after read / recv / write / send</b> to decide what to do next. Readiness comes from <code>poll()</code>, and only from <code>poll()</code>.</span></li>
+    <li><span class="mark">ZERO</span><span><b>Checking <a class="fnlink" href="../functions/08_errors.html#fn-errno" title="what errno does"><code>errno</code></a> after read / recv / write / send</b> to decide what to do next. Readiness comes from <a class="fnlink" href="../functions/03_readiness.html#fn-poll" title="what poll does"><code>poll()</code></a>, and only from <code>poll()</code>.</span></li>
     <li><span class="mark">ZERO</span><span><b>More than one <code>poll()</code></b>, or a poll that does not watch readable and writable simultaneously.</span></li>
     <li><span class="mark">ZERO</span><span><b>Reading or writing a socket or pipe</b> that <code>poll()</code> did not report ready.</span></li>
-    <li><span class="mark">ZERO</span><span><b>A forbidden function</b>, an external library, or Boost. Also: <code>fork()</code> for anything except CGI, and <code>execve</code>-ing a real web server.</span></li>
+    <li><span class="mark">ZERO</span><span><b>A forbidden function</b>, an external library, or Boost. Also: <a class="fnlink" href="../functions/05_processes.html#fn-fork" title="what fork does"><code>fork()</code></a> for anything except CGI, and <a class="fnlink" href="../functions/05_processes.html#fn-execve" title="what execve does"><code>execve</code></a>-ing a real web server.</span></li>
     <li><span class="mark">FLAG</span><span><b>Memory leaks</b>, or a relink on a second <code>make</code>. Both are flags rather than instant zeros, but both are trivially checkable and will be checked.</span></li>
   </ul>
 

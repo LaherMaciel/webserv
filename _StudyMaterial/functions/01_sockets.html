@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 01 / 08</span>
     <a class="next" href="02_io.html">Moving bytes →</a>
   </nav>
@@ -417,48 +420,48 @@
     <p class="blurb">The seven calls that turn nothing into a listening endpoint a browser can connect to. Run in this order, once per <code>host:port</code> in your config.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-socket">
     <div class="fn-name">socket<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int socket(int domain, int type, int protocol);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Creates an endpoint for communication and returns a file descriptor for it. Nothing is bound or connected yet — it is an unaddressed socket.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val"><code>socket(AF_INET, SOCK_STREAM, 0)</code> — IPv4, TCP. One per <code>listen</code> directive in your config.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">The fd it returns is just an int, like any other. Everything after this is configuring that int.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-setsockopt">
     <div class="fn-name">setsockopt<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int setsockopt(int fd, int level, int optname, const void *optval, socklen_t optlen);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Sets an option on a socket.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">You need exactly one: <code>SO_REUSEADDR</code>. Without it, restarting your server after a crash fails with "Address already in use" for up to a couple of minutes while the old connections sit in TIME_WAIT.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Set it <strong>before</strong> <code>bind()</code>, or it has no effect. Skipping this will waste hours of your life during testing.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-bind">
     <div class="fn-name">bind<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int bind(int fd, const struct sockaddr *addr, socklen_t addrlen);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Assigns an address — an IP and a port — to the socket. This is the moment the socket claims <code>0.0.0.0:8080</code>.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Fails if another process already holds that port. Two <code>server</code> blocks trying to bind the same <code>host:port</code> must be detected by you, not discovered at runtime.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Takes <code>struct sockaddr_in</code> cast to <code>struct sockaddr*</code>. The port inside it must be in network byte order — see <code>htons</code>.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-listen">
     <div class="fn-name">listen<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int listen(int fd, int backlog);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Marks the socket as passive: it will now accept incoming connections instead of making them.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Called once per listening socket, right after <code>bind</code>. After this the fd goes into your poll set and stays there for the life of the program.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val"><code>backlog</code> is how many finished-but-not-yet-accepted connections the kernel queues for you. It is not a client limit; it is a burst buffer.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-accept">
     <div class="fn-name">accept<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int accept(int fd, struct sockaddr *addr, socklen_t *addrlen);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Takes the first queued connection and returns <strong>a brand-new file descriptor</strong> for it. The listening fd is untouched and keeps listening.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Call it only when <code>poll()</code> reports the listening fd readable. The new fd is a fresh connection: give it a state object, a read buffer, a write buffer, and add it to the poll set.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">The single most misunderstood call in the project. The listening socket never carries request or response bytes — it is a factory that makes connection sockets.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-getsockname">
     <div class="fn-name">getsockname<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Asks a socket which local address it is actually bound to.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Useful when you bind to port 0 and let the kernel choose, or to report the real port at startup. Not required by the project.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-connect">
     <div class="fn-name">connect<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int connect(int fd, const struct sockaddr *addr, socklen_t addrlen);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Makes an outgoing connection to a remote address — the client side of the handshake.</div></div>
@@ -472,7 +475,7 @@
 
   <footer class="ffoot">
     <span>&nbsp;</span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span><a class="next" href="02_io.html">Moving bytes →</a></span>
   </footer>
 </div>

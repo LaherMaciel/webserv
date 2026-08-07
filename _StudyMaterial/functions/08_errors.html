@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 08 / 08</span>
     
   </nav>
@@ -417,21 +420,21 @@
     <p class="blurb">Two harmless string helpers, and one macro that is on the allowed list yet will end your evaluation if you use it in the wrong place.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-errno">
     <div class="fn-name">errno<span class="fn-hdr">&lt;cerrno&gt;</span></div>
     <div class="fn-sig">extern int errno;  /* a macro, not a variable */</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Set by most system calls to say what went wrong.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Legitimate use: reporting a startup failure. <code>bind</code> failed, tell the user why and exit.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">🔴 <strong>Reading <code>errno</code> after <code>read</code>, <code>recv</code>, <code>write</code> or <code>send</code> to decide what your server does next is an instant zero.</strong> The evaluation sheet says stop the defence on the spot. Readiness comes from <code>poll()</code> and nowhere else — if you are asking <code>errno</code> whether to retry, you performed an operation you had no permission to perform. Note it is on the allowed-functions list; being allowed to link it is not permission to branch on it.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-strerror">
     <div class="fn-name">strerror<span class="fn-hdr">&lt;cstring&gt;</span></div>
     <div class="fn-sig">char *strerror(int errnum);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Turns an errno value into a human-readable string.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Startup diagnostics: <code>"bind: " &lt;&lt; strerror(errno)</code>.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Returns a pointer to static storage — copy it if you need to keep it.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-gai-strerror">
     <div class="fn-name">gai_strerror<span class="fn-hdr">&lt;netdb.h&gt;</span></div>
     <div class="fn-sig">const char *gai_strerror(int errcode);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">The same idea for <code>getaddrinfo</code>, which has its own error codes and does <strong>not</strong> use errno.</div></div>
@@ -446,7 +449,7 @@
 
   <footer class="ffoot">
     <span><a class="prev" href="07_filesystem.html">← Reading the disk</a></span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span>&nbsp;</span>
   </footer>
 </div>

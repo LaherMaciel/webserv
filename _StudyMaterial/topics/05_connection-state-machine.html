@@ -396,6 +396,29 @@
     font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
   }
 </style>
+<style>
+  a.fnlink {
+    color: var(--signal); text-decoration: none;
+    border-bottom: 1px dotted var(--signal);
+  }
+  a.fnlink:hover { border-bottom-style: solid; background: var(--signal-bg); }
+  a.fnlink code { background: transparent; padding: 0; color: inherit; }
+  .fnstrip {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.75rem;
+    margin: 1.75rem 0 0; padding: 0.8rem 1rem;
+    border: 1px solid var(--rule); border-left: 3px solid var(--signal);
+    background: var(--raised);
+  }
+  .fnstrip-label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-right: 0.25rem;
+  }
+  .fnstrip a {
+    font-family: var(--mono); font-size: 0.8rem; color: var(--signal);
+    text-decoration: none; border-bottom: 1px solid var(--rule);
+  }
+  .fnstrip a:hover { border-bottom-color: var(--signal); }
+</style>
 
 <div class="wrap">
   <nav class="topicnav">
@@ -409,6 +432,8 @@
     <h1>Each connection is a state machine</h1>
   </header>
 
+  <div class="fnstrip"><span class="fnstrip-label">functions on this page</span><a href="../functions/03_readiness.html#fn-poll">poll</a> <a href="../functions/02_io.html#fn-send">send</a></div>
+
   <section>
 <p class="deck">
     This is the idea that turns a thousand special cases into six boxes and a handful of arrows.
@@ -419,7 +444,7 @@
     A connection is not an event, it is a <strong>lifecycle</strong>. At any moment it is somewhere
     specific: still collecting the request, working out the answer, pushing bytes out, or finished.
     "Readable" means something different in each place. When each connection object knows its own
-    state, <code>poll()</code> becomes trivial to act on — you look at the state, and the state tells
+    state, <a class="fnlink" href="../functions/03_readiness.html#fn-poll" title="what poll does"><code>poll()</code></a> becomes trivial to act on — you look at the state, and the state tells
     you what to do.
   </p>
 
@@ -492,7 +517,7 @@
     <figcaption>
       <b>The two self-loops are the whole trick.</b> A partial read is not a failure — it is the normal
       case, and you stay in <code>READING</code> with the bytes you got. A partial write is the same on
-      the way out: <code>send()</code> may accept 4 KB of your 2 MB response, so you store how far you
+      the way out: <a class="fnlink" href="../functions/02_io.html#fn-send" title="what send does"><code>send()</code></a> may accept 4 KB of your 2 MB response, so you store how far you
       got and wait for <code>poll()</code> to say writable again. Students who forget the write offset
       get a server that works perfectly on small files and corrupts every large one.
     </figcaption>

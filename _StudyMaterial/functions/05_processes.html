@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 05 / 08</span>
     <a class="next" href="06_descriptors.html">Pipes and descriptor plumbing →</a>
   </nav>
@@ -417,35 +420,35 @@
     <p class="blurb"><code>fork</code> is banned in this project for everything except CGI. These five calls are the whole of that exception.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-fork">
     <div class="fn-name">fork<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">pid_t fork(void);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Duplicates the calling process. Returns <code>0</code> in the child and the child's pid in the parent.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Called once per CGI request, after the pipes exist. The child rewires its descriptors and execs the interpreter; the parent goes straight back to its poll loop.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">The parent must <strong>never</strong> wait for the child in a way that blocks the loop. Every other client keeps being served while the script runs.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-execve">
     <div class="fn-name">execve<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">int execve(const char *path, char *const argv[], char *const envp[]);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Replaces the current process image with a new program. On success it does not return — there is no "after".</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">This is where <code>REQUEST_METHOD</code>, <code>QUERY_STRING</code>, <code>CONTENT_LENGTH</code> and the rest reach the script: you build <code>envp</code> yourself and pass it here.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Both <code>argv</code> and <code>envp</code> must be <code>NULL</code>-terminated arrays of C strings. Building those from <code>std::string</code> in C++98, and freeing them, is fiddly — write it once, carefully.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-waitpid">
     <div class="fn-name">waitpid<span class="fn-hdr">&lt;sys/wait.h&gt;</span></div>
     <div class="fn-sig">pid_t waitpid(pid_t pid, int *status, int options);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Collects a finished child and its exit status.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Call it with <code>WNOHANG</code> so it returns immediately whether or not the child has finished. Poll the pipe for output; reap the child when it is done.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Without <code>WNOHANG</code> you block your entire server on the CGI script — which is precisely the infinite-loop trap. Never reaping leaves zombie processes.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-kill">
     <div class="fn-name">kill<span class="fn-hdr">&lt;signal.h&gt;</span></div>
     <div class="fn-sig">int kill(pid_t pid, int sig);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Sends a signal to a process.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Your timeout enforcement: a CGI child that has run too long gets <code>SIGKILL</code>, and the client gets <code>504 Gateway Timeout</code>. Then <code>waitpid</code> to reap it.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Somebody has to decide "too long". If nobody does, an infinite-loop script hangs that connection forever and the evaluator finds it.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-signal">
     <div class="fn-name">signal<span class="fn-hdr">&lt;csignal&gt;</span></div>
     <div class="fn-sig">void (*signal(int signum, void (*handler)(int)))(int);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Installs a handler for a signal.</div></div>
@@ -460,7 +463,7 @@
 
   <footer class="ffoot">
     <span><a class="prev" href="04_numbers-and-names.html">← Byte order and addresses</a></span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span><a class="next" href="06_descriptors.html">Pipes and descriptor plumbing →</a></span>
   </footer>
 </div>

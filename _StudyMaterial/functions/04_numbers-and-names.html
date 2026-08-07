@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 04 / 08</span>
     <a class="next" href="05_processes.html">Running a CGI →</a>
   </nav>
@@ -417,7 +420,7 @@
     <p class="blurb">Small helpers with one job: making sure the number you wrote is the number the network reads.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-htons">
     <div class="fn-name">htons / htonl<span class="fn-hdr">&lt;arpa/inet.h&gt;</span></div>
     <div class="fn-sig">uint16_t htons(uint16_t hostshort);
 uint32_t htonl(uint32_t hostlong);</div>
@@ -425,14 +428,14 @@ uint32_t htonl(uint32_t hostlong);</div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val"><code>addr.sin_port = htons(8080);</code> — every port number you put in a <code>sockaddr_in</code>. Forget it and you bind to port 36895 instead of 8080.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">x86 is little-endian, the network is big-endian, so on your machines these genuinely swap the bytes. They are not no-ops.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-ntohs">
     <div class="fn-name">ntohs / ntohl<span class="fn-hdr">&lt;arpa/inet.h&gt;</span></div>
     <div class="fn-sig">uint16_t ntohs(uint16_t netshort);
 uint32_t ntohl(uint32_t netlong);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">The same conversion in the other direction: network to host.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Reading a port back out of a <code>sockaddr</code> — for logging, or after <code>getsockname</code>.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-getaddrinfo">
     <div class="fn-name">getaddrinfo / freeaddrinfo<span class="fn-hdr">&lt;netdb.h&gt;</span></div>
     <div class="fn-sig">int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res);
 void freeaddrinfo(struct addrinfo *res);</div>
@@ -440,7 +443,7 @@ void freeaddrinfo(struct addrinfo *res);</div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Convenient for resolving the <code>host</code> field of a <code>listen</code> directive without parsing dotted-quad IPs yourself.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val"><strong>Every successful <code>getaddrinfo</code> needs a <code>freeaddrinfo</code></strong> — the list is heap-allocated, and leaks here are exactly what the leak check looks for.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-getprotobyname">
     <div class="fn-name">getprotobyname<span class="fn-hdr">&lt;netdb.h&gt;</span></div>
     <div class="fn-sig">struct protoent *getprotobyname(const char *name);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Looks up a protocol by name ("tcp") and returns its number.</div></div>
@@ -455,7 +458,7 @@ void freeaddrinfo(struct addrinfo *res);</div>
 
   <footer class="ffoot">
     <span><a class="prev" href="03_readiness.html">← Asking who is ready</a></span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span><a class="next" href="05_processes.html">Running a CGI →</a></span>
   </footer>
 </div>

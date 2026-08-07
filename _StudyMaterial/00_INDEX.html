@@ -390,6 +390,17 @@
   .tcard-desc { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; text-wrap: pretty; }
   .tcard-link:hover .tcard-title { color: var(--accent); }
   .howto { margin-top: 2.5rem; }
+
+  /* the jump to the functions reference — a different kind of destination */
+  .tcard-jump { border-top-width: 2px; border-top-color: var(--ink); }
+  .tcard-jump .tcard-num { color: var(--signal); }
+  .tcard-jump .tcard-title { color: var(--signal); }
+  .tcard-jump .tcard-link:hover .tcard-title { color: var(--signal); }
+  .tcard-jump .tcard-link:hover { background: var(--signal-bg); }
+  .tcard-jumpnote {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--ink-faint);
+    letter-spacing: 0.02em; margin-top: 0.15rem;
+  }
 </style>
 
 <div class="wrap">
@@ -504,6 +515,16 @@
           <span class="tcard-body">
             <span class="tcard-title">Check yourself</span>
             <span class="tcard-desc">Seven questions to answer out loud, without notes, before the kickoff.</span>
+          </span>
+        </a>
+      </li>
+      <li class="tcard tcard-jump">
+        <a class="tcard-link" href="functions/00_INDEX.html">
+          <span class="tcard-num">11</span>
+          <span class="tcard-body">
+            <span class="tcard-title">The allowed functions →</span>
+            <span class="tcard-desc">Once the ten topics make sense and you can answer the questions, this is the other half of the map: all 39 external functions the subject permits, grouped by job — what each one does, and what it does to you if you get it wrong.</span>
+            <span class="tcard-jumpnote">a separate reference · 8 groups · read it by lookup, not front to back</span>
           </span>
         </a>
       </li>

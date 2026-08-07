@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 02 / 08</span>
     <a class="next" href="03_readiness.html">Asking who is ready →</a>
   </nav>
@@ -417,41 +420,41 @@
     <p class="blurb">Four calls that read and write, and two that end a conversation. Every one of them may do <em>less</em> than you asked — that is the normal case, not an error.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-recv">
     <div class="fn-name">recv<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">ssize_t recv(int fd, void *buf, size_t len, int flags);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Reads up to <code>len</code> bytes from a socket into your buffer. Returns how many it actually read.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Called only when <code>poll()</code> says the fd is readable. Append what you get to that connection's read buffer, then ask whether a complete request is in there yet.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val"><strong>Three return values, three meanings.</strong> <code>&gt; 0</code> = that many bytes. <code>0</code> = the client closed the connection — clean up. <code>-1</code> = error, drop the client. Checking only one of them is called out explicitly in the evaluation sheet.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-send">
     <div class="fn-name">send<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">ssize_t send(int fd, const void *buf, size_t len, int flags);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Writes up to <code>len</code> bytes to a socket. Returns how many it actually took.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Called only when <code>poll()</code> says writable. It may take 4 KB of your 2 MB response, so you store the offset and continue on the next writable event.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Assuming <code>send</code> wrote everything is the bug that makes small files work and large files corrupt. The return value is the whole point of the call.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-read">
     <div class="fn-name">read<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">ssize_t read(int fd, void *buf, size_t count);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">The generic version of <code>recv</code>, for any descriptor.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Use it for regular files (the static file you are serving) and for the CGI output pipe. Subject v24.1 exempts regular disk files from needing poll first — sockets and pipes are never exempt.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-write">
     <div class="fn-name">write<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">ssize_t write(int fd, const void *buf, size_t count);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">The generic version of <code>send</code>.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Writing an uploaded file to disk, and pushing a request body into the CGI's stdin pipe.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Same partial-write rule as <code>send</code> when the target is a pipe.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-close">
     <div class="fn-name">close<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">int close(int fd);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Releases a descriptor. When the last reference to a socket goes, the connection is torn down.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Every <code>accept</code> must eventually be matched by a <code>close</code>, every <code>open</code> too, and both ends of every CGI pipe.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Leaked fds are a slow death: the server works fine, then stops accepting anyone once it hits the per-process limit. A siege run will find this.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-shutdown">
     <div class="fn-name">shutdown<span class="fn-hdr">&lt;sys/socket.h&gt;</span></div>
     <div class="fn-sig">int shutdown(int fd, int how);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Closes one direction of a connection while leaving the other open.</div></div>
@@ -465,7 +468,7 @@
 
   <footer class="ffoot">
     <span><a class="prev" href="01_sockets.html">← Making a socket exist</a></span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span><a class="next" href="03_readiness.html">Asking who is ready →</a></span>
   </footer>
 </div>

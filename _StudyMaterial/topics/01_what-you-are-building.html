@@ -396,6 +396,29 @@
     font-family: var(--mono); font-size: 0.76rem; color: var(--ink-faint); line-height: 1.6;
   }
 </style>
+<style>
+  a.fnlink {
+    color: var(--signal); text-decoration: none;
+    border-bottom: 1px dotted var(--signal);
+  }
+  a.fnlink:hover { border-bottom-style: solid; background: var(--signal-bg); }
+  a.fnlink code { background: transparent; padding: 0; color: inherit; }
+  .fnstrip {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.75rem;
+    margin: 1.75rem 0 0; padding: 0.8rem 1rem;
+    border: 1px solid var(--rule); border-left: 3px solid var(--signal);
+    background: var(--raised);
+  }
+  .fnstrip-label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-right: 0.25rem;
+  }
+  .fnstrip a {
+    font-family: var(--mono); font-size: 0.8rem; color: var(--signal);
+    text-decoration: none; border-bottom: 1px solid var(--rule);
+  }
+  .fnstrip a:hover { border-bottom-color: var(--signal); }
+</style>
 
 <div class="wrap">
   <nav class="topicnav">
@@ -408,6 +431,8 @@
     <div class="eyebrow">topic 01 — the whole project in one exchange</div>
     <h1>What you are actually building</h1>
   </header>
+
+  <div class="fnstrip"><span class="fnstrip-label">functions on this page</span><a href="../functions/01_sockets.html#fn-accept">accept</a></div>
 
   <section>
 <p class="deck">
@@ -483,7 +508,7 @@
       </svg>
     </div>
     <figcaption>
-      <b>One socket listens; every client gets its own.</b> <code>accept()</code> on the listening
+      <b>One socket listens; every client gets its own.</b> <a class="fnlink" href="../functions/01_sockets.html#fn-accept" title="what accept does"><code>accept()</code></a> on the listening
       descriptor hands you a brand-new descriptor for that one conversation. The listening fd never
       carries a request or a response — it is a factory. Each connection fd carries one conversation
       and, crucially, <b>its own state</b>: at any instant fd 5 may be half-read while fd 6 is half-written.

@@ -385,9 +385,25 @@
   .tcard-desc { font-size:0.9rem; color:var(--ink-soft); line-height:1.5; text-wrap:pretty; }
   .tcard-fns { font-family:var(--mono); font-size:0.74rem; color:var(--ink-faint); line-height:1.7; }
   .tcard-link:hover .tcard-title { color:var(--accent); }
+  .upnav { display:flex; flex-wrap:wrap; gap:0.35rem 0.9rem; align-items:baseline;
+           font-family:var(--mono); font-size:0.76rem; padding:1.75rem 0 0; }
+  .upnav a { text-decoration:none; border-bottom:1px solid var(--rule); padding-bottom:1px; }
+  .upnav a:hover { border-bottom-color:var(--signal); color:var(--signal); }
+  .upnav .sep { color:var(--ink-faint); }
+  .backhome { display:flex; flex-wrap:wrap; gap:0.5rem 1rem; align-items:baseline;
+              margin-top:2.5rem; padding-top:1.25rem; border-top:1px solid var(--rule);
+              font-family:var(--mono); font-size:0.8rem; }
+  .backhome a { text-decoration:none; }
+  .backhome .hint { color:var(--ink-faint); font-size:0.74rem; }
 </style>
 
 <div class="wrap">
+
+<nav class="upnav">
+  <a href="../00_INDEX.html">← study index</a>
+  <span class="sep">·</span>
+  <span class="sep">you are in the functions reference</span>
+</nav>
 
 <header class="masthead">
   <div class="eyebrow">42 Lisboa · webserv · reference</div>
@@ -511,6 +527,11 @@
     The subject asks for it explicitly, and it is free.
   </p>
 </section>
+
+<nav class="backhome">
+  <a href="../00_INDEX.html">← back to the study index</a>
+  <span class="hint">the ten topics: what you have to build</span>
+</nav>
 
 <footer class="end">
   Function list transcribed from the subject PDF v24.1, page 7 · behaviour notes from the POSIX man

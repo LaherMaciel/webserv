@@ -400,13 +400,16 @@
                  margin-top:2.5rem; padding:1.5rem 0 4rem; border-top:2px solid var(--ink);
                  font-family:var(--mono); font-size:0.78rem; }
   footer.ffoot a { text-decoration:none; }
+  footer.ffoot .sep { color:var(--ink-faint); }
   .addhere { margin:2.5rem 0 0; padding:1rem 1.25rem; border:1px dashed var(--rule);
              font-family:var(--mono); font-size:0.76rem; color:var(--ink-faint); line-height:1.6; }
 </style>
 
 <div class="wrap">
   <nav class="fnav">
-    <a href="00_INDEX.html">← all functions</a>
+    <a href="../00_INDEX.html">study index</a>
+    <span class="sep">/</span>
+    <a href="00_INDEX.html">functions</a>
     <span class="sep">·</span><span class="sep">group 07 / 08</span>
     <a class="next" href="08_errors.html">Errors, and the one that can fail you →</a>
   </nav>
@@ -417,28 +420,28 @@
     <p class="blurb">Turning a resolved path into a response — and answering the three questions that decide the status code: does it exist, what is it, and may I read it.</p>
   </header>
 
-  <div class="fn">
+  <div class="fn" id="fn-stat">
     <div class="fn-name">stat<span class="fn-hdr">&lt;sys/stat.h&gt;</span></div>
     <div class="fn-sig">int stat(const char *path, struct stat *buf);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Fills a struct describing a path: its size, its permissions, and crucially its type.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val"><strong>The first thing you do with a resolved path.</strong> <code>S_ISDIR(buf.st_mode)</code> decides between serving a file, serving the index file, or generating an autoindex. <code>st_size</code> gives you <code>Content-Length</code> for free.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Returning <code>-1</code> is your <code>404</code>. Directory versus file is the branch the whole route logic hangs on.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-access">
     <div class="fn-name">access<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">int access(const char *path, int mode);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Asks whether the current process may read, write, or execute a path — <code>R_OK</code>, <code>W_OK</code>, <code>X_OK</code>, <code>F_OK</code>.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">Distinguishes <code>403 Forbidden</code> from <code>404 Not Found</code>. The file exists but you cannot read it is a different answer from the file is not there.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Getting 403 and 404 the right way round is exactly the kind of status-code accuracy the evaluation sheet checks.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-open">
     <div class="fn-name">open<span class="fn-hdr">&lt;fcntl.h&gt;</span></div>
     <div class="fn-sig">int open(const char *path, int flags, mode_t mode);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Opens a file and returns a descriptor.</div></div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val"><code>O_RDONLY</code> to serve a static file; <code>O_WRONLY | O_CREAT | O_TRUNC</code> with a mode to write an upload.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">The <code>mode</code> argument only matters with <code>O_CREAT</code> — but pass it anyway and your uploaded files will not land with random permissions.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-opendir">
     <div class="fn-name">opendir / readdir / closedir<span class="fn-hdr">&lt;dirent.h&gt;</span></div>
     <div class="fn-sig">DIR *opendir(const char *name);
 struct dirent *readdir(DIR *dirp);
@@ -447,7 +450,7 @@ int closedir(DIR *dirp);</div>
     <div class="fn-row"><div class="fn-key">here</div><div class="fn-val">The autoindex feature, entirely: open the directory, loop the entries, generate an HTML list of links, close it.</div></div>
     <div class="fn-row warn"><div class="fn-key">watch</div><div class="fn-val">Skip <code>.</code> and <code>..</code>, or your listing links back on itself. Every <code>opendir</code> needs its <code>closedir</code>.</div></div>
   </div>
-  <div class="fn">
+  <div class="fn" id="fn-chdir">
     <div class="fn-name">chdir<span class="fn-hdr">&lt;unistd.h&gt;</span></div>
     <div class="fn-sig">int chdir(const char *path);</div>
     <div class="fn-row"><div class="fn-key">does</div><div class="fn-val">Changes the working directory of the process.</div></div>
@@ -462,7 +465,7 @@ int closedir(DIR *dirp);</div>
 
   <footer class="ffoot">
     <span><a class="prev" href="06_descriptors.html">← Pipes and descriptor plumbing</a></span>
-    <span><a href="00_INDEX.html">all functions</a></span>
+    <span><a href="00_INDEX.html">all functions</a> <span class="sep">·</span> <a href="../00_INDEX.html">study index</a></span>
     <span><a class="next" href="08_errors.html">Errors, and the one that can fail you →</a></span>
   </footer>
 </div>
