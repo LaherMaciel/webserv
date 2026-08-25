@@ -29,12 +29,12 @@ int init_server_socket(int port)
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);//AF_INET = IPv4, SOCK_STREAM = TCP, 0 = default protocol (TCP for SOCK_STREAM)
     if (server_fd < 0)
         return -1;
-    int opt_active = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_active, sizeof(opt_active)) < 0)//allow quick reuse of port, bypassing TIME_WAIT limitations
-    {
-        close(server_fd);
-        return -1;  
-    }
+    // int opt_active = 1;
+    // if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_active, sizeof(opt_active)) < 0)//allow quick reuse of port, bypassing TIME_WAIT limitations
+    // {
+    //     close(server_fd);
+    //     return -1;  
+    // }
     //define port and address for binding
     sockaddr_in address;
     std::memset(&address, 0, sizeof(address));
