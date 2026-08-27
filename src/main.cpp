@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/08/24 20:16:37 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/08/27 22:28:09 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,22 +51,19 @@ void cleanDeadFds(std::vector<struct pollfd> &poll_fds,
 int server_loop()
 {
 	Server	server;
-	struct pollfd	entry;
-	int	port = DEFAULT_PORT;
-	int server_fd = server.init_server_socket(port);
+    int server_fd;
+
+	try
+	{
+		server_fd = server.startServer();
+	}
+	catch (std::exception &e)
+	{
+		return (0);
+	}
 	int	client_fd;
 
-	if (server_fd < 0)
-	{
-		std::cerr << "Failed to create server socket\n";
-		return 1;
-	}
-	entry.fd = server_fd;
-	entry.events = POLLIN;
-	entry.revents = 0;
-	server.poll_fds.push_back(entry);
-	std::cout << "Server listening on port " << port << "\n";
-
+	
     signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
 	while (true)
 	{
