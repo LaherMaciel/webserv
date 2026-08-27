@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/08/27 22:28:09 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/08/28 00:27:34 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,6 +24,7 @@
 #include <cerrno>//for errno
 #include <map> // well, to add map
 #include <vector>
+#include <stdexcept> // to use std::runtime_error
 
 int set_non_blocking(int fd)
 {
@@ -35,79 +36,59 @@ int set_non_blocking(int fd)
     return 0;
 }
 
-void cleanDeadFds(std::vector<struct pollfd> &poll_fds,
-		std::vector<int> &dead_fds)
+static void	inner_loop(Server &server)
 {
-	for (int i = dead_fds.size() -1; i >= 0; --i)
-	{
-		for (int j = poll_fds.size() - 1; j >= 0; --j)
-		{
-			if (poll_fds[j].fd == dead_fds[i])
-				poll_fds.erase(poll_fds.begin() + j);
-		}
-	}
+    int     client_fd;
+    std::vector<struct pollfd>	tmp = server.poll_fds;
+    std::vector<int>			dead_fds;
+
+    for (size_t i = 0; i < tmp.size(); ++i)
+    {
+        if (!(tmp[i].revents & POLLIN))
+            continue ;
+        if (tmp[i].fd == server.fd)
+        {
+            //poll_fds[0].revents = 0;//reset revents for server socket - only needed if we change for loop to use poll_fds instead of tmp
+            client_fd = server.acceptConnection();
+            if (client_fd == -1)
+                continue ;
+            server.addClient(client_fd);
+        }
+        else if (server.conns[tmp[i].fd].handle_client() == -1)
+        {
+            dead_fds.push_back(tmp[i].fd);
+            server.conns.erase(tmp[i].fd);
+        }
+    }
+    server.cleanDeadFds(dead_fds);
 }
 
 int server_loop()
 {
-	Server	server;
-    int server_fd;
+    Server  server;
 
-	try
-	{
-		server_fd = server.startServer();
-	}
-	catch (std::exception &e)
-	{
-		return (0);
-	}
-	int	client_fd;
-
-	
+    try
+    {
+        server.startServer();
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        std::cerr << "Failed to create server socket\n";
+        return (-1);
+    }
     signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
-	while (true)
-	{
-		if (poll(&server.poll_fds[0], server.poll_fds.size(), -1) <= 0)
-			continue ;
-
-		std::vector<struct pollfd>	tmp = server.poll_fds;
-		std::vector<int>			dead_fds;
-		for (size_t i = 0; i < tmp.size(); ++i)
-		{
-			if (!(tmp[i].revents & POLLIN))
-				continue ;
-			if (tmp[i].fd == server_fd)
-			{
-				//poll_fds[0].revents = 0;//reset revents for server socket - only needed if we change for loop to use poll_fds instead of tmp
-				client_fd = accept(server_fd, NULL, NULL);
-				if (client_fd < 0 || server.conns.size() >= MAX_CONNECTIONS)
-					continue;
-				if (set_non_blocking(client_fd) < 0)
-				{
-        			std::cerr << "Error setting client socket to non-blocking\n";
-					close(client_fd);
-					continue ;
-				}
-				server.addClient(client_fd);
-			}
-			else if (server.conns[tmp[i].fd].handle_client() == -1)
-			{
-				dead_fds.push_back(tmp[i].fd);
-				server.conns.erase(tmp[i].fd);
-			}
-		}
-		cleanDeadFds(server.poll_fds, dead_fds);
-	}
-	for (size_t i = 0; i < server.poll_fds.size(); ++i)
-	{
-		close(client_fd);
-		server.conns.erase(client_fd);
-	}
-	return (0);
+    while (true)
+    {
+        if (poll(&server.poll_fds[0], server.poll_fds.size(), -1) <= 0)
+            continue ;
+        inner_loop(server);
+    }
+    server.cleanPoll_fds();
+    return (0);
 }
 
 int main()
 {
-	server_loop();
-	return 0;
+    return (server_loop());
 }

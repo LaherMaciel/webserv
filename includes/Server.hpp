@@ -12,6 +12,8 @@ class Server
     public:
         std::map<int, Connection>	conns;
         std::vector<struct pollfd>	poll_fds;
+        int     fd;
+        int     port;
 
         Server();
         ~Server();
@@ -19,6 +21,9 @@ class Server
         Server& operator=(const Server& other);
         void    addClient(int client_fd);
         int     startServer();
+        int     acceptConnection();
+        void    cleanDeadFds(std::vector<int> &deadfds);
+        void    cleanPoll_fds();
 };
 
 #endif
