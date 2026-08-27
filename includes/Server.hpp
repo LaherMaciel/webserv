@@ -20,7 +20,7 @@ class Server
         Server(const Server& other);
         Server& operator=(const Server& other);
         void    addClient(int client_fd);
-        int     startServer();
+        void    startServer();
         int     acceptConnection();
         void    cleanDeadFds(std::vector<int> &deadfds);
         void    cleanPoll_fds();

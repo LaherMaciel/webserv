@@ -140,7 +140,7 @@ static int bind_socket(int port, int fd)
     return (fd);
 }
 
-int Server::startServer()
+void Server::startServer()
 {
     struct pollfd	entry;
     fd = init_socket();
@@ -150,5 +150,4 @@ int Server::startServer()
     entry.revents = 0;
     poll_fds.push_back(entry);
     std::cout << "Server listening on port " << port << "\n";
-    return (fd);
 }
