@@ -9,18 +9,15 @@
 #include <vector>
 #include <map>
 
-//why a std::string and not. char like the previews?
-struct Client
+class Server
 {
-	int			fd;
-	std::string	in_buffer;
+	
 };
 
+class Connection;
 
-
-
-int	    handle_client(Client &client);
-void	addClient(std::vector<struct pollfd> &poll_fds, std::map<int, Client> &clients, int client_fd);
+int	    handle_client(Connection &client);
+void	addClient(std::vector<struct pollfd> &poll_fds, std::map<int, Connection> &clients, int client_fd);
 void    cleanDeadFds(std::vector<struct pollfd> &poll_fds, std::vector<int> &dead_fds);
 /*
 	I understand the fd

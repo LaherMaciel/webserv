@@ -1,11 +1,11 @@
 # All source files
-SRCS_CPP = main.cpp
+SRCS_CPP = main.cpp Connection.cpp
 SRCS_DIRECTORY = src/
 SRCS_LIST = $(addprefix $(SRCS_DIRECTORY), $(SRCS_CPP))
 
 # Header files
-HEADER_LIST = webserv.hpp
-HEADER_DIRECTORY = include/
+HEADER_LIST = webserv.hpp Connection.hpp
+HEADER_DIRECTORY = includes/
 HEADERS = $(addprefix $(HEADER_DIRECTORY), $(HEADER_LIST))
 
 # Object files

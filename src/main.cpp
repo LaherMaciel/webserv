@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "webserv.hpp"
+#include "Connection.hpp"
 #include <iostream>
 #include <cstring>//for memset
 #include <sys/socket.h>//for socket(), bind(), listen(), accept()
@@ -71,24 +72,24 @@ int init_server_socket(int port)
 	return server_fd;
 }
 
-int handle_client(Client &client)
+int handle_client(Connection &client)
 {
     // client.fd->revents = 0;//reset revents to 0 - in calling function?
-    std::cout << "Handling client connection (fd: " << client.fd << ")\n";
+    std::cout << "Handling client connection (fd: " << client._fd << ")\n";
     char buffer[1024];
-    ssize_t bytes_received = recv(client.fd, buffer, sizeof(buffer) - 1, 0);
+    ssize_t bytes_received = recv(client._fd, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received == 0)
     {
-        std::cout << "Client disconnected (fd: " << client.fd << ")\n";
-        close(client.fd);
+        std::cout << "Client disconnected (fd: " << client._fd << ")\n";
+        close(client._fd);
         return -1;
     }
     else if (bytes_received < 0)
     {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return 0;
-        std::cerr << "Error receiving data from client (fd: " << client.fd << ")\n";
-        close(client.fd);
+        std::cerr << "Error receiving data from client (fd: " << client._fd << ")\n";
+        close(client._fd);
         return -1;
     }
     else
@@ -96,18 +97,19 @@ int handle_client(Client &client)
         buffer[bytes_received] = '\0';
         std::cout << "Received data:\n" << buffer << "\n";
         client.in_buffer.append(buffer, bytes_received);
-        send(client.fd, "HTTP/1.1 200 OK\r\n\r\n", 17, 0);
+        send(client._fd, "HTTP/1.1 200 OK\r\n\r\n", 17, 0);
     }
     return 0;
 }
 
 void	addClient(std::vector<struct pollfd> &poll_fds,
-	std::map<int, Client> &clients, int client_fd)
+	std::map<int, Connection> &clients, int client_fd)
 {
 	struct pollfd	entry;
 
 	std::cout << "Handling client connection (fd: " << client_fd << ")\n";
-	clients[client_fd].fd = client_fd;
+	Connection new_client(client_fd);
+	clients[client_fd] = new_client;
 	entry.fd = client_fd;
 	entry.events = POLLIN;
 	entry.revents = 0;
@@ -130,7 +132,7 @@ void cleanDeadFds(std::vector<struct pollfd> &poll_fds,
 
 int main()
 {
-	std::map<int, Client>	clients;
+	std::map<int, Connection>	clients;
 	std::vector<struct pollfd>	poll_fds;
 	struct pollfd				entry;
 	int	port = DEFAULT_PORT;
@@ -162,7 +164,7 @@ int main()
 				continue ;
 			if (tmp[i].fd == server_fd)
 			{
-				poll_fds[0].revents = 0;//reset revents for server socket
+				//poll_fds[0].revents = 0;//reset revents for server socket - only needed if we change for loop to use poll_fds instead of tmp
 				client_fd = accept(server_fd, NULL, NULL);
 				if (client_fd < 0 || clients.size() >= MAX_CONNECTIONS)
 					continue;
@@ -177,8 +179,7 @@ int main()
 			else if (handle_client(clients[tmp[i].fd]) == -1)
 			{
 				dead_fds.push_back(tmp[i].fd);
-				close(client_fd);
-				clients.erase(client_fd);
+				clients.erase(tmp[i].fd);
 			}
 		}
 		cleanDeadFds(poll_fds, dead_fds);
