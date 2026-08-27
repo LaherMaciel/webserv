@@ -14,6 +14,7 @@ class Connection
     ~Connection();
     Connection(const Connection& other);
     Connection& operator=(const Connection& other);
+    int handle_client();
 };
 
 #endif

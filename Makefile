@@ -1,5 +1,5 @@
 # All source files
-SRCS_CPP = main.cpp Connection.cpp
+SRCS_CPP = main.cpp Connection.cpp Server.cpp
 SRCS_DIRECTORY = src/
 SRCS_LIST = $(addprefix $(SRCS_DIRECTORY), $(SRCS_CPP))
 
