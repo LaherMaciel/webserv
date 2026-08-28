@@ -12,26 +12,33 @@
 
 Server::Server(): fd(-1), port(DEFAULT_PORT){}
 
+Server::Server(int port): fd(-1), port(port) {}
+
 Server::~Server()
 {
     for (std::map<int, Connection *>::iterator it = conns.begin(); it != conns.end(); ++it)
         delete it->second;
     conns.clear();
     poll_fds.clear();
-    close(fd);
+    if (fd != -1)
+        close(fd);
+}
+
+void Server::addFdToPoll(int fd)//used for both the server socket and the client sockets
+{
+    struct pollfd entry;
+    entry.fd = fd;
+    entry.events = POLLIN;
+    entry.revents = 0;
+    poll_fds.push_back(entry);
 }
 
 void	Server::addClient(int clientfd)
 {
-    struct pollfd	entry;
-
     std::cout << "Handling client connection (fd: " << clientfd << ")\n";
     Connection *new_client = new Connection(clientfd);
     conns[clientfd] = new_client;
-    entry.fd = clientfd;
-    entry.events = POLLIN;
-    entry.revents = 0;
-    poll_fds.push_back(entry);
+    addFdToPoll(clientfd);
     std::cout << "Client " << clientfd << ": Connected\n";
 }
 
@@ -75,30 +82,26 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
     }
 }
 
-static int init_socket()
+void Server::initSocket()
 {
-    //socket basic setup
     int fd = socket(AF_INET, SOCK_STREAM, 0);//AF_INET = IPv4, SOCK_STREAM = TCP, 0 = default protocol (TCP for SOCK_STREAM)
     if (fd < 0)
     {
-        close(fd);
         throw ;
     }
+    this->fd = fd;
     if (set_non_blocking(fd) < 0)
     {
-        close(fd);
         throw ;
     }
     int opt_active = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt_active, sizeof(opt_active)) < 0)//allow quick reuse of port, bypassing TIME_WAIT limitations
     {
-        close(fd);
         throw ;
     }
-    return (fd);
 }
 
-static int bind_socket(int port, int fd)
+void Server::bindSocket()
 {
     //define port and address for binding
     sockaddr_in address;
@@ -106,29 +109,20 @@ static int bind_socket(int port, int fd)
     address.sin_family = AF_INET;//IPv4
     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);//converts to network byte order. Eventually use INADDR_ANY
     address.sin_port = htons(static_cast<unsigned short>(port));//convert port to network byte order
-    //bind socket with address/port
-    if (bind(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0)
+    if (bind(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
     {
-        close(fd);
         throw ;
     }
-    //set socket to listen for incoming connections
-    if (listen(fd, 10) < 0)//10 = backlog, max number of pending connections
+    if (listen(fd, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
     {
-        close(fd);
         throw ;
     }
-    return (fd);
 }
 
 void Server::startServer()
 {
-    struct pollfd	entry;
-    fd = init_socket();
-    fd = bind_socket(port, fd);
-    entry.fd = fd;
-    entry.events = POLLIN;
-    entry.revents = 0;
-    poll_fds.push_back(entry);
+    initSocket();
+    bindSocket();
+    addFdToPoll(fd);
     std::cout << "Server listening on port " << port << "\n";
 }

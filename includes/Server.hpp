@@ -16,8 +16,11 @@ class Server
         int     port;
 
         Server();
+        Server(int port);
         ~Server();
-
+        void    initSocket();
+        void    bindSocket();
+        void    addFdToPoll(int fd);
         void    addClient(int client_fd);
         void    startServer();
         int     acceptConnection();

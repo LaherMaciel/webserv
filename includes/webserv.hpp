@@ -3,6 +3,7 @@
 
 #define DEFAULT_PORT 8080
 #define MAX_CONNECTIONS 10
+#define MAX_PENDING_CONNECTIONS 10
 
 #include <iostream>
 #include <string>
