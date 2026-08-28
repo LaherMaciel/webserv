@@ -6,7 +6,7 @@
 /*   By: belinore <belinore@student.42lisboa.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/08/28 17:24:42 by belinore         ###   ########.fr       */
+/*   Updated: 2026/08/28 18:12:56 by belinore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -36,31 +36,10 @@ int set_non_blocking(int fd)
     return 0;
 }
 
-static void	inner_loop(Server &server)
-{
-    int     client_fd;
-    std::vector<int>			dead_fds;
+//Moved inner_loop() to server.cpp
 
-    for (size_t i = 0; i < server.poll_fds.size(); ++i)
-    {
-        if (!(server.poll_fds[i].revents & POLLIN))
-            continue ;
-        if (server.poll_fds[i].fd == server.fd)
-        {
-            client_fd = server.acceptConnection();
-            if (client_fd == -1)
-                continue ;
-            server.addClient(client_fd);
-        }
-        else if (server.conns[server.poll_fds[i].fd]->handle_client() == -1)
-        {
-            dead_fds.push_back(server.poll_fds[i].fd);
-        }
-    }
-    server.cleanDeadFds(dead_fds);
-}
-
-int server_loop()
+//Moved the while loop to member function runServer() in server.cpp
+int server_loop()//to rename or just move what's left in here to main()?
 {
     Server  server;
 
@@ -75,12 +54,13 @@ int server_loop()
         return (-1);
     }
     signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
-    while (true)
-    {
-        if (poll(&server.poll_fds[0], server.poll_fds.size(), -1) <= 0)
-            continue ;
-        inner_loop(server);
-    }
+    // while (true)
+    // {
+    //     if (poll(&server.poll_fds[0], server.poll_fds.size(), -1) <= 0)
+    //         continue ;
+    //     inner_loop(server);
+    // }
+    server.runServer();
     return (0);
 }
 

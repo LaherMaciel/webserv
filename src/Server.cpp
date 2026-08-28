@@ -126,3 +126,38 @@ void Server::startServer()
     addFdToPoll(fd);
     std::cout << "Server listening on port " << port << "\n";
 }
+
+void	Server::inner_loop()//rename to something like processEvents()?
+{
+    int     client_fd;
+    std::vector<int>			dead_fds;
+
+    for (size_t i = 0; i < poll_fds.size(); ++i)
+    {
+        if (!(poll_fds[i].revents & POLLIN))
+            continue ;
+        if (poll_fds[i].fd == fd)
+        {
+            client_fd = acceptConnection();
+            if (client_fd == -1)
+                continue ;
+            addClient(client_fd);
+        }
+        else if (conns[poll_fds[i].fd]->handle_client() == -1)
+        {
+            dead_fds.push_back(poll_fds[i].fd);
+        }
+    }
+    cleanDeadFds(dead_fds);
+}
+
+void Server::runServer()
+{
+    while (true)
+    {
+        if (poll(&poll_fds[0], poll_fds.size(), -1) <= 0)
+            continue ;
+        inner_loop();
+    }
+}
+

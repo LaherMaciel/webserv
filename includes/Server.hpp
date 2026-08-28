@@ -23,6 +23,8 @@ class Server
         void    addFdToPoll(int fd);
         void    addClient(int client_fd);
         void    startServer();
+        void    inner_loop();
+        void    runServer();
         int     acceptConnection();
         void    cleanDeadFds(std::vector<int> &deadfds);
     private: //prohibits copy construct or copy assign, so we don't need to create functions
