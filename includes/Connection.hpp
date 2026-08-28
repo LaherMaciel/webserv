@@ -12,9 +12,11 @@ class Connection
 	Connection();
     Connection(int fd);
     ~Connection();
+    int handle_client();
+
+    private: //prohibits copy construct or copy assign, so we don't need to create functions
     Connection(const Connection& other);
     Connection& operator=(const Connection& other);
-    int handle_client();
 };
 
 #endif

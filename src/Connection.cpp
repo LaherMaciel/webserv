@@ -9,18 +9,9 @@ Connection::Connection() : _fd(-1), in_buffer("") {}
 
 Connection::Connection(int fd) : _fd(fd), in_buffer("") {}
 
-Connection::~Connection() {}
-
-Connection::Connection(const Connection& other) : _fd(other._fd), in_buffer(other.in_buffer) {}
-
-Connection& Connection::operator=(const Connection& other)
+Connection::~Connection()
 {
-    if (this != &other)
-    {
-        _fd = other._fd;
-        in_buffer = other.in_buffer;
-    }
-    return *this;
+    close(_fd);
 }
 
 int Connection::handle_client()
@@ -32,7 +23,6 @@ int Connection::handle_client()
     if (bytes_received == 0)
     {
         std::cout << "Client disconnected (fd: " << _fd << ")\n";
-        close(_fd);
         return -1;
     }
     else if (bytes_received < 0)
@@ -40,7 +30,6 @@ int Connection::handle_client()
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return 0;
         std::cerr << "Error receiving data from client (fd: " << _fd << ")\n";
-        close(_fd);
         return -1;
     }
     else

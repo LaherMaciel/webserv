@@ -12,29 +12,13 @@
 
 Server::Server(): fd(-1), port(DEFAULT_PORT){}
 
-Server::~Server() {}
-
-Server::Server(const Server& other)
+Server::~Server()
 {
-    if (this != &other)
-    {
-        fd = other.fd;
-        port = other.port;
-        conns = other.conns;
-        poll_fds = other.poll_fds;
-    }
-}
-
-Server& Server::operator=(const Server& other)
-{
-    if (this != &other)
-    {
-        fd = other.fd;
-        port = other.port;
-        conns = other.conns;
-        poll_fds = other.poll_fds;
-    }
-    return *this;
+    for (std::map<int, Connection *>::iterator it = conns.begin(); it != conns.end(); ++it)
+        delete it->second;
+    conns.clear();
+    poll_fds.clear();
+    close(fd);
 }
 
 void	Server::addClient(int clientfd)
@@ -42,7 +26,7 @@ void	Server::addClient(int clientfd)
     struct pollfd	entry;
 
     std::cout << "Handling client connection (fd: " << clientfd << ")\n";
-    Connection new_client(clientfd);
+    Connection *new_client = new Connection(clientfd);
     conns[clientfd] = new_client;
     entry.fd = clientfd;
     entry.events = POLLIN;
@@ -57,7 +41,12 @@ int    Server::acceptConnection()
     int clientfd = accept(fd, NULL, NULL);
 
     if (clientfd < 0 || conns.size() >= MAX_CONNECTIONS)
+    {
+        std::cerr << "Error accepting new connection\n";
+        if (clientfd >= 0)
+            close(clientfd);
         return (-1);
+    }
     if (set_non_blocking(clientfd) < 0)
     {
         std::cerr << "Error setting client socket to non-blocking\n";
@@ -72,28 +61,17 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
 {
     for (int i = deadfds.size() -1; i >= 0; --i)
     {
-        std::map<int, Connection>::iterator it = conns.find(deadfds[i]);
+        std::map<int, Connection *>::iterator it = conns.find(deadfds[i]);
         if (it != conns.end())
+        {
+            delete it->second;
             conns.erase(it);
+        }
         for (int j = poll_fds.size() - 1; j >= 0; --j)
         {
             if (poll_fds[j].fd == deadfds[i])
                 poll_fds.erase(poll_fds.begin() + j);
         }
-    }
-}
-
-void Server::cleanPoll_fds()
-{
-    for (size_t i = 0; i < poll_fds.size(); ++i)
-    {
-        conns.erase(poll_fds[i].fd);
-        if (poll_fds[i].fd != -1)
-            close(poll_fds[i].fd);
-    }
-    for (int j = poll_fds.size() - 1; j >= 0; --j)
-    {
-        poll_fds.erase(poll_fds.begin() + j);
     }
 }
 

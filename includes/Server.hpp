@@ -10,20 +10,21 @@ class Connection;
 class Server
 {
     public:
-        std::map<int, Connection>	conns;
+        std::map<int, Connection *>	conns;
         std::vector<struct pollfd>	poll_fds;
         int     fd;
         int     port;
 
         Server();
         ~Server();
-        Server(const Server& other);
-        Server& operator=(const Server& other);
+
         void    addClient(int client_fd);
         void    startServer();
         int     acceptConnection();
         void    cleanDeadFds(std::vector<int> &deadfds);
-        void    cleanPoll_fds();
+    private: //prohibits copy construct or copy assign, so we don't need to create functions
+        Server(const Server& other);
+        Server& operator=(const Server& other);
 };
 
 #endif

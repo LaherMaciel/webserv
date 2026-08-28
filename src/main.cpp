@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
+/*   By: belinore <belinore@student.42lisboa.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/08/28 00:27:34 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/08/28 16:03:39 by belinore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,7 +52,7 @@ static void	inner_loop(Server &server)
                 continue ;
             server.addClient(client_fd);
         }
-        else if (server.conns[server.poll_fds[i].fd].handle_client() == -1)
+        else if (server.conns[server.poll_fds[i].fd]->handle_client() == -1)
         {
             dead_fds.push_back(server.poll_fds[i].fd);
         }
@@ -81,7 +81,6 @@ int server_loop()
             continue ;
         inner_loop(server);
     }
-    server.cleanPoll_fds();
     return (0);
 }
 
