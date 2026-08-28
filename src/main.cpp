@@ -39,25 +39,22 @@ int set_non_blocking(int fd)
 static void	inner_loop(Server &server)
 {
     int     client_fd;
-    std::vector<struct pollfd>	tmp = server.poll_fds;
     std::vector<int>			dead_fds;
 
-    for (size_t i = 0; i < tmp.size(); ++i)
+    for (size_t i = 0; i < server.poll_fds.size(); ++i)
     {
-        if (!(tmp[i].revents & POLLIN))
+        if (!(server.poll_fds[i].revents & POLLIN))
             continue ;
-        if (tmp[i].fd == server.fd)
+        if (server.poll_fds[i].fd == server.fd)
         {
-            //poll_fds[0].revents = 0;//reset revents for server socket - only needed if we change for loop to use poll_fds instead of tmp
             client_fd = server.acceptConnection();
             if (client_fd == -1)
                 continue ;
             server.addClient(client_fd);
         }
-        else if (server.conns[tmp[i].fd].handle_client() == -1)
+        else if (server.conns[server.poll_fds[i].fd].handle_client() == -1)
         {
-            dead_fds.push_back(tmp[i].fd);
-            server.conns.erase(tmp[i].fd);
+            dead_fds.push_back(server.poll_fds[i].fd);
         }
     }
     server.cleanDeadFds(dead_fds);

@@ -72,6 +72,9 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
 {
     for (int i = deadfds.size() -1; i >= 0; --i)
     {
+        std::map<int, Connection>::iterator it = conns.find(deadfds[i]);
+        if (it != conns.end())
+            conns.erase(it);
         for (int j = poll_fds.size() - 1; j >= 0; --j)
         {
             if (poll_fds[j].fd == deadfds[i])
