@@ -9,6 +9,7 @@
 #include <unistd.h>//for close
 #include <iostream>
 #include <poll.h>//for poll()
+#include <stdexcept>//for exception types
 
 Server::Server(): fd(-1), port(DEFAULT_PORT){}
 
@@ -87,17 +88,17 @@ void Server::initSocket()
     int fd = socket(AF_INET, SOCK_STREAM, 0);//AF_INET = IPv4, SOCK_STREAM = TCP, 0 = default protocol (TCP for SOCK_STREAM)
     if (fd < 0)
     {
-        throw ;
+        throw std::runtime_error("Failed to create socket");
     }
     this->fd = fd;
     if (set_non_blocking(fd) < 0)
     {
-        throw ;
+        throw std::runtime_error("Failed to set socket to non-blocking");
     }
     int opt_active = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt_active, sizeof(opt_active)) < 0)//allow quick reuse of port, bypassing TIME_WAIT limitations
     {
-        throw ;
+        throw std::runtime_error("Failed to set socket options");
     }
 }
 
@@ -111,11 +112,11 @@ void Server::bindSocket()
     address.sin_port = htons(static_cast<unsigned short>(port));//convert port to network byte order
     if (bind(fd, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
     {
-        throw ;
+        throw std::runtime_error("Failed to bind socket");
     }
     if (listen(fd, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
     {
-        throw ;
+        throw std::runtime_error("Failed to listen on socket");
     }
 }
 
@@ -134,6 +135,11 @@ void	Server::inner_loop()//rename to something like processEvents()?
 
     for (size_t i = 0; i < poll_fds.size(); ++i)
     {
+        if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL))//if error, hangup, or invalid request, mark fd for removal
+        {
+            dead_fds.push_back(poll_fds[i].fd);
+            continue ;
+        }
         if (!(poll_fds[i].revents & POLLIN))
             continue ;
         if (poll_fds[i].fd == fd)
@@ -143,10 +149,8 @@ void	Server::inner_loop()//rename to something like processEvents()?
                 continue ;
             addClient(client_fd);
         }
-        else if (conns[poll_fds[i].fd]->handle_client() == -1)
-        {
+        else if (conns[poll_fds[i].fd]->handleRequest() == -1)
             dead_fds.push_back(poll_fds[i].fd);
-        }
     }
     cleanDeadFds(dead_fds);
 }

@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <string>
+
+#define MAX_HEADER_SIZE 1000
 //why a std::string and not. char like the previews?
 class Connection
 {
@@ -12,8 +14,9 @@ class Connection
 	Connection();
     Connection(int fd);
     ~Connection();
-    int handle_client();
-
+    int handleRequest();
+    int receiveRequest();
+    int sendResponse(int code);
     private: //prohibits copy construct or copy assign, so we don't need to create functions
     Connection(const Connection& other);
     Connection& operator=(const Connection& other);
