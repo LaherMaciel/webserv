@@ -10,11 +10,6 @@ class Connection;
 class Server
 {
     public:
-        std::map<int, Connection *>	conns;
-        std::vector<struct pollfd>	poll_fds;
-        int     fd;
-        int     port;
-
         Server();
         Server(int port);
         ~Server();
@@ -23,11 +18,16 @@ class Server
         void    addFdToPoll(int fd);
         void    addClient(int client_fd);
         void    startServer();
-        void    inner_loop();
+        void    processEvents();
         void    runServer();
         int     acceptConnection();
         void    cleanDeadFds(std::vector<int> &deadfds);
-    private: //prohibits copy construct or copy assign, so we don't need to create functions
+
+    private:
+        std::map<int, Connection *>	conns_;
+        std::vector<struct pollfd>	poll_fds_;
+        int     fd_;
+        int     port_;
         Server(const Server& other);
         Server& operator=(const Server& other);
 };

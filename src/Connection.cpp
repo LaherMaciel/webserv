@@ -5,36 +5,36 @@
 #include <sys/socket.h> //for recv() send()
 #include <cerrno>//for errno
 
-Connection::Connection() : _fd(-1), in_buffer("") {}
+Connection::Connection() : fd_(-1), in_buffer_("") {}
 
-Connection::Connection(int fd) : _fd(fd), in_buffer("") {}
+Connection::Connection(int fd) : fd_(fd), in_buffer_("") {}
 
 Connection::~Connection()
 {
-    close(_fd);
+    close(fd_);
 }
 
 int Connection::receiveRequest()
 {
     char buffer[1024];
-    ssize_t bytes_received = recv(_fd, buffer, sizeof(buffer) - 1, 0);
+    ssize_t bytes_received = recv(fd_, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received == 0)
     {
-        std::cout << "Client disconnected (fd: " << _fd << ")\n";
+        std::cout << "Client disconnected (fd: " << fd_ << ")\n";
         return -1;
     }
     else if (bytes_received < 0)
     {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return 0;
-        std::cerr << "Error receiving data from client (fd: " << _fd << ")\n";
+        std::cerr << "Error receiving data from client (fd: " << fd_ << ")\n";
         return -1;
     }
     else
     {
         buffer[bytes_received] = '\0';
         std::cout << "Received data:\n" << buffer << "\n";
-        in_buffer.append(buffer, bytes_received);
+        in_buffer_.append(buffer, bytes_received);
     }
     return 0;
 }
@@ -46,9 +46,13 @@ int Connection::sendResponse(int code)
         response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
     else if (code == 431)
         response = "HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    else if (code == 400)
+        response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    else if (code == 505)
+        response = "HTTP/1.1 505 HTTP Version Not Supported\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     else
-        return -1;
-    ssize_t bytes_sent = send(_fd, response.c_str(), response.length(), 0);
+        response = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    ssize_t bytes_sent = send(fd_, response.c_str(), response.length(), 0);
     if (bytes_sent < 0)
         return -1;
     //placeholder to handle partial sends
@@ -57,21 +61,28 @@ int Connection::sendResponse(int code)
 
 int Connection::handleRequest()
 {
-    std::cout << "Handling client connection (fd: " << _fd << ")\n";
+    std::cout << "Handling client connection (fd: " << fd_ << ")\n";
     if (receiveRequest() == -1)
         return -1;
-    if (in_buffer.size() > MAX_HEADER_SIZE)
+    if (in_buffer_.size() > MAX_HEADER_SIZE)
     {
         sendResponse(431);
-        std::cerr << "Request header too large, closing connection (fd: " << _fd << ")\n";
+        std::cerr << "Request header too large, closing connection (fd: " << fd_ << ")\n";
         return -1;
     }
-    if (in_buffer.find("\r\n\r\n") != std::string::npos)
+    ParseStatus status = request_.parseRequest(in_buffer_);
+    if (status == PARSE_ERROR)
+    {
+        sendResponse(request_.getErrorCode());
+        std::cerr << "Error parsing request, closing connection (fd: " << fd_ << ")\n";
+        return -1;
+    }
+    else if (status == PARSE_OK)
         sendResponse(200);
     else//just for debug
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "
-                    << in_buffer.size() << std::endl;
+                    << in_buffer_.size() << std::endl;
     }
     return 0;
 }

@@ -16,9 +16,4 @@ class Connection;
 void    cleanDeadFds(std::vector<struct pollfd> &poll_fds, std::vector<int> &dead_fds);
 int 	set_non_blocking(int fd);
 
-/*
-	I understand the fd
-	the events, I fill with what? where?
-	the revents, well yeah I have to check that i returned
-*/
 #endif

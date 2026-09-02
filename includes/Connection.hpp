@@ -3,23 +3,25 @@
 
 #include <iostream>
 #include <string>
+#include "RequestParser.hpp"
 
 #define MAX_HEADER_SIZE 1000
-//why a std::string and not. char like the previews?
+
 class Connection
 {
 	public:
-	int			_fd;
-	std::string	in_buffer;
-	Connection();
-    Connection(int fd);
-    ~Connection();
-    int handleRequest();
-    int receiveRequest();
-    int sendResponse(int code);
-    private: //prohibits copy construct or copy assign, so we don't need to create functions
-    Connection(const Connection& other);
-    Connection& operator=(const Connection& other);
+        Connection();
+        Connection(int fd);
+        ~Connection();
+        int handleRequest();
+        int receiveRequest();
+        int sendResponse(int code);
+    private:
+        int			fd_;
+        std::string	in_buffer_;
+        Connection(const Connection& other);
+        Connection& operator=(const Connection& other);
+        RequestParser	request_;
 };
 
 #endif

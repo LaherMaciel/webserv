@@ -1,10 +1,10 @@
 # All source files
-SRCS_CPP = main.cpp Connection.cpp Server.cpp
+SRCS_CPP = main.cpp Connection.cpp Server.cpp RequestParser.cpp
 SRCS_DIRECTORY = src/
 SRCS_LIST = $(addprefix $(SRCS_DIRECTORY), $(SRCS_CPP))
 
 # Header files
-HEADER_LIST = webserv.hpp Connection.hpp
+HEADER_LIST = webserv.hpp Connection.hpp RequestParser.hpp
 HEADER_DIRECTORY = includes/
 HEADERS = $(addprefix $(HEADER_DIRECTORY), $(HEADER_LIST))
 
