@@ -10,9 +10,12 @@ webserv
 .DS_Store
 
 # Editor
-.vscode/
 
 # Agent session files
 .claude/
 # kept separately: if .claude/ is ever un-ignored, memory must STILL never be pushed
 .claude/memory/
+
+objects/
+
+webserv
