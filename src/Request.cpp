@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 20:12:23 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/08 20:16:09 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,7 +25,7 @@ Request initStruct()
     return (request);
 }
 
-Request    Connection::ParseMethod(Request request, std::string startLine, int pos)
+Request    Connection::ParseMethod(Request &request, std::string startLine, int pos)
 {
     request.method = startLine.substr(0, pos);
     if (request.method != "GET" && request.method != "POST"
@@ -34,9 +34,10 @@ Request    Connection::ParseMethod(Request request, std::string startLine, int p
         request.code = 501;
         throw std::runtime_error("501 Not Implemented");
     }
+    return (request);
 }
 
-Request    Connection::ParseStartLine(Request request)
+Request    Connection::ParseStartLine(Request &request)
 {
     std::string startLine;
     size_t      i = 0;
@@ -74,7 +75,7 @@ Request    Connection::ParseStartLine(Request request)
     return (request);
 }
 
-Request    Connection::ParseHeader(Request request)
+Request    Connection::ParseHeader(Request &request)
 {
     std::string header;
     std::string key;
@@ -114,7 +115,7 @@ Request    Connection::ParseHeader(Request request)
  * there's more information to receive, and I call this function to fill the body.
  * Or something like that. I still have to think more about it.
  */
-Request    Connection::ParseBody(Request request)
+Request    Connection::ParseBody(Request &request)
 {
     return (request);
 }
@@ -134,7 +135,7 @@ Request    Connection::ParseBody(Request request)
  * 
  * Again, all the throws in this file are temporary.
  */
-Request    Connection::RequestParsing(Request request)
+Request    Connection::RequestParsing(Request &request)
 {
     try
     {

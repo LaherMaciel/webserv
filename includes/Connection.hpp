@@ -44,13 +44,13 @@ class Connection
         int        handleRequest();
         int        receiveRequest();
         int        sendResponse(int code);
-        int        sendResponse(std::string response);
+        int        sendResponse(std::string &response);
         void       clearBuffer();
-        Request    ParseStartLine(Request request);
-        Request    ParseHeader(Request request);
-        Request    ParseBody(Request request);
-        Request    RequestParsing(Request request);
-        Request    ParseMethod(Request request, std::string startLine, int pos);
+        Request    ParseStartLine(Request &request);
+        Request    ParseHeader(Request &request);
+        Request    ParseBody(Request &request);
+        Request    RequestParsing(Request &request);
+        Request    ParseMethod(Request &request, std::string startLine, int pos);
         // the information of why this exception is here is not the Connection.cpp line 113 :)
         /* class HTTPExceptions : public std::exception
 		{

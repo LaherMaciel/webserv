@@ -68,6 +68,21 @@ int Connection::sendResponse(std::string &response)
     return 0;
 }
 
+/**
+ * OK, because I'm a blockhead, I decided to send everything by reference
+ * and it works, but the protection isn't the best code-wise. So later on
+ * I need to improve the protection. What I mean by this is: the code
+ * works, but to work properly we need to be mindful about the order of
+ * the error and throws, because if we throw before, for example,
+ * assigning the code value to request.code, it will silently have the
+ * wrong behavior. So later on I'll try to improve it so that even if
+ * something like that happens by mistake, the code still works ok or
+ * breaks loudly so we know something is wrong, instead of this possible
+ * incorrect silent behavior. The easiest solution would be to just swap
+ * the while loop and try/catch order - having the try/catch (that's
+ * inside requestParsing()) outside the while loop (the handleRequest()
+ * while loop). But I don't know how I feel about that....
+ */
 int Connection::handleRequest()
 {
     std::cout << "Handling client connection (fd: " << _fd << ")\n";
@@ -81,12 +96,6 @@ int Connection::handleRequest()
         std::cout << std::endl << std::endl << in_buffer << std::endl;
         return -1;
     }
-    // I need to fix this code and its relationship with the try/catch of
-    // requestParsing() because it won't work correctly if something fails. At
-    // the moment it detects the error but it loses the error code, so it takes
-    // the wrong behavior - for example, it'll fall into the try/catch and exit
-    // requestParsing(), and there the value of request.code is still 200. So it
-    // goes as if everything is ok.
     while (in_buffer.find("\r\n\r\n") != std::string::npos)
     {
         Request request = initStruct();
