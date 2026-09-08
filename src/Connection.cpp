@@ -49,6 +49,8 @@ int Connection::sendResponse(int code)
         response = "HTTP/1.1 " + response + "Content-Length: 0\r\nConnection: close\r\n\r\n";
     else if (code == 404)
         response = "HTTP/1.1 " + response + "\r\n";
+    else if (code == 501)
+        response = "HTTP/1.1 " + response + "\r\n";
     else
         return -1;
     ssize_t bytes_sent = send(_fd, response.c_str(), response.length(), 0);
@@ -79,10 +81,17 @@ int Connection::handleRequest()
         std::cout << std::endl << std::endl << in_buffer << std::endl;
         return -1;
     }
-    if (in_buffer.find("\r\n\r\n") != std::string::npos)
+    // I need to fix this code and its relationship with the try/catch of
+    // requestParsing() because it won't work correctly if something fails. At
+    // the moment it detects the error but it loses the error code, so it takes
+    // the wrong behavior - for example, it'll fall into the try/catch and exit
+    // requestParsing(), and there the value of request.code is still 200. So it
+    // goes as if everything is ok.
+    while (in_buffer.find("\r\n\r\n") != std::string::npos)
     {
-        Request request;
-        if (RequestParsing(request) != -1) // I still need to clean the code of receiving and storing the request before starting the actuall parcing
+        Request request = initStruct();
+        request = RequestParsing(request);
+        if (request.code == 200) // I still need to clean the code of receiving and storing the request before starting the actuall parcing
         {
             Response response;
             response.buildResponse(request);
@@ -90,11 +99,11 @@ int Connection::handleRequest()
             sendResponse(respMessage);
         }
     }
-    else//just for debug
+    /* else//just for debug
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "
                     << in_buffer.size() << std::endl;
-    }
+    } */
     return 0;
 }
 
@@ -107,3 +116,19 @@ void    Connection::clearBuffer()
 //curl -v http://127.0.0.1:8080/
 //or nc still works you just can't get an OK response unless you use printf and sleep:
 //(printf 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
+
+/**
+ * I'm having problems with the loop of handleRequest in the case where we
+ * receive two requests in one go, and one of them fails. I want to make a clean
+ * exit where it just stops where it was and prints the error both to the
+ * terminal and to the client. But at the moment my brain isn't braining so... I
+ * don't know what to do AT THE MOMENT. The problem is that, as it is now, it
+ * prints just fine to the terminal, but it doesn't stop the loop and doesn't
+ * print to the client, because it's losing the error code. I feel like the
+ * solution is pretty simple on its own, this exception might not even be
+ * necessary, but for now I can't think of the solution/fix for it.
+ */
+/* const char *Connection::HTTPExceptions::what() const throw()
+{
+	return ("");
+} */

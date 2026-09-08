@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 18:14:24 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/08 18:56:52 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,6 +43,7 @@ std::string statusText(int code)
         case 404: return "404 Not Found\r\n";
         case 431: return "431 Request Header Fields Too Large\r\n";
         case 500: return "500 Internal Server Error\r\n";
+        case 501: return "501 Not Implemented";
         default:  return "";
     }
 }

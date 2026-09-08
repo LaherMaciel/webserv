@@ -23,6 +23,7 @@ struct  Request
     std::string version;
     std::map<std::string, std::string> header;
     std::string body;
+    int         code;
     size_t      bufferSize;
 };
 
@@ -40,18 +41,26 @@ class Connection
         Connection();
         Connection(int fd);
         ~Connection();
-        int         handleRequest();
-        int         receiveRequest();
-        int         sendResponse(int code);
-        int         sendResponse(std::string &response);
-        void        clearBuffer();
-        Request     ParseStartLine();
-        Request     ParseHeader(Request request);
-        Request     ParseBody(Request request);
-        int         RequestParsing(Request &request);
+        int        handleRequest();
+        int        receiveRequest();
+        int        sendResponse(int code);
+        int        sendResponse(std::string response);
+        void       clearBuffer();
+        Request    ParseStartLine(Request request);
+        Request    ParseHeader(Request request);
+        Request    ParseBody(Request request);
+        Request    RequestParsing(Request request);
+        Request    ParseMethod(Request request, std::string startLine, int pos);
+        // the information of why this exception is here is not the Connection.cpp line 113 :)
+        /* class HTTPExceptions : public std::exception
+		{
+			public:
+				virtual const char* what() const throw();
+		}; */
 };
 
     std::string responseMessage(Response response);
     std::string toString(size_t n);
+    Request     initStruct();
 
 #endif

@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 17:51:36 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/08 20:12:23 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,18 +15,29 @@
 
 Request initStruct()
 {
-    Request response;
-    response.method = "";
-    response.url = "";;
-    response.version = "";;
-    response.body = "";;
-    response.bufferSize = 0;
-    return (response);
+    Request request;
+    request.method = "";
+    request.url = "";;
+    request.version = "";;
+    request.body = "";;
+    request.bufferSize = 0;
+    request.code = 200;
+    return (request);
 }
 
-Request    Connection::ParseStartLine()
+Request    Connection::ParseMethod(Request request, std::string startLine, int pos)
 {
-    Request     request;
+    request.method = startLine.substr(0, pos);
+    if (request.method != "GET" && request.method != "POST"
+        && request.method != "DELETE")
+    {
+        request.code = 501;
+        throw std::runtime_error("501 Not Implemented");
+    }
+}
+
+Request    Connection::ParseStartLine(Request request)
+{
     std::string startLine;
     size_t      i = 0;
     size_t      pos;
@@ -47,7 +58,7 @@ Request    Connection::ParseStartLine()
         switch (i)
         {
             case 0:
-                request.method = startLine.substr(0, pos);
+                request = ParseMethod(request, startLine, pos);
                 break ;
             case 1:
                 request.url = startLine.substr(0, pos);
@@ -123,11 +134,11 @@ Request    Connection::ParseBody(Request request)
  * 
  * Again, all the throws in this file are temporary.
  */
-int    Connection::RequestParsing(Request &request)
+Request    Connection::RequestParsing(Request request)
 {
     try
     {
-        request = ParseStartLine();
+        request = ParseStartLine(request);
         request = ParseHeader(request);
         request = ParseBody(request);
         std::cout << "END RECEIVED OF REQUEST" << std::endl << std::endl << std::endl;
@@ -135,8 +146,8 @@ int    Connection::RequestParsing(Request &request)
     catch(std::exception& e)
     {
         std::cerr << e.what() << '\n';
-        sendResponse(431);
-        return (-1);
+        in_buffer.erase(0, in_buffer.size());
+        sendResponse(request.code);
     }
-    return (0);
+    return (request);
 }

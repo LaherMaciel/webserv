@@ -80,7 +80,7 @@ void	Response::buildHeader()
 
 void Response::buildResponse(Request request)
 {
-    code = 200;
+    code = request.code;
     version = request.version;
     buildBody(request);
     buildHeader();
@@ -101,3 +101,4 @@ std::string Response::getResponse()
     page += body;
     return (page);
 }
+
