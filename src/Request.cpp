@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 03:05:39 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/08 03:27:23 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -64,6 +64,8 @@ Request    Connection::ParseHeader(Request request)
         linelen = header.find("\r\n");
         if (linelen == std::string::npos)
             throw ;
+		if (linelen == 0)
+			break ;
         std::string line = header.substr(0, linelen);
         pos = line.find(": ");
         if (pos > linelen)
@@ -76,6 +78,16 @@ Request    Connection::ParseHeader(Request request)
     return (request);
 }
 
+/**
+ * I still have to create this function. I'm thinking of creating a variable in
+ * the request struct where, right at the start before doing anything to the
+ * in_buffer, I check its size. Then I do all the work that I have to do,
+ * and at the end I check if there's a Content-Length variable in the header map,
+ * and if the size stated there matches the size I have in the request variable.
+ * If the content-length is bigger than the actual length I received, then I know
+ * there's more information to receive, and I call this function to fill the body.
+ * Or something like that. I still have to think more about it.
+ */
 Request    Connection::ParseBody(Request request)
 {
     return (request);
@@ -95,6 +107,19 @@ static void    printRequest(Request request)
     std::cout << "HEADER BODY:  " << request.body << std::endl;
 }
 
+/**
+ * This isn't parsing for now. I'm just receiving the information and storing it
+ * as it goes. I don't check much of it for now and I don't give any errors for
+ * now. Ah, and I still have to make proper error messages with the correct
+ * status codes. I still have to do a deep dive on that part.
+ *
+ * So for now it just receives the in_buffer, separates the information - the
+ * method, the url, the version, headers, the body - in a really basic, almost
+ * raw way, while also cleaning the in_buffer. So if everything goes well, then
+ * the request should have all the information already organized and ready to
+ * use, and the in_buffer should be empty. And we should also be able to know if
+ * theres information missing. or not.
+ */
 int    Connection::RequestParsing()
 {
     Request request;
