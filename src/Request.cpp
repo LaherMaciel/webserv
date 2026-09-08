@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 03:27:23 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/08 03:45:38 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,7 +19,10 @@ Request    Connection::ParseRequestLine()
     size_t      i = 0;
     size_t      pos;
 
+	request.bufferSize = in_buffer.size();
     pos = in_buffer.find("\r\n");
+	if (pos == std::string::npos)
+		throw std::runtime_error("400");
     requestLine = in_buffer.substr(0, pos);
     while (i < 3)
     {
@@ -28,7 +31,7 @@ Request    Connection::ParseRequestLine()
         else
             pos = requestLine.size();
         if (pos == std::string::npos)
-            throw ;
+            throw std::runtime_error("400");
         switch (i)
         {
             case 0:
@@ -57,19 +60,19 @@ Request    Connection::ParseHeader(Request request)
 
     linelen = in_buffer.find("\r\n\r\n");
     if (linelen == std::string::npos)
-            throw ;
+            throw std::runtime_error("400");
     header = in_buffer.substr(0, linelen + 2);
     while (header.size() > 0)
     {
         linelen = header.find("\r\n");
         if (linelen == std::string::npos)
-            throw ;
+            throw std::runtime_error("400");
 		if (linelen == 0)
 			break ;
         std::string line = header.substr(0, linelen);
         pos = line.find(": ");
         if (pos > linelen)
-            throw ;
+            throw std::runtime_error("400");
         key = line.substr(0, pos);
         request.header[key] = line.substr(pos + 2, linelen - (pos + 2));
         header = header.erase(0, linelen + 2);
@@ -119,6 +122,8 @@ static void    printRequest(Request request)
  * the request should have all the information already organized and ready to
  * use, and the in_buffer should be empty. And we should also be able to know if
  * theres information missing. or not.
+ * 
+ * Again, all the throws in this file are temporary.
  */
 int    Connection::RequestParsing()
 {

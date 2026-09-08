@@ -15,6 +15,7 @@ struct  Request
     std::string version;
     std::map<std::string, std::string> header;
     std::string body;
+    size_t      bufferSize;
 };
 
 class Connection
