@@ -13,12 +13,14 @@
 
 class Connection;
 
-void    cleanDeadFds(std::vector<struct pollfd> &poll_fds, std::vector<int> &dead_fds);
-int 	set_non_blocking(int fd);
+void        cleanDeadFds(std::vector<struct pollfd> &poll_fds, std::vector<int> &dead_fds);
+int         set_non_blocking(int fd);
+std::string statusText(int code);
+std::string toString(size_t n);
 
 /*
-	I understand the fd
-	the events, I fill with what? where?
-	the revents, well yeah I have to check that i returned
+    I understand the fd
+    the events, I fill with what? where?
+    the revents, well yeah I have to check that i returned
 */
 #endif

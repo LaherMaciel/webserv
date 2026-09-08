@@ -6,45 +6,57 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 03:45:38 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/08 17:51:36 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Connection.hpp"
+#include "webserv.hpp"
 
-Request    Connection::ParseRequestLine()
+Request initStruct()
+{
+    Request response;
+    response.method = "";
+    response.url = "";;
+    response.version = "";;
+    response.body = "";;
+    response.bufferSize = 0;
+    return (response);
+}
+
+Request    Connection::ParseStartLine()
 {
     Request     request;
-    std::string requestLine;
+    std::string startLine;
     size_t      i = 0;
     size_t      pos;
 
-	request.bufferSize = in_buffer.size();
+    request.bufferSize = in_buffer.size();
     pos = in_buffer.find("\r\n");
-	if (pos == std::string::npos)
-		throw std::runtime_error("400");
-    requestLine = in_buffer.substr(0, pos);
+    if (pos == std::string::npos)
+        throw std::runtime_error("400");
+    startLine = in_buffer.substr(0, pos);
     while (i < 3)
     {
         if (i < 2)
-           pos = requestLine.find(" ");
+           pos = startLine.find(" ");
         else
-            pos = requestLine.size();
+            pos = startLine.size();
         if (pos == std::string::npos)
             throw std::runtime_error("400");
         switch (i)
         {
             case 0:
-                request.method = requestLine.substr(0, pos);
+                request.method = startLine.substr(0, pos);
                 break ;
             case 1:
-                request.url = requestLine.substr(0, pos);
+                request.url = startLine.substr(0, pos);
                 break ;
             case 2:
-                request.version = requestLine.substr(0, pos);
+                request.version = startLine.substr(0, pos);
                 break ;
         }
-        requestLine = requestLine.erase(0, pos + 1);
+        startLine = startLine.erase(0, pos + 1);
         i++;
     }
     in_buffer = in_buffer.erase(0, in_buffer.find("\r\n") + 2);
@@ -67,8 +79,8 @@ Request    Connection::ParseHeader(Request request)
         linelen = header.find("\r\n");
         if (linelen == std::string::npos)
             throw std::runtime_error("400");
-		if (linelen == 0)
-			break ;
+        if (linelen == 0)
+            break ;
         std::string line = header.substr(0, linelen);
         pos = line.find(": ");
         if (pos > linelen)
@@ -96,20 +108,6 @@ Request    Connection::ParseBody(Request request)
     return (request);
 }
 
-static void    printRequest(Request request)
-{
-    std::map<std::string, std::string>::const_iterator it;
-
-    std::cout << std::endl << std::endl;
-    std::cout << "METHOD: " << request.method << "  URL: " << request.url << "  VERSION: " << request.version << std::endl;
-    std::cout << "HEADER: " << std::endl;
-    for (it = request.header.begin(); it != request.header.end(); ++it)
-    {
-        std::cout << "KEY: " << it->first << "  |  BODY: " << it->second << std::endl;
-    }
-    std::cout << "HEADER BODY:  " << request.body << std::endl;
-}
-
 /**
  * This isn't parsing for now. I'm just receiving the information and storing it
  * as it goes. I don't check much of it for now and I don't give any errors for
@@ -125,22 +123,19 @@ static void    printRequest(Request request)
  * 
  * Again, all the throws in this file are temporary.
  */
-int    Connection::RequestParsing()
+int    Connection::RequestParsing(Request &request)
 {
-    Request request;
-
     try
     {
-        request = ParseRequestLine();
+        request = ParseStartLine();
         request = ParseHeader(request);
         request = ParseBody(request);
-        printRequest(request);
         std::cout << "END RECEIVED OF REQUEST" << std::endl << std::endl << std::endl;
     }
     catch(std::exception& e)
     {
         std::cerr << e.what() << '\n';
-        sendResponse(400);
+        sendResponse(431);
         return (-1);
     }
     return (0);

@@ -1,5 +1,7 @@
 
 #include "Connection.hpp"
+#include "webserv.hpp"
+#include "Response.hpp"
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h> //for recv() send()
@@ -40,17 +42,27 @@ int Connection::receiveRequest()
 
 int Connection::sendResponse(int code)
 {
-    std::string response;
+    std::string response = statusText(code);
     if (code == 200)
-        response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+        response = "HTTP/1.1 " + response + "Content-Length: 0\r\n\r\n";
     else if (code == 431)
-        response = "HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        response = "HTTP/1.1 " + response + "Content-Length: 0\r\nConnection: close\r\n\r\n";
+    else if (code == 404)
+        response = "HTTP/1.1 " + response + "\r\n";
     else
         return -1;
     ssize_t bytes_sent = send(_fd, response.c_str(), response.length(), 0);
     if (bytes_sent < 0)
         return -1;
     //placeholder to handle partial sends
+    return 0;
+}
+
+int Connection::sendResponse(std::string &response)
+{
+    ssize_t bytes_sent = send(_fd, response.c_str(), response.length(), 0);
+    if (bytes_sent < 0)
+        return -1;
     return 0;
 }
 
@@ -69,8 +81,14 @@ int Connection::handleRequest()
     }
     if (in_buffer.find("\r\n\r\n") != std::string::npos)
     {
-        if (RequestParsing() != -1) // I still need to clean the code of receiving and storing the request before starting the actuall parcing
-            sendResponse(200);
+        Request request;
+        if (RequestParsing(request) != -1) // I still need to clean the code of receiving and storing the request before starting the actuall parcing
+        {
+            Response response;
+            response.buildResponse(request);
+            std::string respMessage = response.getResponse();
+            sendResponse(respMessage);
+        }
     }
     else//just for debug
     {
