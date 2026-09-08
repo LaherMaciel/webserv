@@ -1,0 +1,23 @@
+HPP METHODS (THE BIG 4)
+
+GET - retrieve data from the server:
+
+POST - submit data to the server:
+
+PUT - Update data already on the server:
+
+DELETE - well, it delete data:
+
+
+HTTP HEADER FIELDS
+method - path - protocol
+header fields
+
+type of headers:
+general: request URL, request method, status code, remote address, Referrer policy
+response: server, set-cookie, content-type, content-lenght, date
+request: cookies, accept-xxx, conteent-type, content-lenght, authorization, User-agent, Referrer
+
+https://www.youtube.com/watch?v=iYM2zFP3Zn0&t=1330s
+
+check out postman to see how usefull it will be for the project.

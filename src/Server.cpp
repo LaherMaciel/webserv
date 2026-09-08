@@ -128,6 +128,16 @@ void Server::startServer()
     std::cout << "Server listening on port " << port << "\n";
 }
 
+/* 
+void    Server::clearBuffers()
+{
+    for (size_t i = 0; i < poll_fds.size(); ++i)
+    {
+        conns[poll_fds[i].fd]->clearBuffer();
+    }
+}
+ */
+
 void	Server::inner_loop()//rename to something like processEvents()?
 {
     int     client_fd;
@@ -152,6 +162,7 @@ void	Server::inner_loop()//rename to something like processEvents()?
         else if (conns[poll_fds[i].fd]->handleRequest() == -1)
             dead_fds.push_back(poll_fds[i].fd);
     }
+    //clearBuffers();
     cleanDeadFds(dead_fds);
 }
 

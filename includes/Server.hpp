@@ -4,17 +4,22 @@
 # include <map>
 # include <vector>
 # include <exception>
+# include <poll.h>//for poll()
 
 class Connection;
 
 class Server
 {
-    public:
+    private: //prohibits copy construct or copy assign, so we don't need to create functions
         std::map<int, Connection *>	conns;
         std::vector<struct pollfd>	poll_fds;
         int     fd;
         int     port;
 
+        Server(const Server& other);
+        Server& operator=(const Server& other);
+
+    public:
         Server();
         Server(int port);
         ~Server();
@@ -27,9 +32,7 @@ class Server
         void    runServer();
         int     acceptConnection();
         void    cleanDeadFds(std::vector<int> &deadfds);
-    private: //prohibits copy construct or copy assign, so we don't need to create functions
-        Server(const Server& other);
-        Server& operator=(const Server& other);
+        void    clearBuffers();
 };
 
 #endif
