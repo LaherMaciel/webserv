@@ -16,4 +16,7 @@ class Connection;
 void    cleanDeadFds(std::vector<struct pollfd> &poll_fds, std::vector<int> &dead_fds);
 int 	set_non_blocking(int fd);
 
+//utils.cpp
+std::string toLower(std::string s);
+
 #endif

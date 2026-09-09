@@ -19,7 +19,9 @@ class RequestParser
 		~RequestParser();
         ParseStatus parseRequest(const std::string &raw_request);
         ParseStatus parseRequestLine();
+        ParseStatus validateRequestLine();
         ParseStatus parseHeader();
+        ParseStatus parseHeaderLine(const std::string &line);
         int getErrorCode() const;
 	private:
         std::string method_;
