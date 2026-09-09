@@ -23,7 +23,7 @@ ParseStatus RequestParser::validateRequestLine()
     }
     if (version_ != "HTTP/1.1" && version_ != "HTTP/1.0")
     {
-        errorCode_ = 505;
+        errorCode_ = 400;
         return PARSE_ERROR;
     }
     return PARSE_OK;

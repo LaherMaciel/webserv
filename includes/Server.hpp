@@ -4,8 +4,7 @@
 # include <map>
 # include <vector>
 # include <exception>
-
-class Connection;
+# include "Connection.hpp"
 
 class Server
 {
@@ -18,6 +17,8 @@ class Server
         void    addFdToPoll(int fd);
         void    addClient(int client_fd);
         void    startServer();
+        ConnectionStatus handleConnection(int fd);
+        int     routeRequest(Connection *conn);
         void    processEvents();
         void    runServer();
         int     acceptConnection();

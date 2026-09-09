@@ -23,7 +23,11 @@ class RequestParser
         ParseStatus parseHeader();
         ParseStatus parseHeaderLine(const std::string &line);
         int getErrorCode() const;
-	private:
+        const std::string &getMethod() const { return method_; }
+        const std::string &getPath() const { return path_; }
+        const std::string &getVersion() const { return version_; }
+        const std::map<std::string, std::string> &getHeaders() const { return headers_; }
+    private:
         std::string method_;
         std::string path_;
         std::string version_;

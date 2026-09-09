@@ -9,12 +9,12 @@ Connection::Connection() : fd_(-1), in_buffer_("") {}
 
 Connection::Connection(int fd) : fd_(fd), in_buffer_("") {}
 
-Connection::~Connection()
-{
-    close(fd_);
-}
 
-int Connection::receiveRequest()
+Connection::~Connection() { close(fd_); }
+
+const Request& Connection::getRequest() const { return request_; }
+
+int Connection::readFromSocket()
 {
     char buffer[1024];
     ssize_t bytes_received = recv(fd_, buffer, sizeof(buffer) - 1, 0);
@@ -48,6 +48,10 @@ int Connection::sendResponse(int code)
         response = "HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     else if (code == 400)
         response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    else if (code == 404)
+        response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    else if (code == 405)
+        response = "HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     else if (code == 505)
         response = "HTTP/1.1 505 HTTP Version Not Supported\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     else
@@ -59,32 +63,35 @@ int Connection::sendResponse(int code)
     return 0;
 }
 
-int Connection::handleRequest()
+ConnectionStatus Connection::handleRequest()
 {
     std::cout << "Handling client connection (fd: " << fd_ << ")\n";
-    if (receiveRequest() == -1)
-        return -1;
+    if (readFromSocket() == -1)
+        return CLOSE_CONNECTION;
     if (in_buffer_.size() > MAX_HEADER_SIZE)
     {
         sendResponse(431);
         std::cerr << "Request header too large, closing connection (fd: " << fd_ << ")\n";
-        return -1;
+        return CLOSE_CONNECTION;
     }
-    ParseStatus status = request_.parseRequest(in_buffer_);
+    ParseStatus status = parser_.parseRequest(in_buffer_);
     if (status == PARSE_ERROR)
     {
-        sendResponse(request_.getErrorCode());
+        sendResponse(parser_.getErrorCode());
         std::cerr << "Error parsing request, closing connection (fd: " << fd_ << ")\n";
-        return -1;
+        return CLOSE_CONNECTION;
     }
     else if (status == PARSE_OK)
-        sendResponse(200);
-    else//just for debug
+    {
+        request_ = Request(parser_.getMethod(), parser_.getPath(), parser_.getVersion(), parser_.getHeaders());
+        return REQUEST_READY;
+    }
+    else if (status == PARSE_INCOMPLETE)
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "
                     << in_buffer_.size() << std::endl;
     }
-    return 0;
+    return WAIT_FOR_MORE;
 }
 //TEST WITH CURL!!!
 //curl -v http://127.0.0.1:8080/

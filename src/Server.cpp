@@ -128,6 +128,42 @@ void Server::startServer()
     std::cout << "Server listening on port " << port_ << "\n";
 }
 
+int    Server::routeRequest(Connection *conn)
+{
+    const Request& request = conn->getRequest();
+    if (request.getMethod() != "GET")
+    {
+        std::cout << "Unsupported method: " << request.getMethod() << "\n";
+        conn->sendResponse(405);
+    }
+    else if (request.getPath() != "/")
+    {
+        std::cout << "Unsupported path: " << request.getPath() << "\n";
+        conn->sendResponse(404);
+    }
+    else
+    {
+        std::cout << "Routing GET request for path: " << request.getPath() << "\n";
+        conn->sendResponse(200);
+    }
+    return 0;
+}
+
+ConnectionStatus Server::handleConnection(int fd)
+{
+    std::map<int, Connection *>::iterator it = conns_.find(fd);
+    if (it == conns_.end())
+        return CLOSE_CONNECTION;
+    Connection *conn = it->second;
+    ConnectionStatus status = conn->handleRequest();
+    if (status == REQUEST_READY)
+    {
+        routeRequest(conn);
+        status = CLOSE_CONNECTION;
+    }
+    return status;
+}
+
 void	Server::processEvents()
 {
     int     client_fd;
@@ -149,7 +185,7 @@ void	Server::processEvents()
                 continue ;
             addClient(client_fd);
         }
-        else if (conns_[poll_fds_[i].fd]->handleRequest() == -1)
+        else if (handleConnection(poll_fds_[i].fd) == CLOSE_CONNECTION)
             dead_fds.push_back(poll_fds_[i].fd);
     }
     cleanDeadFds(dead_fds);

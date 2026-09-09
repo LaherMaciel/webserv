@@ -4,8 +4,16 @@
 #include <iostream>
 #include <string>
 #include "RequestParser.hpp"
+#include "Request.hpp"
 
 #define MAX_HEADER_SIZE 1000
+
+enum ConnectionStatus
+{
+    CLOSE_CONNECTION,
+    WAIT_FOR_MORE,
+    REQUEST_READY
+};
 
 class Connection
 {
@@ -13,15 +21,19 @@ class Connection
         Connection();
         Connection(int fd);
         ~Connection();
-        int handleRequest();
-        int receiveRequest();
+        ConnectionStatus handleRequest();
+        int readFromSocket();
         int sendResponse(int code);
+        const Request& getRequest() const;
+
     private:
         int			fd_;
         std::string	in_buffer_;
         Connection(const Connection& other);
         Connection& operator=(const Connection& other);
-        RequestParser	request_;
+        RequestParser	parser_;
+        Request         request_;
+
 };
 
 #endif
