@@ -6,12 +6,13 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 20:16:09 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/10 17:02:51 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Connection.hpp"
 #include "webserv.hpp"
+#include "Response.hpp"
 
 Request initStruct()
 {
@@ -25,19 +26,32 @@ Request initStruct()
     return (request);
 }
 
-Request    Connection::ParseMethod(Request &request, std::string startLine, int pos)
+void    Connection::requestError(int code, Request &request)
 {
-    request.method = startLine.substr(0, pos);
-    if (request.method != "GET" && request.method != "POST"
-        && request.method != "DELETE")
-    {
-        request.code = 501;
-        throw std::runtime_error("501 Not Implemented");
-    }
-    return (request);
+    request.code = code;
+    throw std::runtime_error(statusText(code));
 }
 
-Request    Connection::ParseStartLine(Request &request)
+void    Connection::ParseMethod(Request &request, std::string startLine, int pos)
+{
+    request.method = startLine.substr(0, pos);
+    if (request.method.empty())
+        requestError(400, request);
+    if (request.method != "GET" && request.method != "POST"
+        && request.method != "DELETE")
+        requestError(501, request);
+}
+
+void Connection::ParseUrl(Request &request, std::string startLine, int pos)
+{
+    request.url = startLine.substr(0, pos);
+    if (request.url.empty() || request.url[0] != '/')
+        requestError(400, request);
+    if (request.url.size() > MAX_URL_SIZE)
+        requestError(414, request);
+}
+
+void    Connection::ParseStartLine(Request &request)
 {
     std::string startLine;
     size_t      i = 0;
@@ -46,7 +60,7 @@ Request    Connection::ParseStartLine(Request &request)
     request.bufferSize = in_buffer.size();
     pos = in_buffer.find("\r\n");
     if (pos == std::string::npos)
-        throw std::runtime_error("400");
+        requestError(400, request);
     startLine = in_buffer.substr(0, pos);
     while (i < 3)
     {
@@ -55,14 +69,14 @@ Request    Connection::ParseStartLine(Request &request)
         else
             pos = startLine.size();
         if (pos == std::string::npos)
-            throw std::runtime_error("400");
+            requestError(400, request);
         switch (i)
         {
             case 0:
-                request = ParseMethod(request, startLine, pos);
+                ParseMethod(request, startLine, pos);
                 break ;
             case 1:
-                request.url = startLine.substr(0, pos);
+                ParseUrl(request, startLine, pos);
                 break ;
             case 2:
                 request.version = startLine.substr(0, pos);
@@ -72,10 +86,9 @@ Request    Connection::ParseStartLine(Request &request)
         i++;
     }
     in_buffer = in_buffer.erase(0, in_buffer.find("\r\n") + 2);
-    return (request);
 }
 
-Request    Connection::ParseHeader(Request &request)
+void    Connection::ParseHeader(Request &request)
 {
     std::string header;
     std::string key;
@@ -84,25 +97,24 @@ Request    Connection::ParseHeader(Request &request)
 
     linelen = in_buffer.find("\r\n\r\n");
     if (linelen == std::string::npos)
-            throw std::runtime_error("400");
+        requestError(400, request);
     header = in_buffer.substr(0, linelen + 2);
     while (header.size() > 0)
     {
         linelen = header.find("\r\n");
         if (linelen == std::string::npos)
-            throw std::runtime_error("400");
+            requestError(400, request);
         if (linelen == 0)
             break ;
         std::string line = header.substr(0, linelen);
         pos = line.find(": ");
         if (pos > linelen)
-            throw std::runtime_error("400");
+            requestError(400, request);
         key = line.substr(0, pos);
         request.header[key] = line.substr(pos + 2, linelen - (pos + 2));
         header = header.erase(0, linelen + 2);
     }
     in_buffer = in_buffer.erase(0, in_buffer.find("\r\n\r\n") + 4);
-    return (request);
 }
 
 /**
@@ -121,34 +133,25 @@ Request    Connection::ParseBody(Request &request)
 }
 
 /**
- * This isn't parsing for now. I'm just receiving the information and storing it
- * as it goes. I don't check much of it for now and I don't give any errors for
- * now. Ah, and I still have to make proper error messages with the correct
- * status codes. I still have to do a deep dive on that part.
+ * TODO: For now I'm working in the url parsing. need to do a Query string to
+ * TODO: read properly the URL /search?q=cat in to path /search find q=cat or
+ * TODO: something like that, I need to search more about that
  *
- * So for now it just receives the in_buffer, separates the information - the
- * method, the url, the version, headers, the body - in a really basic, almost
- * raw way, while also cleaning the in_buffer. So if everything goes well, then
- * the request should have all the information already organized and ready to
- * use, and the in_buffer should be empty. And we should also be able to know if
- * theres information missing. or not.
- * 
- * Again, all the throws in this file are temporary.
+ * TODO: OH DAMN, IM READYING HERE ABOUT THE URL CHECKS... THIS WILL THAT SOME TIME....
+ *
+ * * Things to do:
+ * * Create the method to know if we received the full message
+ * *    (for example if the content-length that was meant to be sent is 1500 and we
+ * *    received 1000, it means we have to way for the rest of the information before
+ * *    actually send the reply) 
+ * * Parse Header
+ * * Parse the body
+ * ? what am I missing in the to do list?
  */
-Request    Connection::RequestParsing(Request &request)
+void    Connection::RequestParsing(Request &request)
 {
-    try
-    {
-        request = ParseStartLine(request);
-        request = ParseHeader(request);
-        request = ParseBody(request);
-        std::cout << "END RECEIVED OF REQUEST" << std::endl << std::endl << std::endl;
-    }
-    catch(std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-        in_buffer.erase(0, in_buffer.size());
-        sendResponse(request.code);
-    }
-    return (request);
+    ParseStartLine(request);
+    ParseHeader(request);
+    ParseBody(request);
+    std::cout << "END RECEIVED OF REQUEST" << std::endl << std::endl << std::endl;
 }

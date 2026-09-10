@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/08 18:56:52 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/10 15:52:40 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,10 +41,11 @@ std::string statusText(int code)
         case 200: return "200 OK\r\n";
         case 400: return "400 Bad Request\r\n";
         case 404: return "404 Not Found\r\n";
+        case 414: return "414 Request-URI Too Long\r\n";
         case 431: return "431 Request Header Fields Too Large\r\n";
         case 500: return "500 Internal Server Error\r\n";
-        case 501: return "501 Not Implemented";
-        default:  return "";
+        case 501: return "501 Not Implemented\r\n";
+        default:  return "INDEFINE ERROR\r\n";
     }
 }
 

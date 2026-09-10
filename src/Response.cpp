@@ -101,4 +101,3 @@ std::string Response::getResponse()
     page += body;
     return (page);
 }
-
