@@ -144,7 +144,7 @@ int    Server::routeRequest(Connection *conn)
     else
     {
         std::cout << "Routing GET request for path: " << request.getPath() << "\n";
-        conn->sendResponse(200);
+        conn->sendResponseIndex();
     }
     return 0;
 }

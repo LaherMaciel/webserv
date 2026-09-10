@@ -1,5 +1,6 @@
 
 #include "Connection.hpp"
+#include "webserv.hpp"
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h> //for recv() send()
@@ -36,6 +37,28 @@ int Connection::readFromSocket()
         std::cout << "Received data:\n" << buffer << "\n";
         in_buffer_.append(buffer, bytes_received);
     }
+    return 0;
+}
+
+//temp for demo
+int Connection::sendResponseIndex()
+{
+    std::string body;
+    if (!readFile("www/index.html", body))
+    {
+        std::cerr << "Error reading index.html\n";
+        return -1;
+    }
+    std::string response =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/html\r\n"
+    "Content-Length: " + toString(body.size()) + "\r\n"
+    "Connection: close\r\n"
+    "\r\n" +
+    body;
+    ssize_t bytes_sent = send(fd_, response.c_str(), response.length(), 0);
+    if (bytes_sent < 0)
+        return -1;
     return 0;
 }
 

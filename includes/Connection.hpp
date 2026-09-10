@@ -24,6 +24,7 @@ class Connection
         ConnectionStatus handleRequest();
         int readFromSocket();
         int sendResponse(int code);
+        int sendResponseIndex();
         const Request& getRequest() const;
 
     private:

@@ -18,5 +18,7 @@ int 	set_non_blocking(int fd);
 
 //utils.cpp
 std::string toLower(std::string s);
+std::string toString(size_t value);
+bool readFile(const std::string& path, std::string& content);
 
 #endif
