@@ -97,24 +97,21 @@ ConnectionStatus Connection::handleRequest()
         std::cerr << "Request header too large, closing connection (fd: " << fd_ << ")\n";
         return CLOSE_CONNECTION;
     }
-    ParseStatus status = parser_.parseRequest(in_buffer_);
+    ParseStatus status = parser_.parseRequest(in_buffer_, request_);
     if (status == PARSE_ERROR)
     {
         sendResponse(parser_.getErrorCode());
         std::cerr << "Error parsing request, closing connection (fd: " << fd_ << ")\n";
         return CLOSE_CONNECTION;
     }
-    else if (status == PARSE_OK)
-    {
-        request_ = Request(parser_.getMethod(), parser_.getPath(), parser_.getVersion(), parser_.getHeaders());
-        return REQUEST_READY;
-    }
     else if (status == PARSE_INCOMPLETE)
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "
                     << in_buffer_.size() << std::endl;
+        return WAIT_FOR_MORE;
     }
-    return WAIT_FOR_MORE;
+    request_.printRequest();
+    return REQUEST_READY;
 }
 //TEST WITH CURL!!!
 //curl -v http://127.0.0.1:8080/

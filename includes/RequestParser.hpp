@@ -5,6 +5,8 @@
 #include <string>
 #include <map>
 
+class Request;
+
 enum ParseStatus
 {
     PARSE_INCOMPLETE,
@@ -17,22 +19,14 @@ class RequestParser
 	public:
 		RequestParser();
 		~RequestParser();
-        ParseStatus parseRequest(const std::string &raw_request);
-        ParseStatus parseRequestLine();
-        ParseStatus validateRequestLine();
-        ParseStatus parseHeader();
-        ParseStatus parseHeaderLine(const std::string &line);
+        ParseStatus parseRequest(const std::string &raw_request, Request &request);
+        ParseStatus parseRequestLine(Request &request);
+        ParseStatus validateRequestLine(const std::string &method, const std::string &path, const std::string &version);
+        ParseStatus parseHeader(Request &request);
+        ParseStatus parseHeaderLine(const std::string &line, std::map<std::string, std::string> &headers);
         int getErrorCode() const;
-        const std::string &getMethod() const { return method_; }
-        const std::string &getPath() const { return path_; }
-        const std::string &getVersion() const { return version_; }
-        const std::map<std::string, std::string> &getHeaders() const { return headers_; }
+    
     private:
-        std::string method_;
-        std::string path_;
-        std::string version_;
-        std::map<std::string, std::string> headers_;
-
         int errorCode_;
         std::string rawRequestLine_;
         std::string rawHeaders_;
