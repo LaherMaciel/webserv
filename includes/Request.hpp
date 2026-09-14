@@ -8,7 +8,6 @@ class Request
 {
     public:
         Request();
-        Request(const std::string &method, const std::string &path, const std::string &version, const std::map<std::string, std::string> &headers);//temp
         ~Request();
         Request(const Request& other);
         Request& operator=(const Request& other);

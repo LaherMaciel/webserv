@@ -1,6 +1,7 @@
 
 #include "Connection.hpp"
 #include "webserv.hpp"
+#include "Response.hpp"
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h> //for recv() send()
@@ -9,7 +10,6 @@
 Connection::Connection() : fd_(-1), in_buffer_("") {}
 
 Connection::Connection(int fd) : fd_(fd), in_buffer_("") {}
-
 
 Connection::~Connection() { close(fd_); }
 
@@ -40,50 +40,21 @@ int Connection::readFromSocket()
     return 0;
 }
 
-//temp for demo
-int Connection::sendResponseIndex()
+int Connection::sendResponse(Response &response)
 {
-    std::string body;
-    if (!readFile("www/index.html", body))
-    {
-        std::cerr << "Error reading index.html\n";
-        return -1;
-    }
-    std::string response =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: text/html\r\n"
-    "Content-Length: " + toString(body.size()) + "\r\n"
-    "Connection: close\r\n"
-    "\r\n" +
-    body;
-    ssize_t bytes_sent = send(fd_, response.c_str(), response.length(), 0);
-    if (bytes_sent < 0)
-        return -1;
-    return 0;
-}
-
-int Connection::sendResponse(int code)
-{
-    std::string response;
-    if (code == 200)
-        response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-    else if (code == 431)
-        response = "HTTP/1.1 431 Request Header Fields Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    else if (code == 400)
-        response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    else if (code == 404)
-        response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    else if (code == 405)
-        response = "HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    else if (code == 505)
-        response = "HTTP/1.1 505 HTTP Version Not Supported\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    else
-        response = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    ssize_t bytes_sent = send(fd_, response.c_str(), response.length(), 0);
+    std::string response_str = response.serialize();
+    ssize_t bytes_sent = send(fd_, response_str.c_str(), response_str.length(), 0);
     if (bytes_sent < 0)
         return -1;
     //placeholder to handle partial sends
     return 0;
+}
+
+int Connection::sendErrorResponse(int code)
+{
+    std::cerr << httpReasonPhrase(code) << " (fd: " << fd_ << ")\n";
+    Response response(code);
+    return sendResponse(response);
 }
 
 ConnectionStatus Connection::handleRequest()
@@ -93,15 +64,13 @@ ConnectionStatus Connection::handleRequest()
         return CLOSE_CONNECTION;
     if (in_buffer_.size() > MAX_HEADER_SIZE)
     {
-        sendResponse(431);
-        std::cerr << "Request header too large, closing connection (fd: " << fd_ << ")\n";
+        sendErrorResponse(431);
         return CLOSE_CONNECTION;
     }
     ParseStatus status = parser_.parseRequest(in_buffer_, request_);
     if (status == PARSE_ERROR)
     {
-        sendResponse(parser_.getErrorCode());
-        std::cerr << "Error parsing request, closing connection (fd: " << fd_ << ")\n";
+        sendErrorResponse(parser_.getErrorCode());
         return CLOSE_CONNECTION;
     }
     else if (status == PARSE_INCOMPLETE)

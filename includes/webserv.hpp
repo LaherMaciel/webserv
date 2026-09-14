@@ -20,5 +20,6 @@ int 	set_non_blocking(int fd);
 std::string toLower(std::string s);
 std::string toString(size_t value);
 bool readFile(const std::string& path, std::string& content);
+std::string httpReasonPhrase(int code);
 
 #endif

@@ -2,6 +2,7 @@
 #include "webserv.hpp"
 #include "Server.hpp"
 #include "Connection.hpp"
+#include "Response.hpp"
 #include <map>
 #include <cstring>//for memset
 #include <sys/socket.h>//for socket(), bind(), listen(), accept()
@@ -130,22 +131,37 @@ void Server::startServer()
 
 int    Server::routeRequest(Connection *conn)
 {
+    std::string body;
     const Request& request = conn->getRequest();
+    int response_code = 200;
     if (request.getMethod() != "GET")
     {
         std::cout << "Unsupported method: " << request.getMethod() << "\n";
-        conn->sendResponse(405);
+        response_code = 405;
     }
     else if (request.getPath() != "/")
     {
         std::cout << "Unsupported path: " << request.getPath() << "\n";
-        conn->sendResponse(404);
+        response_code = 404;
     }
     else
     {
+        //get body of index.html and send it as response
         std::cout << "Routing GET request for path: " << request.getPath() << "\n";
-        conn->sendResponseIndex();
+        if (!readFile("www/index.html", body))
+        {
+            std::cerr << "Error reading index.html\n";
+            response_code = 500;
+        }
+        else
+        {
+            response_code = 200;
+        }
     }
+    Response response(response_code);
+    if (!body.empty())
+        response.setBody(body, "text/html");
+    conn->sendResponse(response);
     return 0;
 }
 

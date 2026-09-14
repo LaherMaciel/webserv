@@ -8,6 +8,8 @@
 
 #define MAX_HEADER_SIZE 1000
 
+class Response;
+
 enum ConnectionStatus
 {
     CLOSE_CONNECTION,
@@ -23,8 +25,9 @@ class Connection
         ~Connection();
         ConnectionStatus handleRequest();
         int readFromSocket();
-        int sendResponse(int code);
-        int sendResponseIndex();
+        // int sendResponse(int code);
+        int sendResponse(Response &response);
+        int sendErrorResponse(int code);
         const Request& getRequest() const;
 
     private:
