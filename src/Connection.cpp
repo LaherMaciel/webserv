@@ -7,9 +7,9 @@
 #include <sys/socket.h> //for recv() send()
 #include <cerrno>//for errno
 
-Connection::Connection() : fd_(-1), in_buffer_("") {}
+Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_("") {}
 
-Connection::Connection(int fd) : fd_(fd), in_buffer_("") {}
+Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_("") {}
 
 Connection::~Connection() { close(fd_); }
 
@@ -40,21 +40,30 @@ int Connection::readFromSocket()
     return 0;
 }
 
-int Connection::sendResponse(Response &response)
+void Connection::queueResponse(Response &response)
 {
-    std::string response_str = response.serialize();
-    ssize_t bytes_sent = send(fd_, response_str.c_str(), response_str.length(), 0);
-    if (bytes_sent < 0)
-        return -1;
-    //placeholder to handle partial sends
-    return 0;
+    out_buffer_ = response.serialize();
+    bytes_sent_ = 0;
 }
 
-int Connection::sendErrorResponse(int code)
+ConnectionStatus Connection::sendResponse()
+{
+    size_t bytes_left = out_buffer_.size() - bytes_sent_;
+    ssize_t sent = send(fd_, out_buffer_.c_str() + bytes_sent_, bytes_left, 0);
+    if (sent <= 0)
+        return CLOSE_CONNECTION;
+    bytes_sent_ += sent;
+    if (bytes_sent_ < out_buffer_.size())
+        return WAIT_FOR_MORE;
+    return CLOSE_CONNECTION;
+}
+
+ConnectionStatus Connection::sendErrorResponse(int code)
 {
     std::cerr << httpReasonPhrase(code) << " (fd: " << fd_ << ")\n";
     Response response(code);
-    return sendResponse(response);
+    queueResponse(response);
+    return sendResponse();//to be moved to poll loop to handle partial sends
 }
 
 ConnectionStatus Connection::handleRequest()

@@ -161,23 +161,24 @@ int    Server::routeRequest(Connection *conn)
     Response response(response_code);
     if (!body.empty())
         response.setBody(body, "text/html");
-    conn->sendResponse(response);
+    conn->queueResponse(response);
     return 0;
 }
 
-ConnectionStatus Server::handleConnection(int fd)
+ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
 {
     std::map<int, Connection *>::iterator it = conns_.find(fd);
     if (it == conns_.end())
         return CLOSE_CONNECTION;
     Connection *conn = it->second;
     ConnectionStatus status = conn->handleRequest();
-    if (status == REQUEST_READY)
-    {
-        routeRequest(conn);
-        status = CLOSE_CONNECTION;
-    }
-    return status;
+    if (status != REQUEST_READY)
+        return status;
+    routeRequest(conn);
+    //to be moved to poll loop to handle partial sends::
+    poll_fds_[pollfd_pos].events = POLLOUT;
+    conn->sendResponse();
+    return CLOSE_CONNECTION;
 }
 
 void	Server::processEvents()
@@ -201,7 +202,7 @@ void	Server::processEvents()
                 continue ;
             addClient(client_fd);
         }
-        else if (handleConnection(poll_fds_[i].fd) == CLOSE_CONNECTION)
+        else if (handleConnection(poll_fds_[i].fd, i) == CLOSE_CONNECTION)
             dead_fds.push_back(poll_fds_[i].fd);
     }
     cleanDeadFds(dead_fds);

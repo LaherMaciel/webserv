@@ -17,7 +17,7 @@ class Server
         void    addFdToPoll(int fd);
         void    addClient(int client_fd);
         void    startServer();
-        ConnectionStatus handleConnection(int fd);
+        ConnectionStatus handleConnection(int fd, int pollfd_pos);
         int     routeRequest(Connection *conn);
         void    processEvents();
         void    runServer();

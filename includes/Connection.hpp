@@ -25,14 +25,16 @@ class Connection
         ~Connection();
         ConnectionStatus handleRequest();
         int readFromSocket();
-        // int sendResponse(int code);
-        int sendResponse(Response &response);
-        int sendErrorResponse(int code);
+        void queueResponse(Response &response);
+        ConnectionStatus sendResponse();
+        ConnectionStatus sendErrorResponse(int code);
         const Request& getRequest() const;
 
     private:
         int			fd_;
         std::string	in_buffer_;
+        std::string out_buffer_;
+        size_t      bytes_sent_;
         Connection(const Connection& other);
         Connection& operator=(const Connection& other);
         RequestParser	parser_;
