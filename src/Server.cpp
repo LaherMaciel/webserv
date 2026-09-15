@@ -165,20 +165,26 @@ int    Server::routeRequest(Connection *conn)
     return 0;
 }
 
-ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
+Connection *Server::getConnection(int fd)
 {
     std::map<int, Connection *>::iterator it = conns_.find(fd);
     if (it == conns_.end())
+        return NULL;
+    return it->second;
+}
+
+ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
+{
+    Connection *conn = getConnection(fd);//safer than using conns_[fd] directly
+    if (!conn)
         return CLOSE_CONNECTION;
-    Connection *conn = it->second;
     ConnectionStatus status = conn->handleRequest();
-    if (status != REQUEST_READY)
+    if (status == CLOSE_CONNECTION || status == WAIT_FOR_MORE)
         return status;
-    routeRequest(conn);
-    //to be moved to poll loop to handle partial sends::
+    if (status == REQUEST_READY)
+        routeRequest(conn);
     poll_fds_[pollfd_pos].events = POLLOUT;
-    conn->sendResponse();
-    return CLOSE_CONNECTION;
+    return RESPONSE_READY;
 }
 
 void	Server::processEvents()
@@ -193,17 +199,24 @@ void	Server::processEvents()
             dead_fds.push_back(poll_fds_[i].fd);
             continue ;
         }
-        if (!(poll_fds_[i].revents & POLLIN))
-            continue ;
-        if (poll_fds_[i].fd == fd_)
+        if (poll_fds_[i].revents & POLLIN)
         {
-            client_fd = acceptConnection();
-            if (client_fd == -1)
-                continue ;
-            addClient(client_fd);
+           if (poll_fds_[i].fd == fd_)
+           {
+                client_fd = acceptConnection();
+                if (client_fd == -1)
+                    continue ;
+                addClient(client_fd);
+           }
+           else if (handleConnection(poll_fds_[i].fd, i) == CLOSE_CONNECTION)
+                dead_fds.push_back(poll_fds_[i].fd);
         }
-        else if (handleConnection(poll_fds_[i].fd, i) == CLOSE_CONNECTION)
-            dead_fds.push_back(poll_fds_[i].fd);
+        if (poll_fds_[i].revents & POLLOUT)
+        {
+            Connection *conn = getConnection(poll_fds_[i].fd);//safer than using conns_[fd] directly
+            if (!conn || conn->sendResponse() == CLOSE_CONNECTION)
+                dead_fds.push_back(poll_fds_[i].fd);
+        } 
     }
     cleanDeadFds(dead_fds);
 }

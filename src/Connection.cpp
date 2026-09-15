@@ -7,9 +7,9 @@
 #include <sys/socket.h> //for recv() send()
 #include <cerrno>//for errno
 
-Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_("") {}
+Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_(""), bytes_sent_(0) {}
 
-Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_("") {}
+Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0) {}
 
 Connection::~Connection() { close(fd_); }
 
@@ -40,12 +40,6 @@ int Connection::readFromSocket()
     return 0;
 }
 
-void Connection::queueResponse(Response &response)
-{
-    out_buffer_ = response.serialize();
-    bytes_sent_ = 0;
-}
-
 ConnectionStatus Connection::sendResponse()
 {
     size_t bytes_left = out_buffer_.size() - bytes_sent_;
@@ -58,12 +52,18 @@ ConnectionStatus Connection::sendResponse()
     return CLOSE_CONNECTION;
 }
 
-ConnectionStatus Connection::sendErrorResponse(int code)
+void Connection::queueResponse(const Response &response)
+{
+    out_buffer_ = response.serialize();
+    bytes_sent_ = 0;
+}
+
+ConnectionStatus Connection::queueErrorResponse(int code)
 {
     std::cerr << httpReasonPhrase(code) << " (fd: " << fd_ << ")\n";
     Response response(code);
     queueResponse(response);
-    return sendResponse();//to be moved to poll loop to handle partial sends
+    return RESPONSE_READY;
 }
 
 ConnectionStatus Connection::handleRequest()
@@ -72,16 +72,10 @@ ConnectionStatus Connection::handleRequest()
     if (readFromSocket() == -1)
         return CLOSE_CONNECTION;
     if (in_buffer_.size() > MAX_HEADER_SIZE)
-    {
-        sendErrorResponse(431);
-        return CLOSE_CONNECTION;
-    }
+        return queueErrorResponse(431);
     ParseStatus status = parser_.parseRequest(in_buffer_, request_);
     if (status == PARSE_ERROR)
-    {
-        sendErrorResponse(parser_.getErrorCode());
-        return CLOSE_CONNECTION;
-    }
+        return queueErrorResponse(parser_.getErrorCode());
     else if (status == PARSE_INCOMPLETE)
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "

@@ -31,6 +31,8 @@ class Server
         int     port_;
         Server(const Server& other);
         Server& operator=(const Server& other);
+
+        Connection *getConnection(int fd);
 };
 
 #endif

@@ -14,7 +14,8 @@ enum ConnectionStatus
 {
     CLOSE_CONNECTION,
     WAIT_FOR_MORE,
-    REQUEST_READY
+    REQUEST_READY,
+    RESPONSE_READY
 };
 
 class Connection
@@ -25,9 +26,9 @@ class Connection
         ~Connection();
         ConnectionStatus handleRequest();
         int readFromSocket();
-        void queueResponse(Response &response);
+        void queueResponse(const Response &response);
         ConnectionStatus sendResponse();
-        ConnectionStatus sendErrorResponse(int code);
+        ConnectionStatus queueErrorResponse(int code);
         const Request& getRequest() const;
 
     private:

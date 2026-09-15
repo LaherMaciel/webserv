@@ -110,14 +110,18 @@ ParseStatus RequestParser::parseHeader(Request &request)
 
 ParseStatus RequestParser::parseRequest(const std::string &raw_request, Request &request)
 {
-    size_t header_end_pos = raw_request.find("\r\n\r\n");
-    if (header_end_pos == std::string::npos)
+    size_t headersEnd = raw_request.find("\r\n\r\n");
+    if (headersEnd == std::string::npos)
         return PARSE_INCOMPLETE;
 
-    size_t request_line_end_pos = raw_request.find("\r\n");
-    rawRequestLine_ = raw_request.substr(0, request_line_end_pos);
-    size_t headers_start = request_line_end_pos + 2;
-    rawHeaders_ = raw_request.substr(headers_start, header_end_pos - headers_start);
+    size_t requestLineEnd = raw_request.find("\r\n");
+    rawRequestLine_ = raw_request.substr(0, requestLineEnd);
+
+    size_t headersStart = requestLineEnd + 2;
+    if (requestLineEnd == headersEnd)
+        rawHeaders_ = "";
+    else
+        rawHeaders_ = raw_request.substr(headersStart, headersEnd - headersStart);
     ParseStatus status = parseRequestLine(request);
     if (status != PARSE_OK)
         return status;
