@@ -24,16 +24,22 @@ run_test()
 
 printf "%s===== VALID =====\n%s" "$GREEN" "$RESET"
 
-run_test "Request Val.1:" \
+run_test "Request Val.1 - Root path:" \
 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'
 
-run_test "Request Val.2:" \
+run_test "Request Val.2 - About page:" \
+'GET /about HTTP/1.1\r\nHost: localhost\r\n\r\n'
+
+#run_test "Request Val.3 - Image file:" \
+#'GET /dog.jpg HTTP/1.1\r\nHost: localhost\r\n\r\n'
+
+run_test "Request Val.4 - HTTP/1.0:" \
 'GET / HTTP/1.0\r\n\r\n'
 
 printf "%s===== INVALID =====\n%s" "$RED" "$RESET"
 
-run_test "Request Inv.1:" \
+run_test "Request Inv.1 - non-existent path:" \
 'GET /notfound HTTP/1.1\r\nHost: localhost\r\n\r\n'
 
-run_test "Request Inv.2:" \
-'POST / HTTP/1.1\r\nHost: localhost\r\n\r\n'
+run_test "Request Inv.2 - no Host header:" \
+'POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\n'

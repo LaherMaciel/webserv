@@ -5,6 +5,7 @@
 # include <vector>
 # include <exception>
 # include "Connection.hpp"
+# include "Router.hpp"
 
 class Server
 {
@@ -29,6 +30,8 @@ class Server
         std::vector<struct pollfd>	poll_fds_;
         int     fd_;
         int     port_;
+        Router  router_;
+
         Server(const Server& other);
         Server& operator=(const Server& other);
 

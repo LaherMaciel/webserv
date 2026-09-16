@@ -28,7 +28,7 @@ class Connection
         int readFromSocket();
         void queueResponse(const Response &response);
         ConnectionStatus sendResponse();
-        ConnectionStatus queueErrorResponse(int code);
+        ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1");
         const Request& getRequest() const;
 
     private:

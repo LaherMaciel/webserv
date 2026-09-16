@@ -58,10 +58,12 @@ void Connection::queueResponse(const Response &response)
     bytes_sent_ = 0;
 }
 
-ConnectionStatus Connection::queueErrorResponse(int code)
+ConnectionStatus Connection::queueErrorResponse(int code, std::string version)
 {
+    if (version.empty())
+        version = "HTTP/1.1";
     std::cerr << httpReasonPhrase(code) << " (fd: " << fd_ << ")\n";
-    Response response(code);
+    Response response(code, version);
     queueResponse(response);
     return RESPONSE_READY;
 }
@@ -75,7 +77,7 @@ ConnectionStatus Connection::handleRequest()
         return queueErrorResponse(431);
     ParseStatus status = parser_.parseRequest(in_buffer_, request_);
     if (status == PARSE_ERROR)
-        return queueErrorResponse(parser_.getErrorCode());
+        return queueErrorResponse(parser_.getErrorCode(), request_.getVersion());
     else if (status == PARSE_INCOMPLETE)
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "

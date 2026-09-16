@@ -8,9 +8,17 @@ Response::Response(int statusCode) : statusCode_(statusCode), version_("HTTP/1.1
 }
 
 Response::Response(int statusCode, const std::string &version)
-    : statusCode_(statusCode), version_(version), body_("")
+    : statusCode_(statusCode), version_(version)
 {
     setHeader("Content-Length", "0");
+    setHeader("Connection", "close");
+}
+
+Response::Response(int statusCode, const std::string &version, const std::string &body, const std::string &contentType)
+    : statusCode_(statusCode), version_(version), body_(body)
+{
+    setHeader("Content-Type", contentType);
+    setHeader("Content-Length", toString(body.size()));
     setHeader("Connection", "close");
 }
 
