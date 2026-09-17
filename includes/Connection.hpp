@@ -8,13 +8,6 @@
 #define MAX_HEADER_SIZE 1000
 #define MAX_URL_SIZE 2083
 
-//ERROR HANDLING OPTION A
-#define NOT_FOUND "404 Not Found\r\n"
-#define OK "200 OK\r\n"
-#define BAD_REQUEST "400 Bad Request\r\n"
-#define REQUEST_HEADER_FILE_TOO_LONG "431 Request Header Fields Too Large\r\n"
-#define INTERNAL_SERVER_ERROR "500 Internal Server Error\r\n"
-
 struct  Request
 {
     std::string method;

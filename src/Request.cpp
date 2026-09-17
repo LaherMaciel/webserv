@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/17 14:52:51 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/17 17:38:48 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -153,6 +153,8 @@ void    Connection::ParseHeader(Request &request)
  */
 Request    Connection::ParseBody(Request &request)
 {
+    if (in_buffer.find("\r\n\r\n"))
+    /**/
     return (request);
 }
 
