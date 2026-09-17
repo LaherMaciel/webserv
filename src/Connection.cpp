@@ -47,7 +47,7 @@ int Connection::sendResponse(int code)
     if (code == 200)
         response = "HTTP/1.1 " + response + "\r\nContent-Length: 0\r\n\r\n";
     else if (code == 431)
-        response = "HTTP/1.1 " + response + "\r\Content-Length: 0\r\nConnection: close\r\n\r\n";
+        response = "HTTP/1.1 " + response + "\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
     else
         response = "HTTP/1.1 " + response + "\r\n";
     ssize_t bytes_sent = send(_fd, response.c_str(), response.length(), 0);

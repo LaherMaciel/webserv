@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/08 03:03:48 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/10 17:02:51 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/09/17 14:52:51 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,6 +49,30 @@ void Connection::ParseUrl(Request &request, std::string startLine, int pos)
         requestError(400, request);
     if (request.url.size() > MAX_URL_SIZE)
         requestError(414, request);
+    int         i = request.url.find("?");
+    std::string path = request.url.substr(0, i);
+    std::string query = request.url.substr(i + 1, request.url.size());
+    std::cout << "path: " << path << "  query: " << query << std::endl;
+    i = 0;
+    while(!query.empty())
+    {
+        std::string search;
+        int pos = query.find("&");
+        if (pos == 0)
+        {
+            search = query;
+            query.erase(0, query.size());
+        }
+        else
+        {
+            search = query.substr(0, pos);
+            query.erase(0, pos + 1);
+        }
+        // Deal with the query search here. We should already have the path and
+        // be able to search each query one by one cleanly.
+        if (pos == 0)
+            break ;
+    }
 }
 
 void    Connection::ParseStartLine(Request &request)

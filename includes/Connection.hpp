@@ -15,8 +15,6 @@
 #define REQUEST_HEADER_FILE_TOO_LONG "431 Request Header Fields Too Large\r\n"
 #define INTERNAL_SERVER_ERROR "500 Internal Server Error\r\n"
 
-//why a std::string and not. char like the previews?
-
 struct  Request
 {
     std::string method;
