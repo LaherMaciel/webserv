@@ -6,7 +6,7 @@
 /*   By: belinore <belinore@student.42lisboa.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/02 17:34:01 by belinore         ###   ########.fr       */
+/*   Updated: 2026/09/17 15:32:18 by belinore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,6 +26,7 @@
 #include <vector>
 #include <stdexcept> // to use std::runtime_error
 
+//to check what is allowed
 int set_non_blocking(int fd)
 {
     int flags = fcntl(fd, F_GETFL, 0);//fcntl stands for file control, F_GETFL gets the file status flags
