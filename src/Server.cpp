@@ -148,8 +148,15 @@ ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
         return status;
     if (status == REQUEST_READY)
     {
-        Response response = router_.routeRequest(conn->getRequest());
-        conn->queueResponse(response);
+        Response response;
+        RouteType result = router_.routeRequest(conn->getRequest(), response);
+        if (result != ROUTE_CGI)
+            conn->queueResponse(response);
+        else
+        {
+            std::cerr << "CGI not yet implemented!!!\n";
+            conn->queueErrorResponse(501, conn->getRequest().getVersion());
+        }
     }
     poll_fds_[pollfd_pos].events = POLLOUT;
     return RESPONSE_READY;

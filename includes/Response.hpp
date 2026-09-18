@@ -7,7 +7,7 @@
 class Response
 {
     public:
-        Response(int statusCode);
+        Response();
         Response(int statusCode, const std::string &version);
         Response(int statusCode, const std::string &version, const std::string &body, const std::string &contentType);
         Response(const Response& other);
