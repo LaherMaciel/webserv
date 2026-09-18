@@ -13,9 +13,27 @@
 #include <poll.h>//for poll()
 #include <stdexcept>//for exception types
 
-Server::Server(): fd_(-1), port_(DEFAULT_PORT){}
+//temp function
+ServerConfig setServerConfig()
+{
+    ServerConfig config;
+    config.port_ = DEFAULT_PORT;
+    config.host_ = "localhost";
+    config.serverName_ = "DefaultServer";
+    config.maxBodySize_ = 1000000; // 1 MB
+    LocationConfig location;
+    location.path_ = "/";
+    location.root_ = "www";
+    config.locations_.push_back(location);
+    location.path_ = "/cgi-bin";
+    location.root_ = "cgi-bin";
+    config.locations_.push_back(location);
+    return config;
+}
 
-Server::Server(int port): fd_(-1), port_(port) {}
+Server::Server(): config_(setServerConfig()), fd_(-1), port_(DEFAULT_PORT), router_(config_) {}
+
+Server::Server(const ServerConfig& config): config_(config), fd_(-1), port_(config.port_), router_(config_) {}
 
 Server::~Server()
 {

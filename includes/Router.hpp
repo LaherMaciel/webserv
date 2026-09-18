@@ -4,6 +4,8 @@
 
 class Response;
 class Request;
+struct ServerConfig;
+struct LocationConfig;
 
 enum RouteType
 {
@@ -15,16 +17,19 @@ enum RouteType
 class Router
 {
     public:
-        Router();
+        Router(ServerConfig &config);
         ~Router();
         RouteType routeRequest(const Request& request, Response& response);
+        LocationConfig *findLocation(const std::string &path);
+        bool isValidMethod(const std::string &method, const LocationConfig *location);
 
     private:
         Router(const Router& other);
         Router& operator=(const Router& other);
         
-        std::string mapFilePath(const std::string &path);
+        std::string mapFilePath(const std::string &path, const LocationConfig *location);
         std::string contentType(const std::string &path);
+        ServerConfig &config_;
 };
 
 

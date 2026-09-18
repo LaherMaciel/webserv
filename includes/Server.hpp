@@ -6,12 +6,13 @@
 # include <exception>
 # include "Connection.hpp"
 # include "Router.hpp"
+# include "ServerConfig.hpp"
 
 class Server
 {
     public:
         Server();
-        Server(int port);
+        Server(const ServerConfig& config);
         ~Server();
         void    initSocket();
         void    bindSocket();
@@ -25,6 +26,7 @@ class Server
         void    cleanDeadFds(std::vector<int> &deadfds);
 
     private:
+        ServerConfig config_;
         std::map<int, Connection *>	conns_;
         std::vector<struct pollfd>	poll_fds_;
         int     fd_;
