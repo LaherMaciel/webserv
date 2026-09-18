@@ -169,6 +169,9 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, const
 
 /**
  * (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nContent-Length: 11\r\nTransfer-encoding: chunk\r\n\r\n6\r\nhello \r\n6\r\nworld'; sleep 1) | nc 127.0.0.1 8080
+ * 
+ * *find the best way to calculate where the body ends so that
+ * *we can add the correct value to the endOfBody so we can clean the in_buffer
  */
 int RequestParser::parseRequestBody(const std::string &raw_request, Request &request)
 {
@@ -180,6 +183,6 @@ int RequestParser::parseRequestBody(const std::string &raw_request, Request &req
         std::cout << "BODY: " << request.getBody() << std::endl;
         return (0);
     }
-    
+
     return (0);
 }
