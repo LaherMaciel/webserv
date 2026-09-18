@@ -1,7 +1,7 @@
 #include "Response.hpp"
 #include "webserv.hpp"
 
-Response::Response(int statusCode) : statusCode_(statusCode), version_("HTTP/1.1"), body_("") 
+Response::Response() : statusCode_(500), version_("HTTP/1.1"), body_("")
 {
     setHeader("Content-Length", "0");
     setHeader("Connection", "close");

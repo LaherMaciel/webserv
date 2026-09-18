@@ -5,12 +5,19 @@
 class Response;
 class Request;
 
+enum RouteType
+{
+    ROUTE_STATIC,
+    ROUTE_CGI,
+    ROUTE_ERROR
+};
+
 class Router
 {
     public:
         Router();
         ~Router();
-        Response routeRequest(const Request& request);
+        RouteType routeRequest(const Request& request, Response& response);
 
     private:
         Router(const Router& other);

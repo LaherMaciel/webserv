@@ -35,26 +35,33 @@ std::string Router::contentType(const std::string &path)
         return "application/octet-stream";
 }
 
-Response Router::routeRequest(const Request& request)
+RouteType Router::routeRequest(const Request& request, Response& response)
 {
     if (request.getMethod() != "GET")
     {
         std::cout << "Unsupported method: " << request.getMethod() << "\n";
-        return Response(405, request.getVersion());
+        response = Response(405, request.getVersion());
+        return ROUTE_ERROR;
+    }
+    if (request.getPath().find("?") != std::string::npos)
+    {
+        return ROUTE_CGI;//TEMPORARY
     }
     std::string path = mapFilePath(request.getPath());
     if (path.empty())
     {
         std::cout << "Unsupported path: " << request.getPath() << "\n";
-        return Response(404, request.getVersion());
+        response = Response(404, request.getVersion());
+        return ROUTE_ERROR;
     }
     std::cout << "Routing GET request for path: " << request.getPath() << "\n";
     std::string body;
     if (!readFile(path, body))
     {
+        response = Response(500, request.getVersion());
         std::cerr << "Error reading " << path << "\n";
-        return Response(500, request.getVersion());
+        return ROUTE_ERROR;
     }
-    Response response(200, request.getVersion(), body, contentType(path));
-    return response;
+    response = Response(200, request.getVersion(), body, contentType(path));
+    return ROUTE_STATIC;
 }
