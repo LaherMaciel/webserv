@@ -80,15 +80,21 @@ ConnectionStatus Connection::handleRequest()
         if (request_.getMethod().empty())
             parser_.parseRequest(in_buffer_, request_);
         in_buffer_.erase(0, parser_.endOfHeaders_);
-        //if (in_buffer_.find("\r\n\r\n"))
-        //if (request_.getMethod() == "POST")
-        //parser_.parseBody(in_buffer_ + endofheaders_, request_)
+        parser_.endOfHeaders_ = 0;
     }
     catch(int error)
     {
         return queueErrorResponse(error, request_.getVersion());
     }
-    if (parser_.status_ == PARSE_INCOMPLETE)
+
+    //ADD Body
+    parser_.parseRequestBody(in_buffer_, request_);
+    if (!request_.getBody().empty())
+        in_buffer_.erase(0, parser_.endOfBody_);
+    parser_.endOfBody_ = 0;
+
+    // INCOMPLETE REQUEST
+    if (parser_.status_ == PARSE_INCOMPLETE || !request_.getIsBodyComplete())
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "
                     << in_buffer_.size() << std::endl;

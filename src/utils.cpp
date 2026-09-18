@@ -52,9 +52,11 @@ std::string httpReasonPhrase(int code)
         case 405: return "Method Not Allowed";
         case 413: return "Payload Too Large";
         case 414: return "URI Too Long";
+        case 418: return "I'm a teapot";
         case 431: return "Request Header Fields Too Large";
         case 500: return "Internal Server Error";
         case 501: return "Not Implemented";
+        case 502: return "502 Bad Gateway";
         case 505: return "HTTP Version Not Supported";
         default:  return "Internal Server Error";
     }
