@@ -75,10 +75,20 @@ ConnectionStatus Connection::handleRequest()
         return CLOSE_CONNECTION;
     if (in_buffer_.size() > MAX_HEADER_SIZE)
         return queueErrorResponse(431);
-    ParseStatus status = parser_.parseRequest(in_buffer_, request_);
-    if (status == PARSE_ERROR)
-        return queueErrorResponse(parser_.getErrorCode(), request_.getVersion());
-    else if (status == PARSE_INCOMPLETE)
+    try
+    {
+        if (request_.getMethod().empty())
+            parser_.parseRequest(in_buffer_, request_);
+        in_buffer_.erase(0, parser_.endOfHeaders_);
+        //if (in_buffer_.find("\r\n\r\n"))
+        //if (request_.getMethod() == "POST")
+        //parser_.parseBody(in_buffer_ + endofheaders_, request_)
+    }
+    catch(int error)
+    {
+        return queueErrorResponse(error, request_.getVersion());
+    }
+    if (parser_.status_ == PARSE_INCOMPLETE)
     {
         std::cout << "Waiting for end of headers, current in_buffer size: "
                     << in_buffer_.size() << std::endl;

@@ -29,6 +29,18 @@ bool readFile(const std::string& path, std::string& content)
     return true;
 }
 
+/*
+418 I'm a teapot
+
+    The server refuses the attempt to brew coffee with a teapot.
+    429 Too Many Requests
+
+    The user has sent too many requests in a given amount of time (rate limiting).
+502 Bad Gateway
+
+    This error response means that the server, while working as a gateway to get a response needed to handle the request, got an invalid response.
+
+*/
 std::string httpReasonPhrase(int code)
 {
     switch (code)

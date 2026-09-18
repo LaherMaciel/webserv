@@ -11,7 +11,6 @@ enum ParseStatus
 {
     PARSE_INCOMPLETE,
     PARSE_OK,
-    PARSE_ERROR
 };
 
 class RequestParser
@@ -19,15 +18,15 @@ class RequestParser
 	public:
 		RequestParser();
 		~RequestParser();
-        ParseStatus parseRequest(const std::string &raw_request, Request &request);
-        ParseStatus parseRequestLine(Request &request);
-        ParseStatus validateRequestLine(const std::string &method, const std::string &path, const std::string &version);
-        ParseStatus parseHeader(Request &request);
-        ParseStatus parseHeaderLine(const std::string &line, std::map<std::string, std::string> &headers);
-        int getErrorCode() const;
-    
-    private:
-        int errorCode_;
+        void parseRequest(const std::string &raw_request, Request &request);
+        void parseRequestLine(Request &request);
+        void validateRequestLine(const std::string &method, const std::string &path, const std::string &version);
+        void parseHeader(Request &request);
+        void parseHeaderLine(const std::string &line, std::map<std::string, std::string> &headers);
+        ParseStatus status_;
+        size_t endOfHeaders_;
+        
+        private:
         std::string rawRequestLine_;
         std::string rawHeaders_;
         RequestParser(const RequestParser& other);
