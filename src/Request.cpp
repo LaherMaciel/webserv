@@ -1,10 +1,10 @@
 #include "Request.hpp"
 #include <iostream>
 
-Request::Request() : method_(""), path_(""), version_(""), headers_() {}
+Request::Request() : method_(""), path_(""), query_(""), version_(""), headers_() {}
 
 Request::Request(const Request& other)
-    : method_(other.method_), path_(other.path_), version_(other.version_), headers_(other.headers_) {}
+    : method_(other.method_), path_(other.path_), query_(other.query_), version_(other.version_), headers_(other.headers_) {}
 
 Request& Request::operator=(const Request& other)
 {
@@ -12,6 +12,7 @@ Request& Request::operator=(const Request& other)
     {
         method_ = other.method_;
         path_ = other.path_;
+        query_ = other.query_;
         version_ = other.version_;
         headers_ = other.headers_;
     }
@@ -22,6 +23,8 @@ void Request::setMethod(const std::string& method) { method_ = method; }
 
 void Request::setPath(const std::string& path) { path_ = path; }
 
+void Request::setQuery(const std::string& query) { query_ = query; }
+
 void Request::setVersion(const std::string& version) { version_ = version; }
 
 void Request::setHeaders(const std::map<std::string, std::string>& headers) { headers_ = headers; }
@@ -31,6 +34,7 @@ void Request::printRequest() const
     std::cout << "*REQUEST*\n";
     std::cout << "Method: " << method_ << "\n";
     std::cout << "Path: " << path_ << "\n";
+    std::cout << "Query: " << query_ << "\n";
     std::cout << "Version: " << version_ << "\n";
     std::cout << "Headers:\n";
     for (std::map<std::string, std::string>::const_iterator it = headers_.begin(); it != headers_.end(); ++it)
@@ -41,6 +45,8 @@ void Request::printRequest() const
 const std::string& Request::getMethod() const { return method_; }
 
 const std::string& Request::getPath() const { return path_; }
+
+const std::string& Request::getQuery() const { return query_; }
 
 const std::map<std::string, std::string>& Request::getHeaders() const { return headers_; }
 

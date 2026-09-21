@@ -29,6 +29,8 @@ class RequestParser
         private:
         std::string rawRequestLine_;
         std::string rawHeaders_;
+        std::string parseQuery(std::string &requestTarget);
+        bool validateRequestTarget(const std::string &target);
         RequestParser(const RequestParser& other);
         RequestParser& operator=(const RequestParser& other);
 

@@ -14,11 +14,13 @@ class Request
 
         void setMethod(const std::string& method);
         void setPath(const std::string& path);
+        void setQuery(const std::string& query);
         void setVersion(const std::string& version);
         void setHeaders(const std::map<std::string, std::string>& headers);
 
         const std::string& getMethod() const;
         const std::string& getPath() const;
+        const std::string& getQuery() const;
         const std::string& getVersion() const;
         const std::map<std::string, std::string>& getHeaders() const;
 
@@ -27,6 +29,7 @@ class Request
     private:
         std::string method_;
         std::string path_;
+        std::string query_;
         std::string version_;
         std::string body_;
         std::map<std::string, std::string> headers_;

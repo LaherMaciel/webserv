@@ -21,6 +21,38 @@ void RequestParser::validateRequestLine(const std::string &method, const std::st
     }
 }
 
+bool RequestParser::validateRequestTarget(const std::string &target)
+{
+    for (size_t i = 0; i < target.size(); ++i)
+    {
+        unsigned char c = static_cast<unsigned char>(target[i]);
+        if (c < 32 || c == 127 || c == '#')
+            return false;
+        if (c == '%')
+        {
+            if (i + 2 >= target.size())
+                return false;
+            if (!std::isxdigit(
+                    static_cast<unsigned char>(target[i + 1])) ||
+                !std::isxdigit(
+                    static_cast<unsigned char>(target[i + 2])))
+                return false;
+            i += 2;
+        }
+    }
+    return true;
+}
+
+std::string RequestParser::parseQuery(std::string &requestTarget)
+{
+    size_t query_pos = requestTarget.find('?');
+    if (query_pos == std::string::npos)
+        return "";
+    std::string query = requestTarget.substr(query_pos + 1);
+    requestTarget.erase(query_pos);
+    return query;
+}
+
 void RequestParser::parseRequestLine(Request &request)
 {
     size_t first_space = rawRequestLine_.find(' ');
@@ -34,11 +66,17 @@ void RequestParser::parseRequestLine(Request &request)
     {
         throw 400;
     }
-    std::string path = rawRequestLine_.substr(first_space + 1, second_space - (first_space + 1));
+    std::string requestTarget = rawRequestLine_.substr(first_space + 1, second_space - (first_space + 1));
+    if (!validateRequestTarget(requestTarget))
+    {
+        throw 400;
+    }
     std::string version = rawRequestLine_.substr(second_space + 1);
-    validateRequestLine(method, path, version);
+    std::string query = parseQuery(requestTarget);
+    validateRequestLine(method, requestTarget, version);
     request.setMethod(method);
-    request.setPath(path);
+    request.setPath(requestTarget);
+    request.setQuery(query);
     request.setVersion(version);
 }
 

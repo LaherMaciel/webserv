@@ -15,9 +15,9 @@ std::string Router::mapFilePath(const std::string &path, const LocationConfig *l
     if (!location)
         return "";
     if (path == location->path_ && !location->index_.empty())
-        return location->root_ + "/index.html";
+        return location->root_ + "/" + location->index_;
     else if (path.find(location->path_) == 0)
-        return location->root_ + path.substr(location->path_.size());
+        return location->root_ + "/" + path.substr(location->path_.size());
     else
         return "";
 }
@@ -39,12 +39,14 @@ std::string Router::contentType(const std::string &path)
 
 LocationConfig *Router::findLocation(const std::string &path)
 {
+    LocationConfig *bestMatch = NULL;
     for (size_t i = 0; i < config_.locations_.size(); ++i)
     {
-        if (path.find(config_.locations_[i].path_) == 0)
-            return &config_.locations_[i];
+        if (path.find(config_.locations_[i].path_) == 0 &&
+            (!bestMatch || config_.locations_[i].path_.size() > bestMatch->path_.size()))
+            bestMatch = &config_.locations_[i];
     }
-    return NULL;
+    return bestMatch;
 }
 
 bool Router::isValidMethod(const std::string &method, const LocationConfig *location)
@@ -77,10 +79,6 @@ RouteType Router::routeRequest(const Request& request, Response& response)
         std::cout << "Unsupported method: " << request.getMethod() << "\n";
         response = Response(405, request.getVersion());
         return ROUTE_ERROR;
-    }
-    if (request.getPath().find("?") != std::string::npos)
-    {
-        return ROUTE_CGI;//TEMPORARY - not correct
     }
     std::string path = mapFilePath(request.getPath(), location);
     if (path.empty())
