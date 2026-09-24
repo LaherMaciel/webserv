@@ -24,8 +24,8 @@ void Connection::startCgi(const CgiInfo &cgiInfo, Response &response)
 
 int Connection::readFromSocket()
 {
-    char buffer[1024];
-    ssize_t bytes_received = recv(fd_, buffer, sizeof(buffer) - 1, 0);
+    char buffer[IO_CHUNK_SIZE];
+    ssize_t bytes_received = recv(fd_, buffer, sizeof(buffer), 0);
     if (bytes_received == 0)
     {
         std::cout << "Client disconnected (fd: " << fd_ << ")\n";
@@ -33,15 +33,13 @@ int Connection::readFromSocket()
     }
     else if (bytes_received < 0)
     {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return 0;
         std::cerr << "Error receiving data from client (fd: " << fd_ << ")\n";
         return -1;
     }
     else
     {
-        buffer[bytes_received] = '\0';
-        std::cout << "Received data:\n" << buffer << "\n";
+        std::cout << "Received data:\n";
+        std::cout.write(buffer, bytes_received) << "\n";
         in_buffer_.append(buffer, bytes_received);
     }
     return 0;

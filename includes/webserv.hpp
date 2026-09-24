@@ -10,7 +10,10 @@
 #include <vector>
 #include <map>
 #include <poll.h>
+#include <cstddef>
 
+const size_t IO_CHUNK_SIZE = 4096;
+    
 class Connection;
 
 void    cleanDeadFds(std::vector<struct pollfd> &poll_fds, std::vector<int> &dead_fds);

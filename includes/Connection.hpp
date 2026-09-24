@@ -33,6 +33,7 @@ class Connection
         const Request& getRequest() const;
         const CgiProcess& getCgiProcess() const;
         void startCgi(const CgiInfo &cgiInfo, Response &response);
+        CgiProcess      cgiProcess_;//temp as public
 
     private:
         int			fd_;
@@ -43,8 +44,6 @@ class Connection
         Connection& operator=(const Connection& other);
         RequestParser	parser_;
         Request         request_;
-        CgiProcess      cgiProcess_;
-
 };
 
 #endif

@@ -178,6 +178,7 @@ ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
         else
         {
             conn->startCgi(cgiInfo, response);
+            conn->cgiProcess_.finishCgi(response);
             conn->queueResponse(response);
         }
     }
