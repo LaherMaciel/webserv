@@ -15,6 +15,13 @@ Connection::~Connection() { close(fd_); }
 
 const Request& Connection::getRequest() const { return request_; }
 
+const CgiProcess& Connection::getCgiProcess() const { return cgiProcess_; }
+
+void Connection::startCgi(const CgiInfo &cgiInfo, Response &response)
+{
+    cgiProcess_.startCgi(cgiInfo, request_, response);
+}
+
 int Connection::readFromSocket()
 {
     char buffer[1024];
@@ -97,6 +104,7 @@ ConnectionStatus Connection::handleRequest()
     request_.printRequest();
     return REQUEST_READY;
 }
+
 //TEST WITH CURL!!!
 //curl -v http://127.0.0.1:8080/
 //or nc still works you just can't get an OK response unless you use printf and sleep:

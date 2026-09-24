@@ -59,14 +59,75 @@ bool Router::isValidMethod(const std::string &method, const LocationConfig *loca
     return false;
 }
 
-RouteType Router::routeRequest(const Request& request, Response& response)
+// static void printCgiInfo(const CgiInfo &cgiInfo)
+// {
+//     std::cout << "CGI Info:\n";
+//     std::cout << "Script Name: " << cgiInfo.scriptName_ << "\n";
+//     std::cout << "Script Path: " << cgiInfo.scriptPath_ << "\n";
+//     std::cout << "Path Info: " << cgiInfo.pathInfo_ << "\n";
+//     std::cout << "Handler: " << cgiInfo.handler_ << "\n";
+//     std::cout << "Working Directory: " << cgiInfo.workingDirectory_ << "\n";
+// }
+
+// bool Router::splitCgiPath(const std::string &path, const std::string &extension, 
+//                           std::string &scriptName, std::string &pathInfo)
+// {
+//     if (extension.empty())
+//         return false;
+
+//     size_t pos = path.find(extension);
+
+//     while (pos != std::string::npos)
+//     {
+//         size_t scriptEnd = pos + extension.size();
+
+//         if (scriptEnd == path.size() || path[scriptEnd] == '/')
+//         {
+//             scriptName = path.substr(0, scriptEnd);
+//             pathInfo = path.substr(scriptEnd);
+//             return true;
+//         }
+
+//         pos = path.find(extension, pos + 1);
+//     }
+
+//     return false;
+// }
+
+// void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
+// {
+//     const std::map<std::string, std::string> &handlers =
+//     location->cgiHandlers_;
+
+//     for (std::map<std::string, std::string>::const_iterator it =
+//             handlers.begin();
+//         it != handlers.end();
+//         ++it)
+//     {
+//         const std::string &extension = it->first;
+//         const std::string &handler = it->second;
+
+//         std::string scriptName;
+//         std::string pathInfo;
+
+//         if (splitCgiPath(request.getPath(),
+//                         extension,
+//                         scriptName,
+//                         pathInfo))
+//         {
+//             cgiInfo.scriptName_ = scriptName;
+//             cgiInfo.pathInfo_ = pathInfo;
+//             cgiInfo.handler_ = handler;
+//             cgiInfo.workingDirectory_ = location->root_;//?
+//             cgiInfo.scriptPath_ = mapFilePath(scriptName, location);//?
+//             printCgiInfo(cgiInfo);
+//             return;
+//         }
+//     }
+// }
+
+RouteType Router::routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo)
 {
-    if (config_.locations_.empty())
-    {
-        std::cerr << "No locations configured for the server\n";
-        response = Response(500, request.getVersion());
-        return ROUTE_ERROR;
-    }
     LocationConfig *location = findLocation(request.getPath());
     if (!location)
     {
@@ -79,6 +140,24 @@ RouteType Router::routeRequest(const Request& request, Response& response)
         std::cout << "Unsupported method: " << request.getMethod() << "\n";
         response = Response(405, request.getVersion());
         return ROUTE_ERROR;
+    }
+    // if (location->path_ == "/cgi-bin")
+    // {
+        
+    //     std::cout << "Routing CGI request for path: " << request.getPath() << "\n";
+    //     completeCGIinfo(cgiInfo, request, location);
+    //     return ROUTE_CGI;
+    // }
+    if (request.getPath() == "/cgi-bin/hello.py")//temp hardcoded
+    {
+        cgiInfo.scriptName_ = "/cgi-bin/hello.py";
+        cgiInfo.scriptPath_ = "cgi-bin/hello.py";
+        cgiInfo.pathInfo_ = request.getQuery();
+        cgiInfo.handler_ =
+            "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
+        cgiInfo.workingDirectory_ = "cgi-bin";
+
+        return ROUTE_CGI;
     }
     std::string path = mapFilePath(request.getPath(), location);
     if (path.empty())

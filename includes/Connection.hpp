@@ -5,6 +5,7 @@
 #include <string>
 #include "RequestParser.hpp"
 #include "Request.hpp"
+#include "CgiProcess.hpp"
 
 #define MAX_HEADER_SIZE 1000
 
@@ -30,6 +31,8 @@ class Connection
         ConnectionStatus sendResponse();
         ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1");
         const Request& getRequest() const;
+        const CgiProcess& getCgiProcess() const;
+        void startCgi(const CgiInfo &cgiInfo, Response &response);
 
     private:
         int			fd_;
@@ -40,6 +43,7 @@ class Connection
         Connection& operator=(const Connection& other);
         RequestParser	parser_;
         Request         request_;
+        CgiProcess      cgiProcess_;
 
 };
 
