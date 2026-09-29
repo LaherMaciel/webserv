@@ -24,4 +24,6 @@ struct ServerConfig
     std::vector<LocationConfig> locations_;
 };
 
+ServerConfig setServerConfig();
+
 #endif

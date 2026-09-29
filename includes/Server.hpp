@@ -19,15 +19,15 @@ class Server
         void    addFdToPoll(int fd);
         void    addClient(int client_fd);
         void    startServer();
-        ConnectionStatus handleConnection(int fd, int pollfd_pos);
+        ConnectionStatus handleConnection(int fd, size_t pollfd_pos);
         void    processEvents();
         void    runServer();
         int     acceptConnection();
         void    cleanDeadFds(std::vector<int> &deadfds);
         void    updatePollEvents(int fd, short events);
-        void    handleCgiEvent(Connection *cgiOwner, int pollfd_pos);
+        void    handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos);
         void    checkCgiChildren();
-        ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, Response &response, int pollfd_pos);
+        ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos);
 
     private:
         ServerConfig config_;
