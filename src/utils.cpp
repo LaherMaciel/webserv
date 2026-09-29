@@ -2,6 +2,14 @@
 #include <cctype> // for std::tolower
 #include <sstream> // for std::ostringstream
 #include <fstream> // for std::ifstream
+#include <fcntl.h>//for fcntl()
+
+int set_non_blocking(int fd)
+{
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1)
+        return -1;
+    return 0;
+}
 
 std::string toLower(std::string s)
 {

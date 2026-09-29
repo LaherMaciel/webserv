@@ -4,29 +4,84 @@
 #include "Request.hpp"
 #include <unistd.h>//for pipe(), fork(), dup2()
 #include <sys/wait.h>//for waitpid()
+#include <signal.h>//for kill()
+#include <cerrno>//for EINTR
 
-CgiProcess::CgiProcess() : pid_(-1), cgiOutputFd_(-1), buffer_(""), childExitCollected_(false), childSucceeded_(false) {}
+CgiProcess::CgiProcess()
+    : pid_(-1), cgiOutputFd_(-1), buffer_(""),
+      childStatus_(CHILD_NOT_STARTED), outputEof_(false), killSent_(false) {}
 
-CgiProcess::~CgiProcess() {}
+CgiProcess::~CgiProcess() { closeOutputFd(); }
+
+int CgiProcess::getOutputFd() const { return cgiOutputFd_; }
+
+bool CgiProcess::isWaitingForExit() const
+{
+    return outputEof_ && childStatus_ == CHILD_RUNNING && !killSent_;
+}
+
+bool CgiProcess::isAbortPending() const
+{
+    return killSent_ && childStatus_ == CHILD_RUNNING;
+}
+
+void CgiProcess::closeOutputFd()
+{
+    if (cgiOutputFd_ != -1)
+    {
+        close(cgiOutputFd_);
+        cgiOutputFd_ = -1;
+    }
+}
+
+void CgiProcess::reset()
+{
+    closeOutputFd();
+    pid_ = -1;
+    buffer_.clear();
+    childStatus_ = CHILD_NOT_STARTED;
+    outputEof_ = false;
+    killSent_ = false;
+}
+
+CgiCleanupStatus CgiProcess::abort()
+{
+    closeOutputFd();
+    if (childStatus_ == CHILD_RUNNING)
+    {
+        if (!killSent_)
+        {
+            kill(pid_, SIGKILL);
+            killSent_ = true;
+        }
+        if (!checkChild())
+            return CGI_CLEANUP_PENDING;
+    }
+    reset();
+    return CGI_CLEANUP_DONE;
+}
 
 bool CgiProcess::checkChild()
 {
-    if (childExitCollected_)
+    if (childStatus_ == CHILD_SUCCEEDED || childStatus_ == CHILD_FAILED)
         return true;
+    if (childStatus_ == CHILD_NOT_STARTED)
+        return false;
     int status;
-    pid_t result = waitpid(pid_, &status, 0);//blocking
-    //pid_t result = waitpid(pid_, &status, WNOHANG); //non-blocking
+    pid_t result = waitpid(pid_, &status, WNOHANG); //non-blocking
     if (result == 0)
         return false; // child is still running
+    if (result == -1 && errno == EINTR)
+        return false;
     if (result == pid_)
     {
-        childExitCollected_ = true;
         if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
-            childSucceeded_ = true;
+            childStatus_ = CHILD_SUCCEEDED;
+        else
+            childStatus_ = CHILD_FAILED;
         return true;
     }
-    childExitCollected_ = true;
-    childSucceeded_ = false;
+    childStatus_ = CHILD_FAILED;
     return true;
 }
 
@@ -41,40 +96,20 @@ CgiReadStatus CgiProcess::readFromPipe()
     }
     if (bytesRead == 0)
     {
+        outputEof_ = true;
+        closeOutputFd();
         return CGI_OUTPUT_COMPLETE;
     }
+    closeOutputFd();
     return CGI_READ_ERROR;
 }
 
 void CgiProcess::finishCgi(Response &response)
 {
-    while (true)
-    {
-        CgiReadStatus status = readFromPipe();
-        if (status == CGI_READING)
-            continue;
-        else if (status == CGI_OUTPUT_COMPLETE)
-            break;
-        else
-        {
-            response.setBody("Internal Server Error: Failed to read CGI output", "text/plain");
-            response.setStatusCode(500);
-            close(cgiOutputFd_); // Close read end after reading
-            return;
-        }
-    }
-    if (!checkChild())
-    {
-        close(cgiOutputFd_);
-        response.setBody("Internal Server Error: CGI script did not finish", "text/plain");
-        response.setStatusCode(500);
-        return;
-    }
-    if (!childSucceeded_)
+    if (childStatus_ != CHILD_SUCCEEDED)
     {
         response.setBody("Internal Server Error: CGI script failed", "text/plain");
         response.setStatusCode(500);
-        close(cgiOutputFd_); // Close read end after reading
         return;
     }
     size_t headerEnd = buffer_.find("\r\n\r\n");
@@ -82,7 +117,6 @@ void CgiProcess::finishCgi(Response &response)
     {
         response.setStatusCode(500);
         response.setBody("Malformed CGI output", "text/plain");
-        close(cgiOutputFd_); // Close read end after reading
         return;
     }
     std::string cgiHeaders = buffer_.substr(0, headerEnd);
@@ -90,26 +124,21 @@ void CgiProcess::finishCgi(Response &response)
 
     response.setStatusCode(200);
     response.setBody(cgiBody, "text/plain");
-    close(cgiOutputFd_); // Close read end after reading
 }
 
-void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request, Response &response)
+void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
 {
     int pipefd[2];
     if (pipe(pipefd) == -1)
     {
-        response.setBody("Internal Server Error: Failed to create pipe", "text/plain");
-        response.setStatusCode(500);
-        return;
+        throw std::runtime_error("Failed to create pipe");
     }
     pid_ = fork();
     if (pid_ < 0)
     {
         close(pipefd[0]);
         close(pipefd[1]);
-        response.setBody("Internal Server Error: Failed to fork process", "text/plain");
-        response.setStatusCode(500);
-        return;
+        throw std::runtime_error("Failed to fork process");
     }
     if (pid_ == 0) // Child process
     {
@@ -143,5 +172,14 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request, Respon
     {
         close(pipefd[1]); // Close write end in parent
         cgiOutputFd_ = pipefd[0];
+        childStatus_ = CHILD_RUNNING;
+        outputEof_ = false;
+        killSent_ = false;
+        //apply non-block:
+        if (set_non_blocking(cgiOutputFd_) < 0)
+        {
+            closeOutputFd();
+            throw std::runtime_error("Failed to set non-blocking mode for CGI output pipe");
+        }
     }
 }

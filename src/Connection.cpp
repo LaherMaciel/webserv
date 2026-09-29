@@ -11,15 +11,70 @@ Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_(""), bytes_sent_
 
 Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0) {}
 
-Connection::~Connection() { close(fd_); }
+Connection::~Connection() { closeClientFd(); }
+
+int Connection::getFd() const { return fd_; }
+
+int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
+
+void Connection::closeClientFd()
+{
+    if (fd_ != -1)
+    {
+        close(fd_);
+        fd_ = -1;
+    }
+}
 
 const Request& Connection::getRequest() const { return request_; }
 
-const CgiProcess& Connection::getCgiProcess() const { return cgiProcess_; }
-
-void Connection::startCgi(const CgiInfo &cgiInfo, Response &response)
+void Connection::startCgi(const CgiInfo &cgiInfo)
 {
-    cgiProcess_.startCgi(cgiInfo, request_, response);
+    cgiProcess_.startCgi(cgiInfo, request_);
+}
+
+void Connection::resetCgiProcess()
+{
+    cgiProcess_.reset();
+}
+
+bool Connection::isWaitingForCgiExit() const
+{
+    return cgiProcess_.isWaitingForExit();
+}
+
+bool Connection::isCgiAbortPending() const
+{
+    return cgiProcess_.isAbortPending();
+}
+
+CgiCleanupStatus Connection::abortCgi()
+{
+    return cgiProcess_.abort();
+}
+
+ConnectionStatus Connection::checkCgiChild()
+{
+    if (!cgiProcess_.checkChild())
+        return CGI_WAITING_FOR_EXIT;
+    Response response;
+    cgiProcess_.finishCgi(response);
+    queueResponse(response);
+    return RESPONSE_READY;
+}
+
+ConnectionStatus Connection::readFromCGIPipe()
+{
+    CgiReadStatus status = cgiProcess_.readFromPipe();
+    if (status == CGI_OUTPUT_COMPLETE)
+        return checkCgiChild();
+    else if (status == CGI_READ_ERROR)
+    {
+        queueErrorResponse(500, request_.getVersion(), 
+            "Internal Server Error: CGI read error", "text/plain");
+        return CGI_IO_ERROR;
+    }
+    return WAIT_FOR_MORE;
 }
 
 int Connection::readFromSocket()
@@ -63,12 +118,14 @@ void Connection::queueResponse(const Response &response)
     bytes_sent_ = 0;
 }
 
-ConnectionStatus Connection::queueErrorResponse(int code, std::string version)
+ConnectionStatus Connection::queueErrorResponse(int code, std::string version, std::string body, std::string contentType)
 {
     if (version.empty())
         version = "HTTP/1.1";
     std::cerr << httpReasonPhrase(code) << " (fd: " << fd_ << ")\n";
     Response response(code, version);
+    if (!body.empty())
+        response.setBody(body, contentType);
     queueResponse(response);
     return RESPONSE_READY;
 }

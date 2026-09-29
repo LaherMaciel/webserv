@@ -24,10 +24,16 @@ class Server
         void    runServer();
         int     acceptConnection();
         void    cleanDeadFds(std::vector<int> &deadfds);
+        void    updatePollEvents(int fd, short events);
+        void    handleCgiEvent(Connection *cgiOwner, int pollfd_pos);
+        void    checkCgiChildren();
+        ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, Response &response, int pollfd_pos);
 
     private:
         ServerConfig config_;
         std::map<int, Connection *>	conns_;
+        std::map<int, Connection *> cgiOwners_;
+        std::vector<Connection *>   closingConnections_;
         std::vector<struct pollfd>	poll_fds_;
         int     fd_;
         int     port_;
@@ -37,6 +43,7 @@ class Server
         Server& operator=(const Server& other);
 
         Connection *getConnection(int fd);
+        Connection *getCgiOwner(int fd);
 };
 
 #endif
