@@ -16,10 +16,11 @@ enum RouteType
 
 struct CgiInfo
 {
-    std::string scriptName_;//URL name e.g. /cgi-bin/search.py
-    std::string scriptPath_;//disc location of the script e.g. ./www/cgi-bin/search.py
+    std::string scriptFilename_;//file name e.g. search.py
+    std::string scriptUrlPath_;//URL path e.g. /cgi-bin/search.py
+    std::string scriptFilesystemPath_;//disk location e.g. ./www/cgi-bin/search.py
     std::string pathInfo_;//extra path after script e.g. /users/42
-    std::string handler_;//program that runs script e.g. /usr/bin/python3
+    std::string interpreterPath_;//program that runs script e.g. /usr/bin/python3
     std::string workingDirectory_;//directory where script runs e.g. ./www/cgi-bin
 };
 

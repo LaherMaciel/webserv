@@ -6,6 +6,7 @@
 #include <sys/wait.h>//for waitpid()
 #include <signal.h>//for kill()
 #include <cerrno>//for EINTR
+#include <vector>
 
 CgiProcess::CgiProcess()
     : pid_(-1), cgiOutputFd_(-1), buffer_(""),
@@ -15,12 +16,12 @@ CgiProcess::~CgiProcess() { closeOutputFd(); }
 
 int CgiProcess::getOutputFd() const { return cgiOutputFd_; }
 
-bool CgiProcess::isWaitingForExit() const
+bool CgiProcess::completionIsPending() const
 {
     return outputEof_ && childStatus_ == CHILD_RUNNING && !killSent_;
 }
 
-bool CgiProcess::isAbortPending() const
+bool CgiProcess::abortIsPending() const
 {
     return killSent_ && childStatus_ == CHILD_RUNNING;
 }
@@ -126,6 +127,24 @@ void CgiProcess::finishCgi(Response &response)
     response.setBody(cgiBody, "text/plain");
 }
 
+std::vector<std::string> CgiProcess::buildEnvp(const Request &request)
+{
+    std::vector<std::string> envp;
+    envp.push_back("REQUEST_METHOD=" + request.getMethod());
+    envp.push_back("QUERY_STRING=" + request.getQuery());
+    envp.push_back("SERVER_PROTOCOL=" + request.getVersion());
+    envp.push_back("GATEWAY_INTERFACE=CGI/1.1");
+    for (std::map<std::string, std::string>::const_iterator it = request.getHeaders().begin();
+         it != request.getHeaders().end(); ++it)
+    {
+        std::string headerName = "HTTP_" + it->first;
+        std::replace(headerName.begin(), headerName.end(), '-', '_');
+        std::transform(headerName.begin(), headerName.end(), headerName.begin(), ::toupper);
+        envp.push_back(headerName + "=" + it->second);
+    }
+    return envp;
+}
+
 void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
 {
     int pipefd[2];
@@ -146,26 +165,15 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
         close(pipefd[1]); // Close write end after duplicating
         chdir(cgiInfo.workingDirectory_.c_str()); // Change working directory to script's directory
-        //Testing hardcoded script
-        std::string scriptFile = "hello.py";
-        char *argv[] = {
-        const_cast<char *>(cgiInfo.handler_.c_str()),
-        const_cast<char *>(scriptFile.c_str()),
-        NULL
-        };
-        std::string methodEnv = "REQUEST_METHOD=" + request.getMethod();
-        std::string queryEnv = "QUERY_STRING=" + request.getQuery();
-        std::string protocolEnv = "SERVER_PROTOCOL=" + request.getVersion();
-        std::string gatewayEnv = "GATEWAY_INTERFACE=CGI/1.1";
-        char *envp[] = {
-        const_cast<char *>(methodEnv.c_str()),
-        const_cast<char *>(queryEnv.c_str()),
-        const_cast<char *>(protocolEnv.c_str()),
-        const_cast<char *>(gatewayEnv.c_str()),
-        NULL
-        };
+        char *argv[] = {const_cast<char *>(cgiInfo.interpreterPath_.c_str()),
+                        const_cast<char *>(cgiInfo.scriptFilename_.c_str()), NULL};
+        std::vector<std::string> envp = buildEnvp(request);
+        std::vector<char *> envpArray;
+        for (size_t i = 0; i < envp.size(); ++i)
+            envpArray.push_back(const_cast<char *>(envp[i].c_str()));
+        envpArray.push_back(NULL);
         //Execute the CGI script
-        execve(cgiInfo.handler_.c_str(), argv, envp);
+        execve(cgiInfo.interpreterPath_.c_str(), argv, &envpArray[0]);
         _exit(1);// If execve fails
     }
     else // Parent process

@@ -3,6 +3,7 @@
 
 #include "Router.hpp"
 #include <string>
+#include <vector>
 
 enum CgiReadStatus
 {
@@ -34,11 +35,12 @@ class CgiProcess
         void finishCgi(Response &response);
         CgiReadStatus readFromPipe();
         bool checkChild();
-        bool isWaitingForExit() const;
-        bool isAbortPending() const;
+        bool completionIsPending() const;
+        bool abortIsPending() const;
         CgiCleanupStatus abort();
         int getOutputFd() const;
         void reset();
+        std::vector<std::string> buildEnvp(const Request &request);
 
     private:
         pid_t       pid_;

@@ -103,18 +103,24 @@ void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
     }
 }
 
+/*
+Delayed cleanup of CGI processes for where child was still running during initial waitpid()
+check after EOF was received from output pipe OR kill signal was sent to child.
+This prevents blocking waitpid() calls in the main event loop and ensures cleanup can 
+occur even when server is idle (no new events from poll()).
+*/
 void Server::checkCgiChildren()
 {
     for (std::map<int, Connection *>::iterator it = conns_.begin();
          it != conns_.end(); ++it)
     {
         Connection *conn = it->second;
-        if (conn->isCgiAbortPending())
+        if (conn->cgiAbortIsPending())
         {
             conn->abortCgi();
             continue;
         }
-        if (!conn->isWaitingForCgiExit())
+        if (!conn->cgiCompletionIsPending())
             continue;
         if (conn->checkCgiChild() == RESPONSE_READY)
         {

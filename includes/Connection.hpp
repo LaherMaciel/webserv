@@ -39,8 +39,8 @@ class Connection
         void startCgi(const CgiInfo &cgiInfo);
         ConnectionStatus readFromCGIPipe();
         ConnectionStatus checkCgiChild();
-        bool isWaitingForCgiExit() const;
-        bool isCgiAbortPending() const;
+        bool cgiCompletionIsPending() const;
+        bool cgiAbortIsPending() const;
         CgiCleanupStatus abortCgi();
         void closeClientFd();
         void resetCgiProcess();

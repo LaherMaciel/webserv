@@ -62,10 +62,10 @@ bool Router::isValidMethod(const std::string &method, const LocationConfig *loca
 // static void printCgiInfo(const CgiInfo &cgiInfo)
 // {
 //     std::cout << "CGI Info:\n";
-//     std::cout << "Script Name: " << cgiInfo.scriptName_ << "\n";
-//     std::cout << "Script Path: " << cgiInfo.scriptPath_ << "\n";
+//     std::cout << "Script URL Path: " << cgiInfo.scriptUrlPath_ << "\n";
+//     std::cout << "Script Filesystem Path: " << cgiInfo.scriptFilesystemPath_ << "\n";
 //     std::cout << "Path Info: " << cgiInfo.pathInfo_ << "\n";
-//     std::cout << "Handler: " << cgiInfo.handler_ << "\n";
+//     std::cout << "Interpreter Path: " << cgiInfo.interpreterPath_ << "\n";
 //     std::cout << "Working Directory: " << cgiInfo.workingDirectory_ << "\n";
 // }
 
@@ -115,11 +115,11 @@ bool Router::isValidMethod(const std::string &method, const LocationConfig *loca
 //                         scriptName,
 //                         pathInfo))
 //         {
-//             cgiInfo.scriptName_ = scriptName;
+//             cgiInfo.scriptUrlPath_ = scriptName;
 //             cgiInfo.pathInfo_ = pathInfo;
-//             cgiInfo.handler_ = handler;
+//             cgiInfo.interpreterPath_ = handler;
 //             cgiInfo.workingDirectory_ = location->root_;//?
-//             cgiInfo.scriptPath_ = mapFilePath(scriptName, location);//?
+//             cgiInfo.scriptFilesystemPath_ = mapFilePath(scriptName, location);//?
 //             printCgiInfo(cgiInfo);
 //             return;
 //         }
@@ -150,10 +150,11 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
     // }
     if (request.getPath() == "/cgi-bin/hello.py")//temp hardcoded
     {
-        cgiInfo.scriptName_ = "/cgi-bin/hello.py";
-        cgiInfo.scriptPath_ = "cgi-bin/hello.py";
-        cgiInfo.pathInfo_ = request.getQuery();
-        cgiInfo.handler_ =
+        cgiInfo.scriptFilename_ = "hello.py";
+        cgiInfo.scriptUrlPath_ = "/cgi-bin/hello.py";
+        cgiInfo.scriptFilesystemPath_ = "cgi-bin/hello.py";
+        cgiInfo.pathInfo_ = "";
+        cgiInfo.interpreterPath_ =
             "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
         cgiInfo.workingDirectory_ = "cgi-bin";
 
@@ -177,4 +178,3 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
     response = Response(200, request.getVersion(), body, contentType(path));
     return ROUTE_STATIC;
 }
-

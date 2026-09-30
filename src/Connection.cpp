@@ -38,14 +38,14 @@ void Connection::resetCgiProcess()
     cgiProcess_.reset();
 }
 
-bool Connection::isWaitingForCgiExit() const
+bool Connection::cgiCompletionIsPending() const
 {
-    return cgiProcess_.isWaitingForExit();
+    return cgiProcess_.completionIsPending();
 }
 
-bool Connection::isCgiAbortPending() const
+bool Connection::cgiAbortIsPending() const
 {
-    return cgiProcess_.isAbortPending();
+    return cgiProcess_.abortIsPending();
 }
 
 CgiCleanupStatus Connection::abortCgi()
