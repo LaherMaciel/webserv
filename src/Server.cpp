@@ -169,6 +169,8 @@ Connection *Server::getConnection(int fd)
     return it->second;
 }
 
+// !Need to implement CGI in the loop (remove the return) and make it so
+// !it can run n CGI processes if/when needed.
 ConnectionStatus Server::handleConnection(int fd, size_t pollfd_pos)
 {
     Connection *conn = getConnection(fd);//safer than using conns_[fd] directly
