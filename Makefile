@@ -63,23 +63,27 @@ fclean: clean
 	@echo "[" "$(YELLOW)..$(RESET)" "] | Removing $(NAME)..."
 	@rm -rf $(NAME)
 	@echo "[" "$(GREEN)OK$(RESET)" "] | $(NAME) removed."
-	@echo "[" "$(YELLOW)..$(RESET)" "] | Removing generated shrubbery files..."
-	@rm -f *_shrubbery
-	@echo "[" "$(GREEN)OK$(RESET)" "] | Shrubbery files removed."
 
 # Rebuild target
 re: fclean
 	@echo "[" "$(YELLOW)..$(RESET)" "] | Rebuilding $(NAME)..."
 	@$(MAKE)
 
+# Define OS-specific flags
+ifeq ($(shell uname), Darwin)  # macOS
+ARG = config/config_macOs.conf
+else  # Assume Linux
+ARG = config/config_linux.conf
+endif
+
 run: $(NAME)
-	./$(NAME)
+	./$(NAME) $(ARG)
 
 val: $(NAME)
-	valgrind ./$(NAME)
+	valgrind ./$(NAME) $(ARG)
 
 macleaks: $(NAME)
-	leaks --atExit -- ./$(NAME)
+	leaks --atExit -- ./$(NAME) $(ARG)
 
 # Help target
 help:
