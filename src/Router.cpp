@@ -70,24 +70,21 @@ bool Router::isValidMethod(const std::string &method, const LocationConfig *loca
 // }
 
 // bool Router::splitCgiPath(const std::string &path, const std::string &extension, 
-//                           std::string &scriptName, std::string &pathInfo)
+//                           std::string &scriptName, std::string &pathInfo, std::string &workingDirectory)
 // {
 //     if (extension.empty())
 //         return false;
-
 //     size_t pos = path.find(extension);
-
 //     while (pos != std::string::npos)
 //     {
 //         size_t scriptEnd = pos + extension.size();
-
 //         if (scriptEnd == path.size() || path[scriptEnd] == '/')
 //         {
 //             scriptName = path.substr(0, scriptEnd);
 //             pathInfo = path.substr(scriptEnd);
+//             workingDirectory = path.substr(0, pos);
 //             return true;
 //         }
-
 //         pos = path.find(extension, pos + 1);
 //     }
 
@@ -99,21 +96,14 @@ bool Router::isValidMethod(const std::string &method, const LocationConfig *loca
 //     const std::map<std::string, std::string> &handlers =
 //     location->cgiHandlers_;
 
-//     for (std::map<std::string, std::string>::const_iterator it =
-//             handlers.begin();
-//         it != handlers.end();
-//         ++it)
+//     for (std::map<std::string, std::string>::const_iterator it = handlers.begin(); it != handlers.end(); ++it)
 //     {
 //         const std::string &extension = it->first;
 //         const std::string &handler = it->second;
-
 //         std::string scriptName;
 //         std::string pathInfo;
-
-//         if (splitCgiPath(request.getPath(),
-//                         extension,
-//                         scriptName,
-//                         pathInfo))
+//         std::string workingDirectory;
+//         if (splitCgiPath(request.getPath(), extension, scriptName, pathInfo, workingDirectory))
 //         {
 //             cgiInfo.scriptUrlPath_ = scriptName;
 //             cgiInfo.pathInfo_ = pathInfo;
@@ -157,7 +147,6 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
         //cgiInfo.interpreterPath_ = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
         cgiInfo.interpreterPath_ = "/bin/python3.10";
         cgiInfo.workingDirectory_ = "cgi-bin";
-
         return ROUTE_CGI;
     }
     std::string path = mapFilePath(request.getPath(), location);
