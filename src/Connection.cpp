@@ -11,7 +11,20 @@ Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_(""), bytes_sent_
 
 Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0) {}
 
-Connection::~Connection() { close(fd_); }
+Connection::~Connection() { closeClientFd(); }
+
+int Connection::getFd() const { return fd_; }
+
+int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
+
+void Connection::closeClientFd()
+{
+    if (fd_ != -1)
+    {
+        close(fd_);
+        fd_ = -1;
+    }
+}
 
 const Request& Connection::getRequest() const { return request_; }
 
@@ -22,10 +35,59 @@ void Connection::resetRequest()
 
 bool Connection::hasPendingResponse() const { return !out_buffer_.empty(); }
 
+void Connection::startCgi(const CgiInfo &cgiInfo)
+{
+    cgiProcess_.startCgi(cgiInfo, request_);
+}
+
+void Connection::resetCgiProcess()
+{
+    cgiProcess_.reset();
+}
+
+bool Connection::cgiCompletionIsPending() const
+{
+    return cgiProcess_.completionIsPending();
+}
+
+bool Connection::cgiAbortIsPending() const
+{
+    return cgiProcess_.abortIsPending();
+}
+
+CgiCleanupStatus Connection::abortCgi()
+{
+    return cgiProcess_.abort();
+}
+
+ConnectionStatus Connection::checkCgiChild()
+{
+    if (!cgiProcess_.checkChild())
+        return CGI_WAITING_FOR_EXIT;
+    Response response;
+    cgiProcess_.finishCgi(response);
+    queueResponse(response);
+    return RESPONSE_READY;
+}
+
+ConnectionStatus Connection::readFromCGIPipe()
+{
+    CgiReadStatus status = cgiProcess_.readFromPipe();
+    if (status == CGI_OUTPUT_COMPLETE)
+        return checkCgiChild();
+    else if (status == CGI_READ_ERROR)
+    {
+        queueErrorResponse(500, request_.getVersion(), 
+            "Internal Server Error: CGI read error", "text/plain");
+        return CGI_IO_ERROR;
+    }
+    return WAIT_FOR_MORE;
+}
+
 int Connection::readFromSocket()
 {
-    char buffer[1024];
-    ssize_t bytes_received = recv(fd_, buffer, sizeof(buffer) - 1, 0);
+    char buffer[IO_CHUNK_SIZE];
+    ssize_t bytes_received = recv(fd_, buffer, sizeof(buffer), 0);
     if (bytes_received == 0)
     {
         std::cout << "Client disconnected (fd: " << fd_ << ")\n";
@@ -33,15 +95,13 @@ int Connection::readFromSocket()
     }
     else if (bytes_received < 0)
     {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return 0;
         std::cerr << "Error receiving data from client (fd: " << fd_ << ")\n";
         return -1;
     }
     else
     {
-        buffer[bytes_received] = '\0';
-        std::cout << "Received data:\n" << buffer << "\n";
+        std::cout << "Received data:\n";
+        std::cout.write(buffer, bytes_received) << "\n";
         in_buffer_.append(buffer, bytes_received);
     }
     return 0;
@@ -68,12 +128,14 @@ void Connection::queueResponse(const Response &response)
     out_buffer_ += response.serialize();
 }
 
-ConnectionStatus Connection::queueErrorResponse(int code, std::string version)
+ConnectionStatus Connection::queueErrorResponse(int code, std::string version, std::string body, std::string contentType)
 {
     if (version.empty())
         version = "HTTP/1.1";
     std::cerr << httpReasonPhrase(code) << " (fd: " << fd_ << ")\n";
     Response response(code, version);
+    if (!body.empty())
+        response.setBody(body, contentType);
     queueResponse(response);
     return RESPONSE_READY;
 }
@@ -115,6 +177,7 @@ ConnectionStatus Connection::handleRequest()
     request_.printRequest();
     return REQUEST_READY;
 }
+
 //TEST WITH CURL!!!
 //curl -v http://127.0.0.1:8080/
 //or nc still works you just can't get an OK response unless you use printf and sleep:

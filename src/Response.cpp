@@ -48,6 +48,8 @@ void Response::setBody(const std::string& body, const std::string& contentType)
 
 void Response::setHeader(const std::string& key, const std::string& value) { headers_[key] = value; }
 
+void Response::setStatusCode(int statusCode) { statusCode_ = statusCode; }
+
 std::string Response::serialize() const
 {
     //1) HTTP-Version SP Status-Code SP Reason-Phrase \r\n

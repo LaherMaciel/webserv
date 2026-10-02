@@ -28,7 +28,7 @@ run_test "Request Val.1 - Root path:" \
 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'
 
 run_test "Request Val.2 - About page:" \
-'GET /about HTTP/1.1\r\nHost: localhost\r\n\r\n'
+'GET /about.html HTTP/1.1\r\nHost: localhost\r\n\r\n'
 
 #run_test "Request Val.3 - Image file:" \
 #'GET /dog.jpg HTTP/1.1\r\nHost: localhost\r\n\r\n'

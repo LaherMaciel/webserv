@@ -16,6 +16,7 @@ class Response
 
         void setBody(const std::string& body, const std::string& contentType);
         void setHeader(const std::string& key, const std::string& value);
+        void setStatusCode(int statusCode);
 
         std::string serialize() const;
 

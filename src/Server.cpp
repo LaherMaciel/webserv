@@ -4,6 +4,7 @@
 #include "Connection.hpp"
 #include "Response.hpp"
 #include "Router.hpp"
+#include "ServerConfig.hpp"
 #include <map>
 #include <cstring>//for memset
 #include <sys/socket.h>//for socket(), bind(), listen(), accept()
@@ -13,15 +14,20 @@
 #include <poll.h>//for poll()
 #include <stdexcept>//for exception types
 
-Server::Server(): fd_(-1), port_(DEFAULT_PORT){}
+static const int POLL_TIMEOUT_MS = 100;
 
-Server::Server(int port): fd_(-1), port_(port) {}
+Server::Server(): config_(setServerConfig()), fd_(-1), port_(DEFAULT_PORT), router_(config_) {}
+
+Server::Server(const ServerConfig& config): config_(config), fd_(-1), port_(config.port_), router_(config_) {}
 
 Server::~Server()
 {
     for (std::map<int, Connection *>::iterator it = conns_.begin(); it != conns_.end(); ++it)
         delete it->second;
+    for (size_t i = 0; i < closingConnections_.size(); ++i)
+        delete closingConnections_[i];
     conns_.clear();
+    closingConnections_.clear();
     poll_fds_.clear();
     if (fd_ != -1)
         close(fd_);
@@ -69,19 +75,44 @@ int    Server::acceptConnection()
 
 void Server::cleanDeadFds(std::vector<int> &deadfds)
 {
-    for (int i = deadfds.size() -1; i >= 0; --i)
+    for (size_t i = deadfds.size(); i > 0; --i)
     {
-        std::map<int, Connection *>::iterator it = conns_.find(deadfds[i]);
+        int deadFd = deadfds[i - 1];
+        std::map<int, Connection *>::iterator it = conns_.find(deadFd);
         if (it != conns_.end())
         {
-            delete it->second;
+            Connection *conn = it->second;
+            int cgiFd = conn->getCgiOutputFd();
+            if (cgiFd != -1)
+            {
+                cgiOwners_.erase(cgiFd);
+                for (size_t j = 0; j < poll_fds_.size(); ++j)
+                {
+                    if (poll_fds_[j].fd == cgiFd)
+                    {
+                        poll_fds_[j].fd = -1;
+                        poll_fds_[j].events = 0;
+                        break;
+                    }
+                }
+            }
             conns_.erase(it);
+            conn->closeClientFd();
+            if (conn->abortCgi() == CGI_CLEANUP_DONE)
+                delete conn;
+            else
+                closingConnections_.push_back(conn);
         }
-        for (int j = poll_fds_.size() - 1; j >= 0; --j)
+        for (size_t j = poll_fds_.size(); j > 0; --j)
         {
-            if (poll_fds_[j].fd == deadfds[i])
-                poll_fds_.erase(poll_fds_.begin() + j);
+            if (poll_fds_[j - 1].fd == deadFd)
+                poll_fds_.erase(poll_fds_.begin() + (j - 1));
         }
+    }
+    for (size_t i = poll_fds_.size(); i > 0; --i)
+    {
+        if (poll_fds_[i - 1].fd == -1)
+            poll_fds_.erase(poll_fds_.begin() + (i - 1));
     }
 }
 
@@ -138,7 +169,7 @@ Connection *Server::getConnection(int fd)
     return it->second;
 }
 
-ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
+ConnectionStatus Server::handleConnection(int fd, size_t pollfd_pos)
 {
     Connection *conn = getConnection(fd);//safer than using conns_[fd] directly
     if (!conn)
@@ -149,14 +180,12 @@ ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
     while (status == REQUEST_READY)
     {
         Response response;
-        RouteType result = router_.routeRequest(conn->getRequest(), response);
+        CgiInfo cgiInfo;
+        RouteType result = router_.routeRequest(conn->getRequest(), response, cgiInfo);
         if (result != ROUTE_CGI)
             conn->queueResponse(response);
         else
-        {
-            std::cerr << "CGI not yet implemented!!!\n";
-            conn->queueErrorResponse(501, conn->getRequest().getVersion());
-        }
+            return startCgi(conn, cgiInfo, pollfd_pos);
         conn->resetRequest();
         status = conn->handleRequest();
     }
@@ -175,6 +204,12 @@ void	Server::processEvents()
 
     for (size_t i = 0; i < poll_fds_.size(); ++i)
     {
+        Connection *cgiOwner = getCgiOwner(poll_fds_[i].fd);
+        if (cgiOwner)
+        {
+            handleCgiEvent(cgiOwner, i);
+            continue ;
+        }
         if (poll_fds_[i].revents & (POLLERR | POLLHUP | POLLNVAL))//if error, hangup, or invalid request, mark fd for removal
         {
             dead_fds.push_back(poll_fds_[i].fd);
@@ -188,8 +223,10 @@ void	Server::processEvents()
                 if (client_fd == -1)
                     continue ;
                 addClient(client_fd);
+                continue ;
            }
-           else if (handleConnection(poll_fds_[i].fd, i) == CLOSE_CONNECTION)
+           ConnectionStatus status = handleConnection(poll_fds_[i].fd, i);
+           if (status == CLOSE_CONNECTION)
                 dead_fds.push_back(poll_fds_[i].fd);
         }
         if (poll_fds_[i].revents & POLLOUT)
@@ -208,8 +245,11 @@ void Server::runServer()
 {
     while (true)
     {
-        if (poll(&poll_fds_[0], poll_fds_.size(), -1) <= 0)
+        int ready = poll(&poll_fds_[0], poll_fds_.size(), POLL_TIMEOUT_MS);
+        if (ready < 0)
             continue ;
-        processEvents();
+        if (ready > 0)
+            processEvents();
+        checkCgiChildren();
     }
 }
