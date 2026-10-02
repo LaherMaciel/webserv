@@ -7,6 +7,7 @@
 #include <signal.h>//for kill()
 #include <cerrno>//for EINTR
 #include <vector>
+#include <algorithm>//for std::transform and std::replace
 
 CgiProcess::CgiProcess()
     : pid_(-1), cgiOutputFd_(-1), buffer_(""),
