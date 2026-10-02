@@ -120,3 +120,4 @@ ConnectionStatus Connection::handleRequest()
 //or nc still works you just can't get an OK response unless you use printf and sleep:
 //(printf 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
 // (printf 'GET / HTTP/1.1\r\nHost: x\r\n\r\n'; sleep 1; printf 'GET /static HTTP/1.1\r\nHost: x\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
+// (printf 'GET / HTTP/1.1\r\nHost: x\r\n\r\nGET / HTTP/1.1\r\nHost: x\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
