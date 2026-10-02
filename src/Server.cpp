@@ -174,10 +174,10 @@ ConnectionStatus Server::handleConnection(int fd, size_t pollfd_pos)
     Connection *conn = getConnection(fd);//safer than using conns_[fd] directly
     if (!conn)
         return CLOSE_CONNECTION;
+    if (conn->readFromSocket() == -1)
+        return CLOSE_CONNECTION;
     ConnectionStatus status = conn->handleRequest();
-    if (status == CLOSE_CONNECTION || status == WAIT_FOR_MORE)
-        return status;
-    if (status == REQUEST_READY)
+    while (status == REQUEST_READY)
     {
         Response response;
         CgiInfo cgiInfo;
@@ -186,7 +186,13 @@ ConnectionStatus Server::handleConnection(int fd, size_t pollfd_pos)
             conn->queueResponse(response);
         else
             return startCgi(conn, cgiInfo, pollfd_pos);
+        conn->resetRequest();
+        status = conn->handleRequest();
     }
+    if (status == CLOSE_CONNECTION)
+        return CLOSE_CONNECTION;
+    if (!conn->hasPendingResponse())
+        return WAIT_FOR_MORE;
     poll_fds_[pollfd_pos].events = POLLOUT;
     return RESPONSE_READY;
 }
@@ -228,6 +234,8 @@ void	Server::processEvents()
             Connection *conn = getConnection(poll_fds_[i].fd);//safer than using conns_[fd] directly
             if (!conn || conn->sendResponse() == CLOSE_CONNECTION)
                 dead_fds.push_back(poll_fds_[i].fd);
+            else
+                poll_fds_[i].events = POLLIN;
         } 
     }
     cleanDeadFds(dead_fds);

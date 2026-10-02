@@ -1,13 +1,14 @@
 #include "RequestParser.hpp"
 #include "webserv.hpp"
 #include "Request.hpp"
+#include <cstdlib>
 
-RequestParser::RequestParser() : status_(PARSE_INCOMPLETE), endOfHeaders_(0) {}
+RequestParser::RequestParser() : endOfHeaders_(0), status_(PARSE_INCOMPLETE) {}
 RequestParser::~RequestParser() {}
 
 void RequestParser::validateRequestLine(const std::string &method, const std::string &path, const std::string &version)
 {
-    if (method != "GET" && method != "POST" && method != "DELETE")//add all possible methods with http 1.1
+    if (method != "GET" && method != "POST" && method != "DELETE")// add all the methods allowed by HTTP/1.1
     {
         throw 400;
     }
@@ -98,7 +99,10 @@ void RequestParser::parseHeaderLine(const std::string &line, std::map<std::strin
     while (value_start < line.size() && (line[value_start] == ' '
                                             || line[value_start] == '\t'))
         value_start++;
-    std::string value = line.substr(value_start);
+    size_t value_end = line.size();
+    while (value_end > value_start && (line[value_end - 1] == ' ' || line[value_end - 1] == '\t'))
+        value_end--;
+    std::string value = line.substr(value_start, value_end - value_start);
     if (headers.find(key) != headers.end())
     {
         throw 400;
@@ -127,9 +131,15 @@ void RequestParser::parseHeader(Request &request)
 
 void RequestParser::parseRequest(const std::string &raw_request, Request &request)
 {
+    endOfHeaders_ = 0;
     size_t headersEnd = raw_request.find("\r\n\r\n");
     if (headersEnd == std::string::npos)
+    {
+        if (raw_request.size() > MAX_HEADER_SIZE)
+            throw 431;
+        status_ = PARSE_INCOMPLETE;
         return ;
+    }
     size_t requestLineEnd = raw_request.find("\r\n");
     rawRequestLine_ = raw_request.substr(0, requestLineEnd);
 
@@ -142,4 +152,124 @@ void RequestParser::parseRequest(const std::string &raw_request, Request &reques
     parseHeader(request);
     endOfHeaders_ = headersEnd + 4;
     status_ = PARSE_OK;
+}
+
+int RequestParser::copyByLength(std::map<std::string, std::string> header, Request &request)
+{
+    std::map<std::string, std::string>::iterator it = header.find("content-length");
+    if (it == header.end())
+        return (-1);
+    char *end;
+    long value = std::strtol(it->second.c_str(), &end, 10);
+    if (it->second.empty() || *end != '\0' || value < 0)
+        throw 400;
+    size_t n = static_cast<size_t>(value);
+    size_t missing = n - request.getBody().size();
+    std::string newBody = rawRequestLine_.substr(0, missing);
+    request.appendToBody(newBody);
+    /* size_t bodyEnd = rawRequestLine_.find("\r\n\r\n");
+    if (bodyEnd == std::string::npos)
+        return (-1); */
+    std::string body = request.getBody();
+    endOfBody_ = newBody.size();
+    if (body.size() != n)
+    {
+        if (body.size() < n)
+        {
+            request.setIsBodyComplete(false);
+            return (-1);
+        }
+        else
+        {
+            std::cout << "I don't know what we do here yet, because "
+                "that's just weird behaviour. But I think we should throw." << std::endl;
+            return (-1);
+        }
+    }
+    else
+        request.setIsBodyComplete(true);
+    return (0);
+}
+
+
+/**
+ * The idea behind both -1 returns is to wait for the complete message,
+ * because it's most likely incomplete so we should wait for the rest of the input.
+ */
+int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, std::string &str, char *end)
+{
+    endline = str.find("\r\n");
+    if (endline == std::string::npos)
+    {
+        std::cout << "There's no \\r\\n yet." << std::endl;
+        return (-1);
+    }
+    hex = str.substr(0, endline);
+    n = std::strtol(hex.c_str(), &end, 16);
+    if ((*end != '\0' && *end != ';'))
+        throw 400;
+    if (str.size() < endline + 2 + n + 2)
+    {
+        std::cout << "The expected size is bigger than the actual size, "
+            "which means the message is incomplete." << std::endl;
+        return (-1);
+    }
+    return (0);
+}
+
+int RequestParser::copyByChunks(std::map<std::string, std::string> header, Request &request)
+{
+    std::map<std::string, std::string>::iterator it = header.find("transfer-encoding");
+    std::string str = rawRequestLine_;
+    if (it == header.end())
+        return (-1);
+    if (it->second != "chunked")
+    {
+        throw 501;
+    }
+    char *end = NULL;
+    size_t endline;
+    std::string hex;
+    size_t n;
+    std::cout << it->first << ": " << it->second << std::endl;
+    if (getChunkIndex(endline, hex, n, str, end) == -1)
+        return (-1);
+    while (n != 0)
+    {
+        endOfBody_ += str.find("\r\n") + 2;
+        str.erase(0, str.find("\r\n") + 2);
+        request.appendToBody(str.substr(0, n));
+        endOfBody_ += n + 2;
+        str.erase(0, n + 2);
+        if (getChunkIndex(endline, hex, n, str, end) == -1)
+            return (-1);
+    }
+    if (str.find("0\r\n\r\n") != 0)
+        throw 400;
+    endOfBody_ += str.find("\r\n\r\n") + 4;
+    str.erase(0, str.find("\r\n\r\n") + 4);
+    request.setIsBodyComplete(true);
+    return (0);
+}
+
+/**
+ * TODO: Hello World body test
+ * * content-length -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nContent-Length: 11\r\n\r\nhello world'; sleep 1) | nc 127.0.0.1 8080
+ * * transfer-encoding -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nTransfer-encoding: chunked\r\n\r\n6\r\nhello \r\n5\r\nworld\r\n0\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
+ * * content-length + transfer-encoding -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nContent-Length: 11\r\nTransfer-encoding: chunked\r\n\r\n6\r\nhello \r\n6\r\nworld\r\n0\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
+ */
+int RequestParser::parseRequestBody(const std::string &raw_request, Request &request)
+{
+    endOfBody_ = 0;
+    rawRequestLine_ = raw_request;
+    std::map<std::string, std::string> header = request.getHeaders();
+    std::map<std::string, std::string>::iterator chunked = header.find("transfer-encoding");
+    std::map<std::string, std::string>::iterator lenght = header.find("content-length");
+
+    if (chunked != header.end())
+        return (copyByChunks(header, request));
+    if (lenght != header.end())
+        return (copyByLength(header, request));
+    request.setIsBodyComplete(true);
+    return (0);
 }
