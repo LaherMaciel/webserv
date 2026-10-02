@@ -143,10 +143,10 @@ ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
     Connection *conn = getConnection(fd);//safer than using conns_[fd] directly
     if (!conn)
         return CLOSE_CONNECTION;
+    if (conn->readFromSocket() == -1)
+        return CLOSE_CONNECTION;
     ConnectionStatus status = conn->handleRequest();
-    if (status == CLOSE_CONNECTION || status == WAIT_FOR_MORE)
-        return status;
-    if (status == REQUEST_READY)
+    while (status == REQUEST_READY)
     {
         Response response;
         RouteType result = router_.routeRequest(conn->getRequest(), response);
@@ -157,7 +157,13 @@ ConnectionStatus Server::handleConnection(int fd, int pollfd_pos)
             std::cerr << "CGI not yet implemented!!!\n";
             conn->queueErrorResponse(501, conn->getRequest().getVersion());
         }
+        conn->resetRequest();
+        status = conn->handleRequest();
     }
+    if (status == CLOSE_CONNECTION)
+        return CLOSE_CONNECTION;
+    if (!conn->hasPendingResponse())
+        return WAIT_FOR_MORE;
     poll_fds_[pollfd_pos].events = POLLOUT;
     return RESPONSE_READY;
 }
@@ -191,6 +197,8 @@ void	Server::processEvents()
             Connection *conn = getConnection(poll_fds_[i].fd);//safer than using conns_[fd] directly
             if (!conn || conn->sendResponse() == CLOSE_CONNECTION)
                 dead_fds.push_back(poll_fds_[i].fd);
+            else
+                poll_fds_[i].events = POLLIN;
         } 
     }
     cleanDeadFds(dead_fds);

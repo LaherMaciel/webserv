@@ -15,6 +15,13 @@ Connection::~Connection() { close(fd_); }
 
 const Request& Connection::getRequest() const { return request_; }
 
+void Connection::resetRequest()
+{
+    request_ = Request();
+}
+
+bool Connection::hasPendingResponse() const { return !out_buffer_.empty(); }
+
 int Connection::readFromSocket()
 {
     char buffer[1024];
@@ -43,19 +50,22 @@ int Connection::readFromSocket()
 ConnectionStatus Connection::sendResponse()
 {
     size_t bytes_left = out_buffer_.size() - bytes_sent_;
+    if (bytes_left == 0)
+        return CONTINUE_CONNECTION;
     ssize_t sent = send(fd_, out_buffer_.c_str() + bytes_sent_, bytes_left, 0);
     if (sent <= 0)
         return CLOSE_CONNECTION;
     bytes_sent_ += sent;
     if (bytes_sent_ < out_buffer_.size())
         return WAIT_FOR_MORE;
-    return CLOSE_CONNECTION;
+    out_buffer_.clear();
+    bytes_sent_ = 0;
+    return CONTINUE_CONNECTION;
 }
 
 void Connection::queueResponse(const Response &response)
 {
-    out_buffer_ = response.serialize();
-    bytes_sent_ = 0;
+    out_buffer_ += response.serialize();
 }
 
 ConnectionStatus Connection::queueErrorResponse(int code, std::string version)
@@ -71,10 +81,6 @@ ConnectionStatus Connection::queueErrorResponse(int code, std::string version)
 ConnectionStatus Connection::handleRequest()
 {
     std::cout << "Handling client connection (fd: " << fd_ << ")\n";
-    if (readFromSocket() == -1)
-        return CLOSE_CONNECTION;
-    if (in_buffer_.size() > MAX_HEADER_SIZE)
-        return queueErrorResponse(431);
     try
     {
         if (request_.getMethod().empty())
@@ -88,10 +94,16 @@ ConnectionStatus Connection::handleRequest()
     }
 
     //ADD Body
-    parser_.parseRequestBody(in_buffer_, request_);
-    if (!request_.getBody().empty())
-        in_buffer_.erase(0, parser_.endOfBody_);
-    parser_.endOfBody_ = 0;
+    try
+    {
+        if (parser_.parseRequestBody(in_buffer_, request_) == 0)
+            in_buffer_.erase(0, parser_.endOfBody_);
+        parser_.endOfBody_ = 0;
+    }
+    catch(int error)
+    {
+        return queueErrorResponse(error, request_.getVersion());
+    }
 
     // INCOMPLETE REQUEST
     if (parser_.status_ == PARSE_INCOMPLETE || !request_.getIsBodyComplete())
@@ -107,3 +119,4 @@ ConnectionStatus Connection::handleRequest()
 //curl -v http://127.0.0.1:8080/
 //or nc still works you just can't get an OK response unless you use printf and sleep:
 //(printf 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
+// (printf 'GET / HTTP/1.1\r\nHost: x\r\n\r\n'; sleep 1; printf 'GET /static HTTP/1.1\r\nHost: x\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080

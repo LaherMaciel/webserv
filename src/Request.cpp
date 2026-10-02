@@ -1,11 +1,11 @@
 #include "Request.hpp"
 #include <iostream>
 
-Request::Request() : method_(""), path_(""), version_(""), headers_(), isBodyComplete_(false) {}
+Request::Request() : method_(""), path_(""), version_(""), headers_(), haveBody_(false), isBodyComplete_(false) {}
 
 Request::Request(const Request& other)
-    : method_(other.method_), path_(other.path_), version_(other.version_), headers_(other.headers_),
-    isBodyComplete_(other.isBodyComplete_) {}
+    : method_(other.method_), path_(other.path_), version_(other.version_), body_(other.body_),
+    headers_(other.headers_), isBodyComplete_(other.isBodyComplete_) {}
 
 Request& Request::operator=(const Request& other)
 {
@@ -14,6 +14,7 @@ Request& Request::operator=(const Request& other)
         method_ = other.method_;
         path_ = other.path_;
         version_ = other.version_;
+        body_ = other.body_;
         headers_ = other.headers_;
         haveBody_ = other.haveBody_;
         isBodyComplete_ = other.isBodyComplete_;
@@ -57,6 +58,8 @@ const std::map<std::string, std::string>& Request::getHeaders() const { return h
 const std::string& Request::getVersion() const { return version_; }
 
 const std::string& Request::getBody() const { return body_; }
+
+bool Request::getHaveBody() const { return haveBody_; }
 
 bool Request::getIsBodyComplete() const { return isBodyComplete_; }
 
