@@ -4,6 +4,7 @@
 #include "Router.hpp"
 #include <string>
 #include <vector>
+#include <unistd.h>//for pipe(), fork(), dup2()
 
 enum CgiReadStatus
 {

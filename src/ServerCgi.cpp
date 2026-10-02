@@ -19,7 +19,8 @@ ServerConfig setServerConfig()
     config.locations_[0].allowedMethods_.push_back("GET");
     location.path_ = "/cgi-bin";
     location.root_ = ".";
-    location.cgiHandlers_[".py"] = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
+    //location.cgiHandlers_[".py"] = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
+    location.cgiHandlers_[".py"] = "/bin/python3.10";
     config.locations_.push_back(location);
     config.locations_[1].allowedMethods_.push_back("GET");
     return config;

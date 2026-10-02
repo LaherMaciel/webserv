@@ -154,8 +154,8 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
         cgiInfo.scriptUrlPath_ = "/cgi-bin/hello.py";
         cgiInfo.scriptFilesystemPath_ = "cgi-bin/hello.py";
         cgiInfo.pathInfo_ = "";
-        cgiInfo.interpreterPath_ =
-            "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
+        //cgiInfo.interpreterPath_ = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
+        cgiInfo.interpreterPath_ = "/bin/python3.10";
         cgiInfo.workingDirectory_ = "cgi-bin";
 
         return ROUTE_CGI;
