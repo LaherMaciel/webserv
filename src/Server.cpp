@@ -187,7 +187,7 @@ ConnectionStatus Server::handleConnection(int fd, size_t pollfd_pos)
         if (result != ROUTE_CGI)
             conn->queueResponse(response);
         else
-            return startCgi(conn, cgiInfo, pollfd_pos);
+            return startCgi(conn, cgiInfo, pollfd_pos); //! <-
         conn->resetRequest();
         status = conn->handleRequest();
     }
