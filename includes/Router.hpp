@@ -32,7 +32,7 @@ class Router
         RouteType routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo);
         LocationConfig *findLocation(const std::string &path);
         bool isValidMethod(const std::string &method, const LocationConfig *location);
-        bool splitCgiPath(const std::string &path, const std::string &extension, std::string &scriptName, std::string &pathInfo, std::string &workingDirectory);
+        bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
         void completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
 
     private:

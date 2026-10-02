@@ -59,62 +59,57 @@ bool Router::isValidMethod(const std::string &method, const LocationConfig *loca
     return false;
 }
 
-// static void printCgiInfo(const CgiInfo &cgiInfo)
-// {
-//     std::cout << "CGI Info:\n";
-//     std::cout << "Script URL Path: " << cgiInfo.scriptUrlPath_ << "\n";
-//     std::cout << "Script Filesystem Path: " << cgiInfo.scriptFilesystemPath_ << "\n";
-//     std::cout << "Path Info: " << cgiInfo.pathInfo_ << "\n";
-//     std::cout << "Interpreter Path: " << cgiInfo.interpreterPath_ << "\n";
-//     std::cout << "Working Directory: " << cgiInfo.workingDirectory_ << "\n";
-// }
+static void printCgiInfo(const CgiInfo &cgiInfo)
+{
+    std::cout << "CGI Info:\n";
+    std::cout << "Script URL Path: " << cgiInfo.scriptUrlPath_ << "\n";
+    std::cout << "Script Filesystem Path: " << cgiInfo.scriptFilesystemPath_ << "\n";
+    std::cout << "Path Info: " << cgiInfo.pathInfo_ << "\n";
+    std::cout << "Interpreter Path: " << cgiInfo.interpreterPath_ << "\n";
+    std::cout << "Working Directory: " << cgiInfo.workingDirectory_ << "\n";
+}
 
-// bool Router::splitCgiPath(const std::string &path, const std::string &extension, 
-//                           std::string &scriptName, std::string &pathInfo, std::string &workingDirectory)
-// {
-//     if (extension.empty())
-//         return false;
-//     size_t pos = path.find(extension);
-//     while (pos != std::string::npos)
-//     {
-//         size_t scriptEnd = pos + extension.size();
-//         if (scriptEnd == path.size() || path[scriptEnd] == '/')
-//         {
-//             scriptName = path.substr(0, scriptEnd);
-//             pathInfo = path.substr(scriptEnd);
-//             workingDirectory = path.substr(0, pos);
-//             return true;
-//         }
-//         pos = path.find(extension, pos + 1);
-//     }
+bool Router::splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension)
+{
+    if (extension.empty())
+        return false;
+    size_t pos = path.find(extension);
+    while (pos != std::string::npos)
+    {
+        size_t scriptEnd = pos + extension.size();
+        if (scriptEnd == path.size() || path[scriptEnd] == '/')
+        {
+            info.scriptUrlPath_ = path.substr(0, scriptEnd);
+            info.scriptFilename_ = info.scriptUrlPath_.substr(info.scriptUrlPath_.find_last_of('/') + 1);
+            info.pathInfo_ = path.substr(scriptEnd);
+            return true;
+        }
+        pos = path.find(extension, pos + 1);
+    }
+    return false;
+}
 
-//     return false;
-// }
+void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
+{
+    const std::map<std::string, std::string> &handlers =
+    location->cgiHandlers_;
 
-// void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
-// {
-//     const std::map<std::string, std::string> &handlers =
-//     location->cgiHandlers_;
-
-//     for (std::map<std::string, std::string>::const_iterator it = handlers.begin(); it != handlers.end(); ++it)
-//     {
-//         const std::string &extension = it->first;
-//         const std::string &handler = it->second;
-//         std::string scriptName;
-//         std::string pathInfo;
-//         std::string workingDirectory;
-//         if (splitCgiPath(request.getPath(), extension, scriptName, pathInfo, workingDirectory))
-//         {
-//             cgiInfo.scriptUrlPath_ = scriptName;
-//             cgiInfo.pathInfo_ = pathInfo;
-//             cgiInfo.interpreterPath_ = handler;
-//             cgiInfo.workingDirectory_ = location->root_;//?
-//             cgiInfo.scriptFilesystemPath_ = mapFilePath(scriptName, location);//?
-//             printCgiInfo(cgiInfo);
-//             return;
-//         }
-//     }
-// }
+    for (std::map<std::string, std::string>::const_iterator it = handlers.begin(); it != handlers.end(); ++it)
+    {
+        const std::string &extension = it->first;
+        const std::string &handler = it->second;
+        CgiInfo info;
+        if (splitCgiPath(info, request.getPath(), extension))
+        {
+            info.interpreterPath_ = handler;
+            info.scriptFilesystemPath_ = location->root_ + location->path_ + "/" + info.scriptFilename_;
+            info.workingDirectory_ = location->root_ + location->path_;
+            cgiInfo = info;
+            printCgiInfo(cgiInfo);
+            return;
+        }
+    }
+}
 
 RouteType Router::routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo)
 {
@@ -131,24 +126,24 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
         response = Response(405, request.getVersion());
         return ROUTE_ERROR;
     }
-    // if (location->path_ == "/cgi-bin")
-    // {
-        
-    //     std::cout << "Routing CGI request for path: " << request.getPath() << "\n";
-    //     completeCGIinfo(cgiInfo, request, location);
-    //     return ROUTE_CGI;
-    // }
-    if (request.getPath() == "/cgi-bin/hello.py")//temp hardcoded
+    if (location->path_ == "/cgi-bin")
     {
-        cgiInfo.scriptFilename_ = "hello.py";
-        cgiInfo.scriptUrlPath_ = "/cgi-bin/hello.py";
-        cgiInfo.scriptFilesystemPath_ = "cgi-bin/hello.py";
-        cgiInfo.pathInfo_ = "";
-        //cgiInfo.interpreterPath_ = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
-        cgiInfo.interpreterPath_ = "/bin/python3.10";
-        cgiInfo.workingDirectory_ = "cgi-bin";
+        std::cout << "Routing CGI request for path: " << request.getPath() << "\n";
+        completeCGIinfo(cgiInfo, request, location);
         return ROUTE_CGI;
     }
+    // if (request.getPath() == "/cgi-bin/hello.py")//temp hardcoded
+    // {
+    //     cgiInfo.scriptFilename_ = "hello.py";
+    //     cgiInfo.scriptUrlPath_ = "/cgi-bin/hello.py";
+    //     cgiInfo.scriptFilesystemPath_ = "./www/cgi-bin/hello.py"; //should be ./www/cgi-bin/hello.py
+    //     cgiInfo.pathInfo_ = "";
+    //     //cgiInfo.interpreterPath_ = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
+    //     //cgiInfo.interpreterPath_ = "/bin/python3.10";
+    //     cgiInfo.interpreterPath_ = "/usr/bin/python";
+    //     cgiInfo.workingDirectory_ = "cgi-bin";
+    //     return ROUTE_CGI;
+    // }
     std::string path = mapFilePath(request.getPath(), location);
     if (path.empty())
     {
