@@ -34,6 +34,7 @@ class Router
         bool isValidMethod(const std::string &method, const LocationConfig *location);
         bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
         void completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
+        void validateCgiScript(const std::string &scriptPath);
 
     private:
         Router(const Router& other);

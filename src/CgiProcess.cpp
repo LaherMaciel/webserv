@@ -128,20 +128,26 @@ void CgiProcess::finishCgi(Response &response)
     response.setBody(cgiBody, "text/plain");
 }
 
-std::vector<std::string> CgiProcess::buildEnvp(const Request &request)
+std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const CgiInfo &cgiInfo)
 {
     std::vector<std::string> envp;
     envp.push_back("REQUEST_METHOD=" + request.getMethod());
     envp.push_back("QUERY_STRING=" + request.getQuery());
     envp.push_back("SERVER_PROTOCOL=" + request.getVersion());
     envp.push_back("GATEWAY_INTERFACE=CGI/1.1");
+    envp.push_back("SCRIPT_NAME=" + cgiInfo.scriptUrlPath_);
+    envp.push_back("SCRIPT_FILENAME=" + cgiInfo.scriptFilename_);
+    envp.push_back("PATH_INFO=" + cgiInfo.pathInfo_);
     for (std::map<std::string, std::string>::const_iterator it = request.getHeaders().begin();
          it != request.getHeaders().end(); ++it)
     {
-        std::string headerName = "HTTP_" + it->first;
+        std::string headerName = it->first;
         std::replace(headerName.begin(), headerName.end(), '-', '_');
         std::transform(headerName.begin(), headerName.end(), headerName.begin(), ::toupper);
-        envp.push_back(headerName + "=" + it->second);
+        if (headerName == "CONTENT_TYPE" || headerName == "CONTENT_LENGTH")
+            envp.push_back(headerName + "=" + it->second);
+        else
+            envp.push_back("HTTP_" + headerName + "=" + it->second);
     }
     return envp;
 }
@@ -165,10 +171,11 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
         close(pipefd[0]); // Close read end in child
         dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
         close(pipefd[1]); // Close write end after duplicating
-        chdir(cgiInfo.workingDirectory_.c_str()); // Change working directory to script's directory
+        if (chdir(cgiInfo.workingDirectory_.c_str()) == -1)
+            _exit(1);
         char *argv[] = {const_cast<char *>(cgiInfo.interpreterPath_.c_str()),
                         const_cast<char *>(cgiInfo.scriptFilename_.c_str()), NULL};
-        std::vector<std::string> envp = buildEnvp(request);
+        std::vector<std::string> envp = buildEnvp(request, cgiInfo);
         std::vector<char *> envpArray;
         for (size_t i = 0; i < envp.size(); ++i)
             envpArray.push_back(const_cast<char *>(envp[i].c_str()));

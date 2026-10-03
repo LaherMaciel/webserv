@@ -41,7 +41,7 @@ class CgiProcess
         CgiCleanupStatus abort();
         int getOutputFd() const;
         void reset();
-        std::vector<std::string> buildEnvp(const Request &request);
+        std::vector<std::string> buildEnvp(const Request &request, const CgiInfo &cgiInfo);
 
     private:
         pid_t       pid_;
