@@ -64,7 +64,7 @@ ConnectionStatus Connection::checkCgiChild()
 {
     if (!cgiProcess_.checkChild())
         return CGI_WAITING_FOR_EXIT;
-    Response response;
+    Response response(500, request_.getVersion());
     cgiProcess_.finishCgi(response);
     queueResponse(response);
     return RESPONSE_READY;

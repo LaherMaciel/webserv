@@ -16,12 +16,14 @@ std::string Router::mapFilePath(const std::string &path, const LocationConfig *l
 {
     if (!location)
         return "";
+    std::string filePath = location->root_ + path;
     if (path == location->path_ && !location->index_.empty())
-        return location->root_ + "/" + location->index_;
-    else if (path.find(location->path_) == 0)
-        return location->root_ + "/" + path.substr(location->path_.size());
-    else
-        return "";
+    {
+        if (filePath.empty() || filePath[filePath.size() - 1] != '/')
+            filePath += "/";
+        filePath += location->index_;
+    }
+    return filePath;
 }
 
 std::string Router::contentType(const std::string &path)

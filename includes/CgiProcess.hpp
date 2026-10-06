@@ -4,6 +4,8 @@
 #include "Router.hpp"
 #include <string>
 #include <vector>
+#include <set>
+#include <map>
 #include <unistd.h>//for pipe(), fork(), dup2()
 
 enum CgiReadStatus
@@ -43,6 +45,7 @@ class CgiProcess
         void reset();
         std::vector<std::string> buildEnvp(const Request &request, const CgiInfo &cgiInfo);
 
+
     private:
         pid_t       pid_;
         int         cgiOutputFd_;
@@ -52,6 +55,9 @@ class CgiProcess
         bool        killSent_;
 
         void closeOutputFd();
+        bool processHeader(Response &response, const std::string &headerLine, std::map<std::string,
+                            std::string> &parsedHeaders, std::set<std::string> &seenHeaders);
+        bool setStatus(Response &response, const std::string &value);
 
         CgiProcess(const CgiProcess& other);
         CgiProcess& operator=(const CgiProcess& other);

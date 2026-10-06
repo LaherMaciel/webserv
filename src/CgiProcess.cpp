@@ -7,7 +7,18 @@
 #include <signal.h>//for kill()
 #include <cerrno>//for EINTR
 #include <vector>
+#include <map>
+#include <set>
 #include <algorithm>//for std::transform and std::replace
+
+/*
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py'
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=lf'
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=duplicate'
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=malformed'
+CRLF is \r\n
+LF is \n
+*/
 
 CgiProcess::CgiProcess()
     : pid_(-1), cgiOutputFd_(-1), buffer_(""),
@@ -106,26 +117,100 @@ CgiReadStatus CgiProcess::readFromPipe()
     return CGI_READ_ERROR;
 }
 
+bool CgiProcess::setStatus(Response &response, const std::string &value)
+{
+    size_t spacePos = value.find(' ');
+    std::string statusCodeStr;
+    std::string reasonPhrase;
+    if (spacePos == std::string::npos)
+        statusCodeStr = value;
+    else
+    {
+        statusCodeStr = value.substr(0, spacePos);
+        reasonPhrase = value.substr(spacePos + 1);
+    }
+    if (statusCodeStr.size() != 3)
+        return false;
+    int statusCode = std::atoi(statusCodeStr.c_str());
+    if (statusCode < 100 || statusCode > 599)
+        return false;
+    if (reasonPhrase.empty())
+        reasonPhrase = httpReasonPhrase(statusCode);
+    response.setStatusCode(statusCode, reasonPhrase);
+    return true;
+}
+
+bool CgiProcess::processHeader(Response &response, const std::string &headerLine, std::map<std::string, std::string> &parsedHeaders, std::set<std::string> &seenHeaders)
+{
+    size_t colonPos = headerLine.find(':');
+    if (colonPos == std::string::npos)
+        return false;
+    std::string key = headerLine.substr(0, colonPos);
+    std::string value = headerLine.substr(colonPos + 1);
+    while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
+        value.erase(0, 1);
+    if (key.empty() || value.empty())
+        return false;
+    std::string lowerKey = toLower(key);
+    if (!seenHeaders.insert(lowerKey).second)
+        return false;
+    if (lowerKey == "status")
+        return setStatus(response, value);
+    else if (lowerKey == "content-type")
+    {
+        parsedHeaders["Content-Type"] = value;
+        return true;
+    }
+    else if (lowerKey == "content-length" || lowerKey == "connection" || lowerKey == "transfer-encoding")
+        return true;
+    parsedHeaders[key] = value;
+    return true;
+}
+
 void CgiProcess::finishCgi(Response &response)
 {
     if (childStatus_ != CHILD_SUCCEEDED)
     {
         response.setBody("Internal Server Error: CGI script failed", "text/plain");
-        response.setStatusCode(500);
         return;
     }
     size_t headerEnd = buffer_.find("\r\n\r\n");
+    size_t separator = 4;
     if (headerEnd == std::string::npos)
     {
-        response.setStatusCode(500);
-        response.setBody("Malformed CGI output", "text/plain");
-        return;
+        headerEnd = buffer_.find("\n\n");
+        separator = 2;
+        if (headerEnd == std::string::npos)
+        {
+            response.setBody("Malformed CGI output", "text/plain");
+            return;
+        }
     }
     std::string cgiHeaders = buffer_.substr(0, headerEnd);
-    std::string cgiBody = buffer_.substr(headerEnd + 4);
-
+    std::string cgiBody = buffer_.substr(headerEnd + separator);
+    size_t lineStart = 0;
     response.setStatusCode(200);
-    response.setBody(cgiBody, "text/plain");
+    std::map<std::string, std::string> parsedHeaders;
+    std::set<std::string> seenHeaders;
+    while (lineStart < cgiHeaders.size())
+    {
+        size_t lineEnd = cgiHeaders.find("\n", lineStart);
+        if (lineEnd == std::string::npos)
+            lineEnd = cgiHeaders.size();
+        size_t lineLength = lineEnd - lineStart;
+        if (lineLength > 0 && cgiHeaders[lineEnd - 1] == '\r')
+            lineLength--;
+        std::string line = cgiHeaders.substr(lineStart, lineLength);
+        if (!processHeader(response, line, parsedHeaders, seenHeaders))
+        {
+            response.setStatusCode(500);
+            response.setBody("Malformed CGI output", "text/plain");
+            return;
+        }
+        lineStart = lineEnd + 1;
+    }
+    response.setHeaders(parsedHeaders);
+    response.setBody(cgiBody);
 }
 
 std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const CgiInfo &cgiInfo)
