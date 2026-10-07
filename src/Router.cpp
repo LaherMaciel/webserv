@@ -7,6 +7,7 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fstream>
 
 Router::Router(ServerConfig &config) : config_(config) {}
 
@@ -145,6 +146,75 @@ void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const Loc
     printCgiInfo(cgiInfo);
 }
 
+RouteType Router::routeCGI(const Request& request, const LocationConfig *location, Response& response, CgiInfo &cgiInfo)
+{
+    try
+    {
+        completeCGIinfo(cgiInfo, request, location);
+        validateCgiScript(cgiInfo.scriptFilesystemPath_);
+    }
+    catch (int errorCode)
+    {
+        response = Response(errorCode, request.getVersion());
+        return ROUTE_ERROR;
+    }
+    return ROUTE_CGI;
+}
+
+void Router::writeToFile(const std::string &uploadPath, const std::string &body)
+{
+    std::ofstream uploadFile(uploadPath.c_str(), std::ios::binary);
+    if (!uploadFile.is_open())
+    {
+        throw 500;
+    }
+    uploadFile << body;
+    if (!uploadFile.good())
+    {
+        throw 500;
+    }
+    uploadFile.close();
+}
+
+std::string Router::mapUploadPath(const LocationConfig *location, const std::string &urlPath)
+{
+    if (location->uploadStore_.empty())
+        throw 403;
+    std::string fileName = urlPath.substr(location->path_.size());
+    if (!location->path_.empty() && location->path_[location->path_.size() - 1] != '/')
+    {
+        if (fileName.empty() || fileName[0] != '/')
+            throw 400;
+        fileName.erase(0, 1);
+    }
+    if (fileName.empty() || fileName.find('/') != std::string::npos ||
+        fileName == "." || fileName == "..")
+        throw 400;
+    std::string uploadPath = location->uploadStore_ + "/" + fileName;
+    return uploadPath;
+}
+/*
+printf 'hello from upload\nsecond line\n' > /tmp/webserv-upload.txt
+curl -i --data-binary @/tmp/webserv-upload.txt http://127.0.0.1:8080/upload/hello.txt
+*/
+RouteType Router::routeUpload(const Request& request, const LocationConfig *location, Response& response)
+{
+    try 
+    {
+        std::cout << "Routing POST request for path: " << request.getPath() << "\n";
+        std::string uploadPath = mapUploadPath(location, request.getPath());
+        writeToFile(uploadPath, request.getBody());
+        response = Response(201, request.getVersion(), "POST request received", "text/plain");
+        response.setHeader("Location", request.getPath());
+    }
+    catch (int errorCode)
+    {
+        response = Response(errorCode, request.getVersion());
+        return ROUTE_ERROR;
+    }
+    return ROUTE_UPLOAD;
+}
+
 RouteType Router::routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo)
 {
     LocationConfig *location = findLocation(request.getPath());
@@ -162,17 +232,11 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
     }
     if (!location->cgiHandlers_.empty())
     {
-        try
-        {
-            completeCGIinfo(cgiInfo, request, location);
-            validateCgiScript(cgiInfo.scriptFilesystemPath_);
-        }
-        catch (int errorCode)
-        {
-            response = Response(errorCode, request.getVersion());
-            return ROUTE_ERROR;
-        }
-        return ROUTE_CGI;
+        return routeCGI(request, location, response, cgiInfo);
+    }
+    if (request.getMethod() == "POST")
+    {
+        return routeUpload(request, location, response);
     }
     std::string path = mapFilePath(request.getPath(), location);
     if (path.empty())

@@ -11,19 +11,25 @@ ServerConfig setServerConfig()
     config.host_ = "localhost";
     config.serverName_ = "DefaultServer";
     config.maxBodySize_ = 1000000; // 1 MB
-    LocationConfig location;
-    location.path_ = "/";
-    location.root_ = "./www";
-    location.index_ = "index.html";
-    config.locations_.push_back(location);
-    config.locations_[0].allowedMethods_.push_back("GET");
-    location.path_ = "/cgi-bin";
-    location.root_ = "./www";
-    //location.cgiHandlers_[".py"] = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
-    //location.cgiHandlers_[".py"] = "/bin/python3.10";
-    location.cgiHandlers_[".py"] = "/usr/bin/python3";
-    config.locations_.push_back(location);
-    config.locations_[1].allowedMethods_.push_back("GET");
+    LocationConfig locationStatic;
+    locationStatic.path_ = "/";
+    locationStatic.root_ = "./www";
+    locationStatic.index_ = "index.html";
+    locationStatic.allowedMethods_.push_back("GET");
+    config.locations_.push_back(locationStatic);
+    LocationConfig locationCgi;
+    locationCgi.path_ = "/cgi-bin";
+    locationCgi.root_ = "./www";
+    locationCgi.cgiHandlers_[".py"] = "/usr/bin/python3";
+    locationCgi.allowedMethods_.push_back("GET");
+    config.locations_.push_back(locationCgi);
+    LocationConfig locationUpload;
+    locationUpload.path_ = "/upload";
+    locationUpload.root_ = "./www";
+    locationUpload.uploadStore_ = "./www/upload";
+    locationUpload.allowedMethods_.push_back("POST");
+    locationUpload.allowedMethods_.push_back("GET");
+    config.locations_.push_back(locationUpload);
     return config;
 }
 

@@ -10,6 +10,7 @@ struct LocationConfig;
 enum RouteType
 {
     ROUTE_STATIC,
+    ROUTE_UPLOAD,
     ROUTE_CGI,
     ROUTE_ERROR
 };
@@ -35,6 +36,10 @@ class Router
         bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
         void completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
         void validateCgiScript(const std::string &scriptPath);
+        RouteType routeCGI(const Request& request, const LocationConfig *location, Response& response, CgiInfo &cgiInfo);
+        RouteType routeUpload(const Request& request, const LocationConfig *location, Response& response);
+        void writeToFile(const std::string &uploadPath, const std::string &body);
+        std::string mapUploadPath(const LocationConfig *location, const std::string &urlPath);
 
     private:
         Router(const Router& other);

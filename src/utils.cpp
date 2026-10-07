@@ -60,6 +60,7 @@ std::string httpReasonPhrase(int code)
     switch (code)
     {
         case 200: return "OK";
+        case 201: return "Created";
         case 400: return "Bad Request";
         case 403: return "Forbidden";
         case 404: return "Not Found";

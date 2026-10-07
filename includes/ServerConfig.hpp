@@ -12,6 +12,7 @@ struct LocationConfig
     std::string index_;
     std::vector <std::string> allowedMethods_;
     std::map<std::string, std::string> cgiHandlers_;
+    std::string uploadStore_;
 };
 
 struct ServerConfig
