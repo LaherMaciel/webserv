@@ -205,7 +205,10 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
         return (-1);
     }
     hex = str.substr(0, endline);
-    n = std::strtol(hex.c_str(), &end, 16);
+    long value = std::strtol(hex.c_str(), &end, 16);
+    if (hex.empty() || value < 0 || value == LONG_MAX)
+        throw 400;
+    n = static_cast<size_t>(value);
     if ((*end != '\0' && *end != ';'))
         throw 400;
     if (str.size() < endline + 2 + n + 2)
@@ -214,6 +217,8 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
             "which means the message is incomplete." << std::endl;
         return (-1);
     }
+    if (str.compare(endline + 2 + n, 2, "\r\n") != 0)
+        throw 400;
     return (0);
 }
 
@@ -223,10 +228,8 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
     std::string str = rawRequestLine_;
     if (it == header.end())
         return (-1);
-    if (it->second != "chunked")
-    {
+    if (toLower(it->second) != "chunked")
         throw 501;
-    }
     char *end = NULL;
     size_t endline;
     std::string hex;
@@ -266,6 +269,8 @@ int RequestParser::parseRequestBody(const std::string &raw_request, Request &req
     std::map<std::string, std::string>::iterator chunked = header.find("transfer-encoding");
     std::map<std::string, std::string>::iterator lenght = header.find("content-length");
 
+    if (chunked != header.end() && lenght != header.end())   // ← both present
+        throw 400;
     if (chunked != header.end())
         return (copyByChunks(header, request));
     if (lenght != header.end())

@@ -158,9 +158,8 @@ ConnectionStatus Connection::handleRequest()
     //ADD Body
     try
     {
-        if (parser_.parseRequestBody(in_buffer_, request_) == 0)
-            in_buffer_.erase(0, parser_.endOfBody_);
-        parser_.endOfBody_ = 0;
+        parser_.parseRequestBody(in_buffer_, request_);
+        in_buffer_.erase(0, parser_.endOfBody_);
     }
     catch(int error)
     {
