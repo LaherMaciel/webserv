@@ -8,16 +8,49 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fstream>
+#include <cerrno>
 
 Router::Router(ServerConfig &config) : config_(config) {}
 
 Router::~Router() {}
 
+void Router::validateUrlPath(const std::string &path)
+{
+    if (path.empty() || path[0] != '/')
+        throw 400;
+    for (size_t i = 0; i < path.size(); ++i)
+    {
+        unsigned char c = static_cast<unsigned char>(path[i]);
+        if (c < 32 || c >= 127)
+            throw 400;
+    }
+    size_t segmentStart = 1;
+    while (segmentStart <= path.size())
+    {
+        size_t segmentEnd = path.find('/', segmentStart);
+        if (segmentEnd == std::string::npos)
+            segmentEnd = path.size();
+        std::string segment = path.substr(segmentStart, segmentEnd - segmentStart);
+        if (segment == "." || segment == "..")
+            throw 400;
+        if (segmentEnd == path.size())
+            break;
+        segmentStart = segmentEnd + 1;
+    }
+}
+
+std::string Router::mapRootPath(const std::string &path, const LocationConfig *location)
+{
+    if (!location || location->root_.empty())
+        return "";
+    return location->root_ + path;
+}
+
 std::string Router::mapFilePath(const std::string &path, const LocationConfig *location)
 {
-    if (!location)
+    std::string filePath = mapRootPath(path, location);
+    if (filePath.empty())
         return "";
-    std::string filePath = location->root_ + path;
     if (path == location->path_ && !location->index_.empty())
     {
         if (filePath.empty() || filePath[filePath.size() - 1] != '/')
@@ -108,9 +141,9 @@ void Router::validateCgiScript(const std::string &scriptPath)
         throw 404;
     }
     if (!S_ISREG(fileInfo.st_mode))
-        throw (404);
+        throw 404;
     if (access(scriptPath.c_str(), R_OK) == -1)
-        throw (403);
+        throw 403;
 }
 
 void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
@@ -142,22 +175,14 @@ void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const Loc
         }
     }
     if (!found)
-        throw (404);
+        throw 404;
     printCgiInfo(cgiInfo);
 }
 
-RouteType Router::routeCGI(const Request& request, const LocationConfig *location, Response& response, CgiInfo &cgiInfo)
+RouteType Router::routeCGI(const Request& request, const LocationConfig *location, CgiInfo &cgiInfo)
 {
-    try
-    {
-        completeCGIinfo(cgiInfo, request, location);
-        validateCgiScript(cgiInfo.scriptFilesystemPath_);
-    }
-    catch (int errorCode)
-    {
-        response = Response(errorCode, request.getVersion());
-        return ROUTE_ERROR;
-    }
+    completeCGIinfo(cgiInfo, request, location);
+    validateCgiScript(cgiInfo.scriptFilesystemPath_);
     return ROUTE_CGI;
 }
 
@@ -165,14 +190,10 @@ void Router::writeToFile(const std::string &uploadPath, const std::string &body)
 {
     std::ofstream uploadFile(uploadPath.c_str(), std::ios::binary);
     if (!uploadFile.is_open())
-    {
         throw 500;
-    }
     uploadFile << body;
     if (!uploadFile.good())
-    {
         throw 500;
-    }
     uploadFile.close();
 }
 
@@ -187,72 +208,98 @@ std::string Router::mapUploadPath(const LocationConfig *location, const std::str
             throw 400;
         fileName.erase(0, 1);
     }
-    if (fileName.empty() || fileName.find('/') != std::string::npos ||
-        fileName == "." || fileName == "..")
+    if (fileName.empty() || fileName.find('/') != std::string::npos)
         throw 400;
     std::string uploadPath = location->uploadStore_ + "/" + fileName;
     return uploadPath;
 }
+
 /*
 printf 'hello from upload\nsecond line\n' > /tmp/webserv-upload.txt
 curl -i --data-binary @/tmp/webserv-upload.txt http://127.0.0.1:8080/upload/hello.txt
 */
 RouteType Router::routeUpload(const Request& request, const LocationConfig *location, Response& response)
 {
-    try 
+    std::cout << "Routing POST request for path: " << request.getPath() << "\n";
+    std::string uploadPath = mapUploadPath(location, request.getPath());
+    writeToFile(uploadPath, request.getBody());
+    response = Response(201, request.getVersion(), "POST request received", "text/plain");
+    response.setHeader("Location", request.getPath());
+    return ROUTE_UPLOAD;
+}
+ /*
+ENOENT: the file or a path component does not exist.
+ENOTDIR: a path component expected to be a directory is not one.
+EACCES: filesystem permissions deny access.
+EPERM: the operation itself is not permitted.
+EROFS: the filesystem is read-only.
+ */
+void Router::removeFile(const std::string &filePath)
+{
+    if (unlink(filePath.c_str()) == 0)
+        return ;
+    int error = errno;
+    if (error == EACCES || error == EPERM || error == EROFS || error == EISDIR)
+        throw 403;
+    if (error == ENOENT || error == ENOTDIR)
+        throw 404;
+    throw 500;
+}
+
+RouteType Router::routeDelete(const Request& request, const LocationConfig *location, Response& response)
+{
+    std::cout << "Routing DELETE request for path: " << request.getPath() << "\n";
+    std::string filePath;
+    if (!location->uploadStore_.empty())
+        filePath = mapUploadPath(location, request.getPath());
+    else
+        filePath = mapRootPath(request.getPath(), location);
+    if (filePath.empty())
+        throw 403;
+    removeFile(filePath);
+    response = Response(200, request.getVersion(), "DELETE request received", "text/plain");
+    return ROUTE_DELETE;
+}
+
+RouteType Router::routeGet(const Request& request, const LocationConfig *location, Response& response)
+{
+    std::cout << "Routing GET request for path: " << request.getPath() << "\n";
+    std::string filePath = mapFilePath(request.getPath(), location);
+    if (filePath.empty())
+        throw 404;
+    std::string body;
+    if (!readFile(filePath, body))
     {
-        std::cout << "Routing POST request for path: " << request.getPath() << "\n";
-        std::string uploadPath = mapUploadPath(location, request.getPath());
-        writeToFile(uploadPath, request.getBody());
-        response = Response(201, request.getVersion(), "POST request received", "text/plain");
-        response.setHeader("Location", request.getPath());
+        std::cerr << "Error reading " << filePath << "\n";
+        throw 500;
+    }
+    response = Response(200, request.getVersion(), body, contentType(filePath));
+    return ROUTE_STATIC;
+}
+
+RouteType Router::routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo)
+{
+    try
+    {
+        validateUrlPath(request.getPath());
+        LocationConfig *location = findLocation(request.getPath());
+        if (!location)
+            throw 404;
+        if (!isValidMethod(request.getMethod(), location))
+            throw 405;
+        if (!location->cgiHandlers_.empty())
+            return routeCGI(request, location, cgiInfo);
+        if (request.getMethod() == "POST")
+            return routeUpload(request, location, response);
+        if (request.getMethod() == "DELETE")
+            return routeDelete(request, location, response);
+        if (request.getMethod() == "GET")
+            return routeGet(request, location, response);
+        throw 405;
     }
     catch (int errorCode)
     {
         response = Response(errorCode, request.getVersion());
         return ROUTE_ERROR;
     }
-    return ROUTE_UPLOAD;
-}
-
-RouteType Router::routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo)
-{
-    LocationConfig *location = findLocation(request.getPath());
-    if (!location)
-    {
-        std::cout << "No matching location for path: " << request.getPath() << "\n";
-        response = Response(404, request.getVersion());
-        return ROUTE_ERROR;
-    }
-    if (!isValidMethod(request.getMethod(), location))
-    {
-        std::cout << "Unsupported method: " << request.getMethod() << "\n";
-        response = Response(405, request.getVersion());
-        return ROUTE_ERROR;
-    }
-    if (!location->cgiHandlers_.empty())
-    {
-        return routeCGI(request, location, response, cgiInfo);
-    }
-    if (request.getMethod() == "POST")
-    {
-        return routeUpload(request, location, response);
-    }
-    std::string path = mapFilePath(request.getPath(), location);
-    if (path.empty())
-    {
-        std::cout << "Unsupported path: " << request.getPath() << "\n";
-        response = Response(404, request.getVersion());
-        return ROUTE_ERROR;
-    }
-    std::cout << "Routing GET request for path: " << request.getPath() << "\n";
-    std::string body;
-    if (!readFile(path, body))
-    {
-        response = Response(500, request.getVersion());
-        std::cerr << "Error reading " << path << "\n";
-        return ROUTE_ERROR;
-    }
-    response = Response(200, request.getVersion(), body, contentType(path));
-    return ROUTE_STATIC;
 }

@@ -29,6 +29,7 @@ ServerConfig setServerConfig()
     locationUpload.uploadStore_ = "./www/upload";
     locationUpload.allowedMethods_.push_back("POST");
     locationUpload.allowedMethods_.push_back("GET");
+    locationUpload.allowedMethods_.push_back("DELETE");
     config.locations_.push_back(locationUpload);
     return config;
 }

@@ -11,6 +11,7 @@ enum RouteType
 {
     ROUTE_STATIC,
     ROUTE_UPLOAD,
+    ROUTE_DELETE,
     ROUTE_CGI,
     ROUTE_ERROR
 };
@@ -36,15 +37,21 @@ class Router
         bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
         void completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
         void validateCgiScript(const std::string &scriptPath);
-        RouteType routeCGI(const Request& request, const LocationConfig *location, Response& response, CgiInfo &cgiInfo);
+        RouteType routeCGI(const Request& request, const LocationConfig *location, CgiInfo &cgiInfo);
         RouteType routeUpload(const Request& request, const LocationConfig *location, Response& response);
         void writeToFile(const std::string &uploadPath, const std::string &body);
         std::string mapUploadPath(const LocationConfig *location, const std::string &urlPath);
+        void removeFile(const std::string &filePath);
+        RouteType routeDelete(const Request& request, const LocationConfig *location, Response& response);
+        RouteType routeGet(const Request& request, const LocationConfig *location, Response& response);
+
 
     private:
         Router(const Router& other);
         Router& operator=(const Router& other);
-        
+
+        void validateUrlPath(const std::string &path);
+        std::string mapRootPath(const std::string &path, const LocationConfig *location);
         std::string mapFilePath(const std::string &path, const LocationConfig *location);
         std::string contentType(const std::string &path);
         ServerConfig &config_;
