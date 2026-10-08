@@ -269,7 +269,7 @@ int RequestParser::parseRequestBody(const std::string &raw_request, Request &req
     std::map<std::string, std::string>::iterator chunked = header.find("transfer-encoding");
     std::map<std::string, std::string>::iterator lenght = header.find("content-length");
 
-    if (chunked != header.end() && lenght != header.end())   // ← both present
+    if (chunked != header.end() && lenght != header.end())
         throw 400;
     if (chunked != header.end())
         return (copyByChunks(header, request));
