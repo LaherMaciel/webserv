@@ -16,7 +16,7 @@ class Server
         ~Server();
         void    initSocket();
         void    bindSocket();
-        void    addFdToPoll(int fd);
+        void    addFdToPoll(int fd, short events = POLLIN);
         void    addClient(int client_fd);
         void    startServer();
         ConnectionStatus handleConnection(int fd, size_t pollfd_pos);

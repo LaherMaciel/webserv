@@ -21,12 +21,14 @@ LF is \n
 */
 
 CgiProcess::CgiProcess()
-    : pid_(-1), cgiOutputFd_(-1), buffer_(""),
+    : pid_(-1), cgiOutputFd_(-1), cgiInputFd_(-1), inputOffset_(0),
       childStatus_(CHILD_NOT_STARTED), outputEof_(false), killSent_(false) {}
 
-CgiProcess::~CgiProcess() { closeOutputFd(); }
+CgiProcess::~CgiProcess() { closeFd(cgiOutputFd_); closeFd(cgiInputFd_); }
 
 int CgiProcess::getOutputFd() const { return cgiOutputFd_; }
+
+int CgiProcess::getInputFd() const { return cgiInputFd_; }
 
 bool CgiProcess::completionIsPending() const
 {
@@ -38,19 +40,21 @@ bool CgiProcess::abortIsPending() const
     return killSent_ && childStatus_ == CHILD_RUNNING;
 }
 
-void CgiProcess::closeOutputFd()
+void CgiProcess::closeFd(int &fd)
 {
-    if (cgiOutputFd_ != -1)
+    if (fd != -1)
     {
-        close(cgiOutputFd_);
-        cgiOutputFd_ = -1;
+        close(fd);
+        fd = -1;
     }
 }
 
 void CgiProcess::reset()
 {
-    closeOutputFd();
+    closeFd(cgiOutputFd_);
+    closeFd(cgiInputFd_);
     pid_ = -1;
+    inputOffset_ = 0;
     buffer_.clear();
     childStatus_ = CHILD_NOT_STARTED;
     outputEof_ = false;
@@ -59,7 +63,8 @@ void CgiProcess::reset()
 
 CgiCleanupStatus CgiProcess::abort()
 {
-    closeOutputFd();
+    closeFd(cgiOutputFd_);
+    closeFd(cgiInputFd_);
     if (childStatus_ == CHILD_RUNNING)
     {
         if (!killSent_)
@@ -110,11 +115,30 @@ CgiReadStatus CgiProcess::readFromPipe()
     if (bytesRead == 0)
     {
         outputEof_ = true;
-        closeOutputFd();
+        closeFd(cgiOutputFd_);
         return CGI_OUTPUT_COMPLETE;
     }
-    closeOutputFd();
+    closeFd(cgiOutputFd_);
     return CGI_READ_ERROR;
+}
+
+CgiWriteStatus CgiProcess::writeToPipe(const std::string &data)
+{
+    if (cgiInputFd_ == -1)
+        return CGI_WRITE_ERROR;
+    ssize_t bytesWritten = write(cgiInputFd_, data.c_str() + inputOffset_, data.size() - inputOffset_);
+    if (bytesWritten >= 0)
+    {
+        inputOffset_ += bytesWritten;
+        if (inputOffset_ >= data.size())
+        {
+            closeFd(cgiInputFd_);
+            return CGI_INPUT_COMPLETE;
+        }
+        return CGI_WRITING;
+    }
+    closeFd(cgiInputFd_);
+    return CGI_WRITE_ERROR;
 }
 
 bool CgiProcess::setStatus(Response &response, const std::string &value)
@@ -223,14 +247,17 @@ std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const Cgi
     envp.push_back("SCRIPT_NAME=" + cgiInfo.scriptUrlPath_);
     envp.push_back("SCRIPT_FILENAME=" + cgiInfo.scriptFilename_);
     envp.push_back("PATH_INFO=" + cgiInfo.pathInfo_);
+    envp.push_back("CONTENT_LENGTH=" + toString(request.getBody().size()));
     for (std::map<std::string, std::string>::const_iterator it = request.getHeaders().begin();
          it != request.getHeaders().end(); ++it)
     {
         std::string headerName = it->first;
         std::replace(headerName.begin(), headerName.end(), '-', '_');
         std::transform(headerName.begin(), headerName.end(), headerName.begin(), ::toupper);
-        if (headerName == "CONTENT_TYPE" || headerName == "CONTENT_LENGTH")
+        if (headerName == "CONTENT_TYPE")
             envp.push_back(headerName + "=" + it->second);
+        else if (headerName == "CONTENT_LENGTH" || headerName == "TRANSFER_ENCODING")
+            continue ;
         else
             envp.push_back("HTTP_" + headerName + "=" + it->second);
     }
@@ -239,23 +266,34 @@ std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const Cgi
 
 void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
 {
-    int pipefd[2];
-    if (pipe(pipefd) == -1)
+    int outputPipe[2];
+    if (pipe(outputPipe) == -1)
+        throw std::runtime_error("Failed to create output pipe");
+    int inputPipe[2];
+    if (pipe(inputPipe) == -1)
     {
-        throw std::runtime_error("Failed to create pipe");
+        close(outputPipe[0]);
+        close(outputPipe[1]);
+        throw std::runtime_error("Failed to create output pipe");
     }
     pid_ = fork();
     if (pid_ < 0)
     {
-        close(pipefd[0]);
-        close(pipefd[1]);
+        close(outputPipe[0]);
+        close(outputPipe[1]);
+        close(inputPipe[0]);
+        close(inputPipe[1]);
         throw std::runtime_error("Failed to fork process");
     }
     if (pid_ == 0) // Child process
     {
-        close(pipefd[0]); // Close read end in child
-        dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
-        close(pipefd[1]); // Close write end after duplicating
+        close(outputPipe[0]); // Close read end in child
+        dup2(outputPipe[1], STDOUT_FILENO); // Redirect stdin to pipe
+        close(outputPipe[1]); // Close write end after duplicating
+
+        close(inputPipe[1]); // Close write end in child
+        dup2(inputPipe[0], STDIN_FILENO);
+        close(inputPipe[0]); // Close read end after duplicating
         if (chdir(cgiInfo.workingDirectory_.c_str()) == -1)
             _exit(1);
         char *argv[] = {const_cast<char *>(cgiInfo.interpreterPath_.c_str()),
@@ -271,15 +309,21 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
     }
     else // Parent process
     {
-        close(pipefd[1]); // Close write end in parent
-        cgiOutputFd_ = pipefd[0];
+        close(inputPipe[0]); // Close read end in parent
+        if (request.getBody().empty())
+            close(inputPipe[1]); // Close write end in parent if no body to send
+        else
+            cgiInputFd_ = inputPipe[1];
+        close(outputPipe[1]); // Close read end in parent
+        cgiOutputFd_ = outputPipe[0];
         childStatus_ = CHILD_RUNNING;
         outputEof_ = false;
         killSent_ = false;
         //apply non-block:
-        if (set_non_blocking(cgiOutputFd_) < 0)
+        if (set_non_blocking(cgiOutputFd_) < 0 || (cgiInputFd_ != -1 && set_non_blocking(cgiInputFd_) < 0))
         {
-            closeOutputFd();
+            closeFd(cgiOutputFd_);
+            closeFd(cgiInputFd_);
             throw std::runtime_error("Failed to set non-blocking mode for CGI output pipe");
         }
     }

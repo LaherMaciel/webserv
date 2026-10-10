@@ -34,6 +34,7 @@ class Connection
         ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
         int getFd() const;
         int getCgiOutputFd() const;
+        int getCgiInputFd() const;
         const Request&  getRequest() const;
         void startCgi(const CgiInfo &cgiInfo);
         ConnectionStatus readFromCGIPipe();
@@ -45,6 +46,7 @@ class Connection
         void resetCgiProcess();
         void            resetRequest();
         bool            hasPendingResponse() const;
+        ConnectionStatus writeToCGIPipe();
 
     private:
         int             fd_;

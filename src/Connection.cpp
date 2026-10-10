@@ -17,6 +17,8 @@ int Connection::getFd() const { return fd_; }
 
 int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
 
+int Connection::getCgiInputFd() const { return cgiProcess_.getInputFd(); }
+
 void Connection::closeClientFd()
 {
     if (fd_ != -1)
@@ -79,6 +81,20 @@ ConnectionStatus Connection::readFromCGIPipe()
     {
         queueErrorResponse(500, request_.getVersion(), 
             "Internal Server Error: CGI read error", "text/plain");
+        return CGI_IO_ERROR;
+    }
+    return WAIT_FOR_MORE;
+}
+
+ConnectionStatus Connection::writeToCGIPipe()
+{
+    CgiWriteStatus status = cgiProcess_.writeToPipe(request_.getBody());
+    if (status == CGI_INPUT_COMPLETE)
+        return CGI_STARTED;
+    else if (status == CGI_WRITE_ERROR)
+    {
+        queueErrorResponse(500, request_.getVersion(), 
+            "Internal Server Error: CGI write error", "text/plain");
         return CGI_IO_ERROR;
     }
     return WAIT_FOR_MORE;

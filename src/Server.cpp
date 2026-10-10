@@ -33,11 +33,11 @@ Server::~Server()
         close(fd_);
 }
 
-void Server::addFdToPoll(int fd)//used for both the server socket and the client sockets
+void Server::addFdToPoll(int fd, short events)//used for both the server socket and the client sockets
 {
     struct pollfd entry;
     entry.fd = fd;
-    entry.events = POLLIN;
+    entry.events = events;
     entry.revents = 0;
     poll_fds_.push_back(entry);
 }
@@ -72,6 +72,21 @@ int    Server::acceptConnection()
     return (clientfd);
 }
 
+static void cleanCgiFd(int cgiFd, std::map<int, Connection *> &cgiOwners, std::vector<struct pollfd> &poll_fds)
+{
+    if (cgiFd == -1)
+        return;
+    cgiOwners.erase(cgiFd);
+    for (size_t j = 0; j < poll_fds.size(); ++j)
+    {
+        if (poll_fds[j].fd == cgiFd)
+        {
+            poll_fds[j].fd = -1;
+            poll_fds[j].events = 0;
+            break;
+        }
+    }
+}
 
 void Server::cleanDeadFds(std::vector<int> &deadfds)
 {
@@ -82,20 +97,8 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
         if (it != conns_.end())
         {
             Connection *conn = it->second;
-            int cgiFd = conn->getCgiOutputFd();
-            if (cgiFd != -1)
-            {
-                cgiOwners_.erase(cgiFd);
-                for (size_t j = 0; j < poll_fds_.size(); ++j)
-                {
-                    if (poll_fds_[j].fd == cgiFd)
-                    {
-                        poll_fds_[j].fd = -1;
-                        poll_fds_[j].events = 0;
-                        break;
-                    }
-                }
-            }
+            cleanCgiFd(conn->getCgiOutputFd(), cgiOwners_, poll_fds_);
+            cleanCgiFd(conn->getCgiInputFd(), cgiOwners_, poll_fds_);
             conns_.erase(it);
             conn->closeClientFd();
             if (conn->abortCgi() == CGI_CLEANUP_DONE)

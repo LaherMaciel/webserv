@@ -22,6 +22,7 @@ ServerConfig setServerConfig()
     locationCgi.root_ = "./www";
     locationCgi.cgiHandlers_[".py"] = "/usr/bin/python3";
     locationCgi.allowedMethods_.push_back("GET");
+    locationCgi.allowedMethods_.push_back("POST");
     config.locations_.push_back(locationCgi);
     LocationConfig locationUpload;
     locationUpload.path_ = "/upload";
@@ -69,10 +70,14 @@ ConnectionStatus Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size
         conn->abortCgi();
         return RESPONSE_READY;
     }
-    int cgiFd = conn->getCgiOutputFd();
-    addFdToPoll(cgiFd);
-    cgiOwners_[cgiFd] = conn;
-    poll_fds_[pollfd_pos].events = 0;
+    addFdToPoll(conn->getCgiOutputFd(), POLLIN);
+    cgiOwners_[conn->getCgiOutputFd()] = conn;
+    if (conn->getCgiInputFd() != -1)
+    {
+        addFdToPoll(conn->getCgiInputFd(), POLLOUT);
+        cgiOwners_[conn->getCgiInputFd()] = conn;
+    }
+    poll_fds_[pollfd_pos].events = 0;//mute the client fd events until CGI is done
     return CGI_STARTED;
 }
 
@@ -89,7 +94,22 @@ void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
         cgiPollFd.events = 0;
         cgiOwner->abortCgi();
     }
-    else if (revents & (POLLIN | POLLHUP))
+    if ((revents & POLLOUT) && cgiPollFd.fd == cgiOwner->getCgiInputFd())
+    {
+        ConnectionStatus status = cgiOwner->writeToCGIPipe();
+        if (status != WAIT_FOR_MORE)
+        {
+            cgiOwners_.erase(cgiPollFd.fd);
+            cgiPollFd.fd = -1;
+            cgiPollFd.events = 0;
+        }
+        if (status == CGI_IO_ERROR)
+        {
+            updatePollEvents(cgiOwner->getFd(), POLLOUT);
+            cgiOwner->abortCgi();
+        }
+    }
+    else if ((revents & (POLLIN | POLLHUP)) && cgiPollFd.fd == cgiOwner->getCgiOutputFd())
     {
         ConnectionStatus status = cgiOwner->readFromCGIPipe();
         if (status == RESPONSE_READY || status == CGI_WAITING_FOR_EXIT ||
