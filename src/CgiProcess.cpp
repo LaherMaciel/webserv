@@ -18,6 +18,10 @@ curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=duplicate'
 curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=malformed'
 CRLF is \r\n
 LF is \n
+
+CGI POST test:
+NC: (printf 'POST /cgi-bin/post_echo.py HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nhello from CGI POST'; sleep 1) | nc 127.0.0.1 8080
+Curl: curl -i -H 'Content-Type: text/plain' --data-binary 'hello from CGI POST' http://127.0.0.1:8080/cgi-bin/post_echo.py
 */
 
 CgiProcess::CgiProcess()

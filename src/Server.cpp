@@ -237,9 +237,15 @@ void	Server::processEvents()
         if (poll_fds_[i].revents & POLLOUT)
         {
             Connection *conn = getConnection(poll_fds_[i].fd);//safer than using conns_[fd] directly
-            if (!conn || conn->sendResponse() == CLOSE_CONNECTION)
+            if (!conn)
+            {
                 dead_fds.push_back(poll_fds_[i].fd);
-            else
+                continue;
+            }
+            ConnectionStatus status = conn->sendResponse();
+            if (status == CLOSE_CONNECTION)
+                dead_fds.push_back(poll_fds_[i].fd);
+            else if (status != WAIT_FOR_MORE)
                 poll_fds_[i].events = POLLIN;
         } 
     }
