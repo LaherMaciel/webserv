@@ -19,6 +19,7 @@ class Response
         void setHeaders(const std::map<std::string, std::string>& headers);
         void setStatusCode(int statusCode);
         void setStatusCode(int statusCode, const std::string& reasonPhrase);
+        void setDefaultErrorBody();
 
         std::string serialize() const;
 

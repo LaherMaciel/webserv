@@ -72,6 +72,23 @@ void Response::setStatusCode(int statusCode, const std::string& reasonPhrase)
     reasonPhrase_ = reasonPhrase;
 }
 
+void Response::setDefaultErrorBody()
+{
+    std::string status = toString(statusCode_) + " " + reasonPhrase_;
+    std::string body = "<!DOCTYPE html>\n"
+        "<html lang=\"en\">\n"
+        "<head>\n"
+        "<meta charset=\"UTF-8\">\n"
+        "<title>" + status + "</title>\n"
+        "</head>\n"
+        "<body>\n"
+        "<h1>" + status + "</h1>\n"
+        "</body>\n"
+        "</html>\n";
+    setHeader("Content-Type", "text/html");
+    setBody(body);
+}
+
 std::string Response::serialize() const
 {
     //1) HTTP-Version SP Status-Code SP Reason-Phrase \r\n

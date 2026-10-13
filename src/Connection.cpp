@@ -152,6 +152,8 @@ ConnectionStatus Connection::queueErrorResponse(int code, std::string version, s
     Response response(code, version);
     if (!body.empty())
         response.setBody(body, contentType);
+    else
+        response.setDefaultErrorBody();
     queueResponse(response);
     return RESPONSE_READY;
 }

@@ -19,14 +19,14 @@ ServerConfig setServerConfig()
     config.locations_.push_back(locationStatic);
     LocationConfig locationCgi;
     locationCgi.path_ = "/cgi-bin";
-    locationCgi.root_ = "./www";
+    locationCgi.root_ = "./www/cgi-bin";
     locationCgi.cgiHandlers_[".py"] = "/usr/bin/python3";
     locationCgi.allowedMethods_.push_back("GET");
     locationCgi.allowedMethods_.push_back("POST");
     config.locations_.push_back(locationCgi);
     LocationConfig locationUpload;
     locationUpload.path_ = "/upload";
-    locationUpload.root_ = "./www";
+    locationUpload.root_ = "./www/upload";
     locationUpload.uploadStore_ = "./www/upload";
     locationUpload.allowedMethods_.push_back("POST");
     locationUpload.allowedMethods_.push_back("GET");

@@ -10,9 +10,50 @@
 #include <fstream>
 #include <cerrno>
 
+const Router::MimeType Router::mimeTypes_[] = {
+    {"html", "text/html"},
+    {"htm", "text/html"},
+    {"css", "text/css"},
+    {"js", "application/javascript"},
+    {"json", "application/json"},
+    {"txt", "text/plain"},
+    {"csv", "text/csv"},
+    {"xml", "application/xml"},
+    {"jpg", "image/jpeg"},
+    {"jpeg", "image/jpeg"},
+    {"png", "image/png"},
+    {"gif", "image/gif"},
+    {"svg", "image/svg+xml"},
+    {"webp", "image/webp"},
+    {"ico", "image/x-icon"},
+    {"pdf", "application/pdf"},
+    {"mp3", "audio/mpeg"},
+    {"wav", "audio/wav"},
+    {"mp4", "video/mp4"},
+    {"webm", "video/webm"},
+    {"woff", "font/woff"},
+    {"woff2", "font/woff2"},
+    {"ttf", "font/ttf"},
+    {"otf", "font/otf"}
+};
+
+const size_t Router::mimeTypeCount_ = sizeof(Router::mimeTypes_) / sizeof(Router::mimeTypes_[0]);
+
 Router::Router(ServerConfig &config) : config_(config) {}
 
 Router::~Router() {}
+
+static void getPathInfo(const std::string &path, struct stat &fileInfo, int missingCode)
+{
+    if (stat(path.c_str(), &fileInfo) == 0)
+        return;
+    int error = errno;
+    if (error == EACCES || error == EPERM)
+        throw 403;
+    if (error == ENOENT || error == ENOTDIR)
+        throw missingCode;// 404 for files, 403 for directories
+    throw 500;
+}
 
 void Router::validateUrlPath(const std::string &path)
 {
@@ -43,21 +84,18 @@ std::string Router::mapRootPath(const std::string &path, const LocationConfig *l
 {
     if (!location || location->root_.empty())
         return "";
-    return location->root_ + path;
-}
-
-std::string Router::mapFilePath(const std::string &path, const LocationConfig *location)
-{
-    std::string filePath = mapRootPath(path, location);
-    if (filePath.empty())
+    if (path.compare(0, location->path_.size(), location->path_) != 0)
         return "";
-    if (path == location->path_ && !location->index_.empty())
-    {
-        if (filePath.empty() || filePath[filePath.size() - 1] != '/')
-            filePath += "/";
-        filePath += location->index_;
-    }
-    return filePath;
+    std::string suffix = path.substr(location->path_.size());
+    if (suffix.empty())
+        return location->root_;
+    bool rootEndsWithSlash = location->root_[location->root_.size() - 1] == '/';
+    bool suffixStartsWithSlash = suffix[0] == '/';
+    if (rootEndsWithSlash && suffixStartsWithSlash)
+        return location->root_ + suffix.substr(1);
+    if (!rootEndsWithSlash && !suffixStartsWithSlash)
+        return location->root_ + "/" + suffix;
+    return location->root_ + suffix;
 }
 
 std::string Router::contentType(const std::string &path)
@@ -66,13 +104,13 @@ std::string Router::contentType(const std::string &path)
     size_t dot = path.rfind('.');
     if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
         return "application/octet-stream";
-    std::string ext = path.substr(dot + 1);
-    if (ext == "html")
-        return "text/html";
-    else if (ext == "jpg")
-        return "image/jpeg";
-    else
-        return "application/octet-stream";
+    std::string extension = toLower(path.substr(dot + 1));
+    for (size_t i = 0; i < mimeTypeCount_; ++i)
+    {
+        if (extension == mimeTypes_[i].extension_)
+            return mimeTypes_[i].contentType_;
+    }
+    return "application/octet-stream";
 }
 
 LocationConfig *Router::findLocation(const std::string &path)
@@ -166,7 +204,7 @@ void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const Loc
                 BestExtLength = extLength;
                 BestScriptEnd = scriptEnd;
                 info.interpreterPath_ = it->second;
-                info.scriptFilesystemPath_ = location->root_ + info.scriptUrlPath_;
+                info.scriptFilesystemPath_ = mapRootPath(info.scriptUrlPath_, location);
                 size_t slash = info.scriptFilesystemPath_.rfind('/');
                 info.workingDirectory_ = info.scriptFilesystemPath_.substr(0, slash);
                 info.scriptFilename_ = info.scriptFilesystemPath_.substr(slash + 1);
@@ -261,12 +299,8 @@ RouteType Router::routeDelete(const Request& request, const LocationConfig *loca
     return ROUTE_DELETE;
 }
 
-RouteType Router::routeGet(const Request& request, const LocationConfig *location, Response& response)
+RouteType Router::serveFile(const Request& request, const std::string &filePath, Response& response)
 {
-    std::cout << "Routing GET request for path: " << request.getPath() << "\n";
-    std::string filePath = mapFilePath(request.getPath(), location);
-    if (filePath.empty())
-        throw 404;
     std::string body;
     if (!readFile(filePath, body))
     {
@@ -275,6 +309,37 @@ RouteType Router::routeGet(const Request& request, const LocationConfig *locatio
     }
     response = Response(200, request.getVersion(), body, contentType(filePath));
     return ROUTE_STATIC;
+}
+
+RouteType Router::routeDirectory(const Request& request, const std::string &directoryPath,
+                                 const LocationConfig *location, Response& response)
+{
+    if (location->index_.empty())
+        throw 403;
+    std::string indexPath = directoryPath;
+    if (indexPath[indexPath.size() - 1] != '/')
+        indexPath += "/";
+    indexPath += location->index_;
+    struct stat indexInfo;
+    getPathInfo(indexPath, indexInfo, 403);
+    if (!S_ISREG(indexInfo.st_mode))
+        throw 403;
+    return serveFile(request, indexPath, response);
+}
+
+RouteType Router::routeGet(const Request& request, const LocationConfig *location, Response& response)
+{
+    std::cout << "Routing GET request for path: " << request.getPath() << "\n";
+    std::string filePath = mapRootPath(request.getPath(), location);
+    if (filePath.empty())
+        throw 404;
+    struct stat fileInfo;
+    getPathInfo(filePath, fileInfo, 404);
+    if (S_ISREG(fileInfo.st_mode))
+        return serveFile(request, filePath, response);
+    if (S_ISDIR(fileInfo.st_mode))
+        return routeDirectory(request, filePath, location, response);
+    throw 403;
 }
 
 RouteType Router::routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo)
@@ -300,6 +365,7 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
     catch (int errorCode)
     {
         response = Response(errorCode, request.getVersion());
+        response.setDefaultErrorBody();
         return ROUTE_ERROR;
     }
 }

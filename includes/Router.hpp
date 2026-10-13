@@ -47,12 +47,23 @@ class Router
 
 
     private:
+        struct MimeType
+        {
+            const char *extension_;
+            const char *contentType_;
+        };
+
+        static const MimeType mimeTypes_[];
+        static const size_t mimeTypeCount_;
+
         Router(const Router& other);
         Router& operator=(const Router& other);
 
         void validateUrlPath(const std::string &path);
         std::string mapRootPath(const std::string &path, const LocationConfig *location);
-        std::string mapFilePath(const std::string &path, const LocationConfig *location);
+        RouteType serveFile(const Request& request, const std::string &filePath, Response& response);
+        RouteType routeDirectory(const Request& request, const std::string &directoryPath,
+                                const LocationConfig *location, Response& response);
         std::string contentType(const std::string &path);
         ServerConfig &config_;
 };
