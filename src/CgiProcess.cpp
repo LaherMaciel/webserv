@@ -7,15 +7,32 @@
 #include <signal.h>//for kill()
 #include <cerrno>//for EINTR
 #include <vector>
+#include <map>
+#include <set>
 #include <algorithm>//for std::transform and std::replace
 
+/*
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py'
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=lf'
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=duplicate'
+curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=malformed'
+CRLF is \r\n
+LF is \n
+
+CGI POST test:
+NC: (printf 'POST /cgi-bin/post_echo.py HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nhello from CGI POST'; sleep 1) | nc 127.0.0.1 8080
+Curl: curl -i -H 'Content-Type: text/plain' --data-binary 'hello from CGI POST' http://127.0.0.1:8080/cgi-bin/post_echo.py
+*/
+
 CgiProcess::CgiProcess()
-    : pid_(-1), cgiOutputFd_(-1), buffer_(""),
+    : pid_(-1), cgiOutputFd_(-1), cgiInputFd_(-1), inputOffset_(0),
       childStatus_(CHILD_NOT_STARTED), outputEof_(false), killSent_(false) {}
 
-CgiProcess::~CgiProcess() { closeOutputFd(); }
+CgiProcess::~CgiProcess() { closeFd(cgiOutputFd_); closeFd(cgiInputFd_); }
 
 int CgiProcess::getOutputFd() const { return cgiOutputFd_; }
+
+int CgiProcess::getInputFd() const { return cgiInputFd_; }
 
 bool CgiProcess::completionIsPending() const
 {
@@ -27,19 +44,34 @@ bool CgiProcess::abortIsPending() const
     return killSent_ && childStatus_ == CHILD_RUNNING;
 }
 
-void CgiProcess::closeOutputFd()
+bool CgiProcess::isRunning() const
 {
-    if (cgiOutputFd_ != -1)
+    return childStatus_ == CHILD_RUNNING;
+}
+
+bool CgiProcess::hasTimedOut() const
+{
+    if (childStatus_ != CHILD_RUNNING)
+        return false;
+    double secondsElapsed = std::difftime(std::time(NULL), startTime_);
+    return secondsElapsed >= CGI_TIMEOUT_SECONDS;
+}
+
+void CgiProcess::closeFd(int &fd)
+{
+    if (fd != -1)
     {
-        close(cgiOutputFd_);
-        cgiOutputFd_ = -1;
+        close(fd);
+        fd = -1;
     }
 }
 
 void CgiProcess::reset()
 {
-    closeOutputFd();
+    closeFd(cgiOutputFd_);
+    closeFd(cgiInputFd_);
     pid_ = -1;
+    inputOffset_ = 0;
     buffer_.clear();
     childStatus_ = CHILD_NOT_STARTED;
     outputEof_ = false;
@@ -48,7 +80,8 @@ void CgiProcess::reset()
 
 CgiCleanupStatus CgiProcess::abort()
 {
-    closeOutputFd();
+    closeFd(cgiOutputFd_);
+    closeFd(cgiInputFd_);
     if (childStatus_ == CHILD_RUNNING)
     {
         if (!killSent_)
@@ -93,17 +126,88 @@ CgiReadStatus CgiProcess::readFromPipe()
     ssize_t bytesRead = read(cgiOutputFd_, buffer, sizeof(buffer));
     if (bytesRead > 0)
     {
+        if (buffer_.size() + bytesRead > CGI_MAX_OUTPUT)
+            return CGI_OUTPUT_TOO_LARGE;
         buffer_.append(buffer, bytesRead);
         return CGI_READING;
     }
     if (bytesRead == 0)
     {
         outputEof_ = true;
-        closeOutputFd();
+        closeFd(cgiOutputFd_);
         return CGI_OUTPUT_COMPLETE;
     }
-    closeOutputFd();
+    closeFd(cgiOutputFd_);
     return CGI_READ_ERROR;
+}
+
+CgiWriteStatus CgiProcess::writeToPipe(const std::string &data)
+{
+    if (cgiInputFd_ == -1)
+        return CGI_WRITE_ERROR;
+    ssize_t bytesWritten = write(cgiInputFd_, data.c_str() + inputOffset_, data.size() - inputOffset_);
+    if (bytesWritten >= 0)
+    {
+        inputOffset_ += bytesWritten;
+        if (inputOffset_ >= data.size())
+        {
+            closeFd(cgiInputFd_);
+            return CGI_INPUT_COMPLETE;
+        }
+        return CGI_WRITING;
+    }
+    closeFd(cgiInputFd_);
+    return CGI_WRITE_ERROR;
+}
+
+bool CgiProcess::setStatus(Response &response, const std::string &value)
+{
+    size_t spacePos = value.find(' ');
+    std::string statusCodeStr;
+    std::string reasonPhrase;
+    if (spacePos == std::string::npos)
+        statusCodeStr = value;
+    else
+    {
+        statusCodeStr = value.substr(0, spacePos);
+        reasonPhrase = value.substr(spacePos + 1);
+    }
+    if (statusCodeStr.size() != 3)
+        return false;
+    int statusCode = std::atoi(statusCodeStr.c_str());
+    if (statusCode < 100 || statusCode > 599)
+        return false;
+    if (reasonPhrase.empty())
+        reasonPhrase = httpReasonPhrase(statusCode);
+    response.setStatusCode(statusCode, reasonPhrase);
+    return true;
+}
+
+bool CgiProcess::processHeader(Response &response, const std::string &headerLine, std::map<std::string, std::string> &parsedHeaders, std::set<std::string> &seenHeaders)
+{
+    size_t colonPos = headerLine.find(':');
+    if (colonPos == std::string::npos)
+        return false;
+    std::string key = headerLine.substr(0, colonPos);
+    std::string value = headerLine.substr(colonPos + 1);
+    while (!value.empty() && (value[0] == ' ' || value[0] == '\t'))
+        value.erase(0, 1);
+    if (key.empty() || value.empty())
+        return false;
+    std::string lowerKey = toLower(key);
+    if (!seenHeaders.insert(lowerKey).second)
+        return false;
+    if (lowerKey == "status")
+        return setStatus(response, value);
+    else if (lowerKey == "content-type")
+    {
+        parsedHeaders["Content-Type"] = value;
+        return true;
+    }
+    else if (lowerKey == "content-length" || lowerKey == "connection" || lowerKey == "transfer-encoding")
+        return true;
+    parsedHeaders[key] = value;
+    return true;
 }
 
 void CgiProcess::finishCgi(Response &response)
@@ -111,64 +215,111 @@ void CgiProcess::finishCgi(Response &response)
     if (childStatus_ != CHILD_SUCCEEDED)
     {
         response.setBody("Internal Server Error: CGI script failed", "text/plain");
-        response.setStatusCode(500);
         return;
     }
     size_t headerEnd = buffer_.find("\r\n\r\n");
+    size_t separator = 4;
     if (headerEnd == std::string::npos)
     {
-        response.setStatusCode(500);
-        response.setBody("Malformed CGI output", "text/plain");
-        return;
+        headerEnd = buffer_.find("\n\n");
+        separator = 2;
+        if (headerEnd == std::string::npos)
+        {
+            response.setBody("Malformed CGI output", "text/plain");
+            return;
+        }
     }
     std::string cgiHeaders = buffer_.substr(0, headerEnd);
-    std::string cgiBody = buffer_.substr(headerEnd + 4);
-
+    std::string cgiBody = buffer_.substr(headerEnd + separator);
+    size_t lineStart = 0;
     response.setStatusCode(200);
-    response.setBody(cgiBody, "text/plain");
+    std::map<std::string, std::string> parsedHeaders;
+    std::set<std::string> seenHeaders;
+    while (lineStart < cgiHeaders.size())
+    {
+        size_t lineEnd = cgiHeaders.find("\n", lineStart);
+        if (lineEnd == std::string::npos)
+            lineEnd = cgiHeaders.size();
+        size_t lineLength = lineEnd - lineStart;
+        if (lineLength > 0 && cgiHeaders[lineEnd - 1] == '\r')
+            lineLength--;
+        std::string line = cgiHeaders.substr(lineStart, lineLength);
+        if (!processHeader(response, line, parsedHeaders, seenHeaders))
+        {
+            response.setStatusCode(500);
+            response.setBody("Malformed CGI output", "text/plain");
+            return;
+        }
+        lineStart = lineEnd + 1;
+    }
+    response.setHeaders(parsedHeaders);
+    response.setBody(cgiBody);
 }
 
-std::vector<std::string> CgiProcess::buildEnvp(const Request &request)
+std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const CgiInfo &cgiInfo)
 {
     std::vector<std::string> envp;
     envp.push_back("REQUEST_METHOD=" + request.getMethod());
     envp.push_back("QUERY_STRING=" + request.getQuery());
     envp.push_back("SERVER_PROTOCOL=" + request.getVersion());
     envp.push_back("GATEWAY_INTERFACE=CGI/1.1");
+    envp.push_back("SCRIPT_NAME=" + cgiInfo.scriptUrlPath_);
+    envp.push_back("SCRIPT_FILENAME=" + cgiInfo.scriptFilename_);
+    envp.push_back("PATH_INFO=" + cgiInfo.pathInfo_);
+    envp.push_back("CONTENT_LENGTH=" + toString(request.getBody().size()));
     for (std::map<std::string, std::string>::const_iterator it = request.getHeaders().begin();
          it != request.getHeaders().end(); ++it)
     {
-        std::string headerName = "HTTP_" + it->first;
+        std::string headerName = it->first;
         std::replace(headerName.begin(), headerName.end(), '-', '_');
         std::transform(headerName.begin(), headerName.end(), headerName.begin(), ::toupper);
-        envp.push_back(headerName + "=" + it->second);
+        if (headerName == "CONTENT_TYPE")
+            envp.push_back(headerName + "=" + it->second);
+        else if (headerName == "CONTENT_LENGTH" || headerName == "TRANSFER_ENCODING")
+            continue ;
+        else
+            envp.push_back("HTTP_" + headerName + "=" + it->second);
     }
     return envp;
 }
 
 void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
 {
-    int pipefd[2];
-    if (pipe(pipefd) == -1)
+    int outputPipe[2];
+    if (pipe(outputPipe) == -1)
+        throw std::runtime_error("Failed to create output pipe");
+    int inputPipe[2];
+    if (pipe(inputPipe) == -1)
     {
-        throw std::runtime_error("Failed to create pipe");
+        close(outputPipe[0]);
+        close(outputPipe[1]);
+        throw std::runtime_error("Failed to create output pipe");
     }
     pid_ = fork();
     if (pid_ < 0)
     {
-        close(pipefd[0]);
-        close(pipefd[1]);
+        close(outputPipe[0]);
+        close(outputPipe[1]);
+        close(inputPipe[0]);
+        close(inputPipe[1]);
         throw std::runtime_error("Failed to fork process");
     }
     if (pid_ == 0) // Child process
     {
-        close(pipefd[0]); // Close read end in child
-        dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
-        close(pipefd[1]); // Close write end after duplicating
-        chdir(cgiInfo.workingDirectory_.c_str()); // Change working directory to script's directory
+        close(outputPipe[0]); // Close read end in child
+        if (dup2(outputPipe[1], STDOUT_FILENO) == -1)//redirect stdout to outputPipe
+            _exit(1);
+        close(outputPipe[1]); // Close write end after duplicating
+
+        close(inputPipe[1]); // Close write end in child
+        if (dup2(inputPipe[0], STDIN_FILENO) == -1)//redirect stdin to inputPipe
+            _exit(1);
+        close(inputPipe[0]); // Close read end after duplicating
+        if (chdir(cgiInfo.workingDirectory_.c_str()) == -1)
+            _exit(1);
         char *argv[] = {const_cast<char *>(cgiInfo.interpreterPath_.c_str()),
                         const_cast<char *>(cgiInfo.scriptFilename_.c_str()), NULL};
-        std::vector<std::string> envp = buildEnvp(request);
+        std::vector<std::string> envp = buildEnvp(request, cgiInfo);
         std::vector<char *> envpArray;
         for (size_t i = 0; i < envp.size(); ++i)
             envpArray.push_back(const_cast<char *>(envp[i].c_str()));
@@ -179,15 +330,22 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
     }
     else // Parent process
     {
-        close(pipefd[1]); // Close write end in parent
-        cgiOutputFd_ = pipefd[0];
+        startTime_ = std::time(NULL);
+        close(inputPipe[0]); // Close read end in parent
+        if (request.getBody().empty())
+            close(inputPipe[1]); // Close write end in parent if no body to send
+        else
+            cgiInputFd_ = inputPipe[1];
+        close(outputPipe[1]); // Close read end in parent
+        cgiOutputFd_ = outputPipe[0];
         childStatus_ = CHILD_RUNNING;
         outputEof_ = false;
         killSent_ = false;
         //apply non-block:
-        if (set_non_blocking(cgiOutputFd_) < 0)
+        if (set_non_blocking(cgiOutputFd_) < 0 || (cgiInputFd_ != -1 && set_non_blocking(cgiInputFd_) < 0))
         {
-            closeOutputFd();
+            closeFd(cgiOutputFd_);
+            closeFd(cgiInputFd_);
             throw std::runtime_error("Failed to set non-blocking mode for CGI output pipe");
         }
     }

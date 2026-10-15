@@ -10,6 +10,8 @@ struct LocationConfig;
 enum RouteType
 {
     ROUTE_STATIC,
+    ROUTE_UPLOAD,
+    ROUTE_DELETE,
     ROUTE_CGI,
     ROUTE_ERROR
 };
@@ -32,14 +34,36 @@ class Router
         RouteType routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo);
         LocationConfig *findLocation(const std::string &path);
         bool isValidMethod(const std::string &method, const LocationConfig *location);
-        bool splitCgiPath(const std::string &path, const std::string &extension, std::string &scriptName, std::string &pathInfo);
+        bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
         void completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
+        void validateCgiScript(const std::string &scriptPath);
+        RouteType routeCGI(const Request& request, const LocationConfig *location, CgiInfo &cgiInfo);
+        RouteType routeUpload(const Request& request, const LocationConfig *location, Response& response);
+        void writeToFile(const std::string &uploadPath, const std::string &body);
+        std::string mapUploadPath(const LocationConfig *location, const std::string &urlPath);
+        void removeFile(const std::string &filePath);
+        RouteType routeDelete(const Request& request, const LocationConfig *location, Response& response);
+        RouteType routeGet(const Request& request, const LocationConfig *location, Response& response);
+
 
     private:
+        struct MimeType
+        {
+            const char *extension_;
+            const char *contentType_;
+        };
+
+        static const MimeType mimeTypes_[];
+        static const size_t mimeTypeCount_;
+
         Router(const Router& other);
         Router& operator=(const Router& other);
-        
-        std::string mapFilePath(const std::string &path, const LocationConfig *location);
+
+        void validateUrlPath(const std::string &path);
+        std::string mapRootPath(const std::string &path, const LocationConfig *location);
+        RouteType serveFile(const Request& request, const std::string &filePath, Response& response);
+        RouteType routeDirectory(const Request& request, const std::string &directoryPath,
+                                const LocationConfig *location, Response& response);
         std::string contentType(const std::string &path);
         ServerConfig &config_;
 };

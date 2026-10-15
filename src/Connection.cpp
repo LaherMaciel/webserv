@@ -7,15 +7,19 @@
 #include <sys/socket.h> //for recv() send()
 #include <cerrno>//for errno
 
-Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_(""), bytes_sent_(0) {}
+Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_(""), bytes_sent_(0), closeAfterResponse_(true) {}
 
-Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0) {}
+Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0), closeAfterResponse_(true) {}
 
 Connection::~Connection() { closeClientFd(); }
 
 int Connection::getFd() const { return fd_; }
 
 int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
+
+int Connection::getCgiInputFd() const { return cgiProcess_.getInputFd(); }
+
+bool Connection::getCloseAfterResponse() const { return closeAfterResponse_; }
 
 void Connection::closeClientFd()
 {
@@ -33,7 +37,16 @@ void Connection::resetRequest()
     request_ = Request();
 }
 
+void Connection::resetForNewRequest()
+{
+    request_ = Request();
+    parser_.reset();
+    closeAfterResponse_ = true;
+}
+
 bool Connection::hasPendingResponse() const { return !out_buffer_.empty(); }
+
+bool Connection::hasBufferedInput() const { return !in_buffer_.empty(); }
 
 void Connection::startCgi(const CgiInfo &cgiInfo)
 {
@@ -55,16 +68,26 @@ bool Connection::cgiAbortIsPending() const
     return cgiProcess_.abortIsPending();
 }
 
+bool Connection::cgiIsRunning() const
+{
+    return cgiProcess_.isRunning();
+}
+
 CgiCleanupStatus Connection::abortCgi()
 {
     return cgiProcess_.abort();
+}
+
+bool Connection::cgiHasTimedOut() const
+{
+    return cgiProcess_.hasTimedOut();
 }
 
 ConnectionStatus Connection::checkCgiChild()
 {
     if (!cgiProcess_.checkChild())
         return CGI_WAITING_FOR_EXIT;
-    Response response;
+    Response response(500, request_.getVersion());
     cgiProcess_.finishCgi(response);
     queueResponse(response);
     return RESPONSE_READY;
@@ -77,8 +100,28 @@ ConnectionStatus Connection::readFromCGIPipe()
         return checkCgiChild();
     else if (status == CGI_READ_ERROR)
     {
-        queueErrorResponse(500, request_.getVersion(), 
+        queueErrorResponse(500, request_.getVersion(),
             "Internal Server Error: CGI read error", "text/plain");
+        return CGI_IO_ERROR;
+    }
+    else if (status == CGI_OUTPUT_TOO_LARGE)
+    {
+        queueErrorResponse(500, request_.getVersion(),
+            "Internal Server Error: CGI output too large", "text/plain");
+        return CGI_IO_ERROR;
+    }
+    return WAIT_FOR_MORE;
+}
+
+ConnectionStatus Connection::writeToCGIPipe()
+{
+    CgiWriteStatus status = cgiProcess_.writeToPipe(request_.getBody());
+    if (status == CGI_INPUT_COMPLETE)
+        return CGI_STARTED;
+    else if (status == CGI_WRITE_ERROR)
+    {
+        queueErrorResponse(500, request_.getVersion(), 
+            "Internal Server Error: CGI write error", "text/plain");
         return CGI_IO_ERROR;
     }
     return WAIT_FOR_MORE;
@@ -111,7 +154,7 @@ ConnectionStatus Connection::sendResponse()
 {
     size_t bytes_left = out_buffer_.size() - bytes_sent_;
     if (bytes_left == 0)
-        return CONTINUE_CONNECTION;
+        return RESPONSE_SENT;
     ssize_t sent = send(fd_, out_buffer_.c_str() + bytes_sent_, bytes_left, 0);
     if (sent <= 0)
         return CLOSE_CONNECTION;
@@ -120,11 +163,13 @@ ConnectionStatus Connection::sendResponse()
         return WAIT_FOR_MORE;
     out_buffer_.clear();
     bytes_sent_ = 0;
-    return CONTINUE_CONNECTION;
+    return RESPONSE_SENT;
 }
 
-void Connection::queueResponse(const Response &response)
+void Connection::queueResponse(Response &response)
 {
+    if (closeAfterResponse_)
+        response.setHeader("Connection", "close");
     out_buffer_ += response.serialize();
 }
 
@@ -136,42 +181,49 @@ ConnectionStatus Connection::queueErrorResponse(int code, std::string version, s
     Response response(code, version);
     if (!body.empty())
         response.setBody(body, contentType);
+    else
+        response.setDefaultErrorBody();
     queueResponse(response);
     return RESPONSE_READY;
 }
 
+void Connection::applyConnectionClosePolicy()
+{
+    if (request_.getVersion() == "HTTP/1.1")
+        closeAfterResponse_ = false;
+    std::map<std::string, std::string> headers = request_.getHeaders();
+    std::map<std::string, std::string>::iterator it = headers.find("connection");
+    if (it != headers.end())
+    {
+        std::string value = toLower(it->second);
+        if (value == "close")
+            closeAfterResponse_ = true;
+    }
+}
+
+//merged the 2 try/catch blocks into 1
 ConnectionStatus Connection::handleRequest()
 {
     std::cout << "Handling client connection (fd: " << fd_ << ")\n";
     try
     {
         if (request_.getMethod().empty())
+        {
             parser_.parseRequest(in_buffer_, request_);
-        in_buffer_.erase(0, parser_.endOfHeaders_);
-        parser_.endOfHeaders_ = 0;
-    }
-    catch(int error)
-    {
-        return queueErrorResponse(error, request_.getVersion());
-    }
-
-    //ADD Body
-    try
-    {
+            if (parser_.status_ == PARSE_INCOMPLETE)
+                return WAIT_FOR_MORE;
+            applyConnectionClosePolicy();
+            in_buffer_.erase(0, parser_.endOfHeaders_);
+        }
         parser_.parseRequestBody(in_buffer_, request_);
         in_buffer_.erase(0, parser_.endOfBody_);
+        if (!request_.getIsBodyComplete())
+            return WAIT_FOR_MORE;
     }
     catch(int error)
     {
+        closeAfterResponse_ = true;
         return queueErrorResponse(error, request_.getVersion());
-    }
-
-    // INCOMPLETE REQUEST
-    if (parser_.status_ == PARSE_INCOMPLETE || !request_.getIsBodyComplete())
-    {
-        std::cout << "Waiting for end of headers, current in_buffer size: "
-                    << in_buffer_.size() << std::endl;
-        return WAIT_FOR_MORE;
     }
     request_.printRequest();
     return REQUEST_READY;

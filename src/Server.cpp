@@ -32,11 +32,11 @@ Server::~Server()
         close(fd_);
 }
 
-void Server::addFdToPoll(int fd)//used for both the server socket and the client sockets
+void Server::addFdToPoll(int fd, short events)//used for both the server socket and the client sockets
 {
     struct pollfd entry;
     entry.fd = fd;
-    entry.events = POLLIN;
+    entry.events = events;
     entry.revents = 0;
     poll_fds_.push_back(entry);
 }
@@ -71,6 +71,21 @@ int    Server::acceptConnection()
     return (clientfd);
 }
 
+static void cleanCgiFd(int cgiFd, std::map<int, Connection *> &cgiOwners, std::vector<struct pollfd> &poll_fds)
+{
+    if (cgiFd == -1)
+        return;
+    cgiOwners.erase(cgiFd);
+    for (size_t j = 0; j < poll_fds.size(); ++j)
+    {
+        if (poll_fds[j].fd == cgiFd)
+        {
+            poll_fds[j].fd = -1;
+            poll_fds[j].events = 0;
+            break;
+        }
+    }
+}
 
 void Server::cleanDeadFds(std::vector<int> &deadfds)
 {
@@ -81,20 +96,8 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
         if (it != conns_.end())
         {
             Connection *conn = it->second;
-            int cgiFd = conn->getCgiOutputFd();
-            if (cgiFd != -1)
-            {
-                cgiOwners_.erase(cgiFd);
-                for (size_t j = 0; j < poll_fds_.size(); ++j)
-                {
-                    if (poll_fds_[j].fd == cgiFd)
-                    {
-                        poll_fds_[j].fd = -1;
-                        poll_fds_[j].events = 0;
-                        break;
-                    }
-                }
-            }
+            cleanCgiFd(conn->getCgiOutputFd(), cgiOwners_, poll_fds_);
+            cleanCgiFd(conn->getCgiInputFd(), cgiOwners_, poll_fds_);
             conns_.erase(it);
             conn->closeClientFd();
             if (conn->abortCgi() == CGI_CLEANUP_DONE)
@@ -168,17 +171,11 @@ Connection *Server::getConnection(int fd)
     return it->second;
 }
 
-// !Need to implement CGI in the loop (remove the return) and make it so
-// !it can run n CGI processes if/when needed.
-ConnectionStatus Server::handleConnection(int fd, size_t pollfd_pos)
+// moved the multiple request in buffer check to main loop, after first response is fully sent
+ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
 {
-    Connection *conn = getConnection(fd);//safer than using conns_[fd] directly
-    if (!conn)
-        return CLOSE_CONNECTION;
-    if (conn->readFromSocket() == -1)
-        return CLOSE_CONNECTION;
     ConnectionStatus status = conn->handleRequest();
-    while (status == REQUEST_READY)
+    if (status == REQUEST_READY)
     {
         Response response;
         CgiInfo cgiInfo;
@@ -186,12 +183,8 @@ ConnectionStatus Server::handleConnection(int fd, size_t pollfd_pos)
         if (result != ROUTE_CGI)
             conn->queueResponse(response);
         else
-            return startCgi(conn, cgiInfo, pollfd_pos); //! <-
-        conn->resetRequest();
-        status = conn->handleRequest();
+            return startCgi(conn, cgiInfo, pollfd_pos);
     }
-    if (status == CLOSE_CONNECTION)
-        return CLOSE_CONNECTION;
     if (!conn->hasPendingResponse())
         return WAIT_FOR_MORE;
     poll_fds_[pollfd_pos].events = POLLOUT;
@@ -226,17 +219,46 @@ void	Server::processEvents()
                 addClient(client_fd);
                 continue ;
            }
-           ConnectionStatus status = handleConnection(poll_fds_[i].fd, i);
+           Connection *conn = getConnection(poll_fds_[i].fd);
+           if (!conn || conn->readFromSocket() == -1)
+           {
+                dead_fds.push_back(poll_fds_[i].fd);
+                continue ;
+           }
+           else if (conn->cgiIsRunning())
+                continue;
+           ConnectionStatus status = processBufferedRequest(conn, i);
            if (status == CLOSE_CONNECTION)
                 dead_fds.push_back(poll_fds_[i].fd);
         }
         if (poll_fds_[i].revents & POLLOUT)
         {
-            Connection *conn = getConnection(poll_fds_[i].fd);//safer than using conns_[fd] directly
-            if (!conn || conn->sendResponse() == CLOSE_CONNECTION)
+            Connection *conn = getConnection(poll_fds_[i].fd);
+            if (!conn)
+            {
                 dead_fds.push_back(poll_fds_[i].fd);
-            else
-                poll_fds_[i].events = POLLIN;
+                continue;
+            }
+            ConnectionStatus status = conn->sendResponse();
+            if (status == WAIT_FOR_MORE)
+                continue;
+            if ((status == RESPONSE_SENT && conn->getCloseAfterResponse()) 
+                || status == CLOSE_CONNECTION)
+                dead_fds.push_back(poll_fds_[i].fd);
+            else if (status == RESPONSE_SENT)
+            {
+                conn->resetForNewRequest();
+                if (!conn->hasBufferedInput())
+                {
+                    poll_fds_[i].events = POLLIN;
+                    continue;
+                }
+                status = processBufferedRequest(conn, i);
+                if (status == WAIT_FOR_MORE)
+                    poll_fds_[i].events = POLLIN;
+                else if (status == RESPONSE_READY)
+                    poll_fds_[i].events = POLLOUT;
+            }
         } 
     }
     cleanDeadFds(dead_fds);

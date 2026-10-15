@@ -28,6 +28,7 @@ class RequestParser
         int     parseRequestBody(const std::string &raw_request, Request &request);
         void    parseRequest(const std::string &raw_request, Request &request);
         void    parseHeader(Request &request);
+        void    reset();
 
     private:
         std::string rawRequestLine_;
