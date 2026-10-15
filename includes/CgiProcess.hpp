@@ -4,13 +4,27 @@
 #include "Router.hpp"
 #include <string>
 #include <vector>
+#include <set>
+#include <map>
 #include <unistd.h>//for pipe(), fork(), dup2()
+#include <ctime>
+
+#define CGI_MAX_OUTPUT (1024 * 1024)
+#define CGI_TIMEOUT_SECONDS 5
 
 enum CgiReadStatus
 {
     CGI_READING,
     CGI_OUTPUT_COMPLETE,
-    CGI_READ_ERROR
+    CGI_READ_ERROR,
+    CGI_OUTPUT_TOO_LARGE
+};
+
+enum CgiWriteStatus
+{
+    CGI_WRITING,
+    CGI_INPUT_COMPLETE,
+    CGI_WRITE_ERROR
 };
 
 enum ChildStatus
@@ -38,20 +52,30 @@ class CgiProcess
         bool checkChild();
         bool completionIsPending() const;
         bool abortIsPending() const;
+        bool isRunning() const;
         CgiCleanupStatus abort();
         int getOutputFd() const;
+        int getInputFd() const;
         void reset();
+        bool hasTimedOut() const;
         std::vector<std::string> buildEnvp(const Request &request, const CgiInfo &cgiInfo);
+        CgiWriteStatus writeToPipe(const std::string &data);
 
     private:
+        std::time_t startTime_;
         pid_t       pid_;
         int         cgiOutputFd_;
+        int         cgiInputFd_;
+        size_t      inputOffset_;
         std::string buffer_;
         ChildStatus childStatus_;
         bool        outputEof_;
         bool        killSent_;
 
-        void closeOutputFd();
+        void closeFd(int &fd);
+        bool processHeader(Response &response, const std::string &headerLine, std::map<std::string,
+                            std::string> &parsedHeaders, std::set<std::string> &seenHeaders);
+        bool setStatus(Response &response, const std::string &value);
 
         CgiProcess(const CgiProcess& other);
         CgiProcess& operator=(const CgiProcess& other);

@@ -3,16 +3,17 @@
 /*                                                        :::      ::::::::   */
 /*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: belinore <belinore@student.42lisboa.com    +#+  +:+       +#+        */
+/*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/09/29 09:32:20 by belinore         ###   ########.fr       */
+/*   Updated: 2026/10/15 18:08:43 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "webserv.hpp"
 #include "Server.hpp"
 #include "Connection.hpp"
+#include "ServerConfig.hpp"
 #include <iostream>
 #include <cstring>//for memset
 #include <sys/socket.h>//for socket(), bind(), listen(), accept()
@@ -25,9 +26,35 @@
 #include <vector>
 #include <stdexcept> // to use std::runtime_error
 
-int main()
+int main(int argc, char **argv)
 {
-    Server  server;
+    std::vector<ServerConfig>   configs;
+    std::string                 path = DEFAULT_CONFIG;
+
+    if (argc > 2)
+    {
+        std::cerr << "usage: ./webserv [configuration file]" << std::endl;
+        return (1);
+    }
+    if (argc == 2)
+        path = argv[1];
+    try
+    {
+        configs = parseConfig(path);
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        return (1);
+    }
+    printConfig(configs);
+
+    if (configs.size() > 1)
+        std::cerr << "warning: " << configs.size() - 1
+            << " server block(s) ignored, multiple ports not wired up yet"
+            << std::endl;
+
+    Server  server(configs[0]);
     try
     {
         server.startServer();

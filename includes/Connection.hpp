@@ -18,7 +18,8 @@ enum ConnectionStatus
     CGI_WAITING_FOR_EXIT,
     CGI_IO_ERROR,
     RESPONSE_READY,
-    CONTINUE_CONNECTION
+    CONTINUE_CONNECTION,
+    RESPONSE_SENT
 };
 
 class Connection
@@ -29,22 +30,30 @@ class Connection
         ~Connection();
         ConnectionStatus handleRequest();
         int             readFromSocket();
-        void            queueResponse(const Response &response);
+        void            queueResponse(Response &response);
         ConnectionStatus sendResponse();
         ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
         int getFd() const;
         int getCgiOutputFd() const;
+        int getCgiInputFd() const;
         const Request&  getRequest() const;
+        bool            getCloseAfterResponse() const;
         void startCgi(const CgiInfo &cgiInfo);
         ConnectionStatus readFromCGIPipe();
         ConnectionStatus checkCgiChild();
         bool cgiCompletionIsPending() const;
         bool cgiAbortIsPending() const;
+        bool cgiHasTimedOut() const;
+        bool cgiIsRunning() const;
         CgiCleanupStatus abortCgi();
         void closeClientFd();
         void resetCgiProcess();
         void            resetRequest();
+        void            resetForNewRequest();
         bool            hasPendingResponse() const;
+        bool           hasBufferedInput() const;
+        ConnectionStatus writeToCGIPipe();
+        void applyConnectionClosePolicy();
 
     private:
         int             fd_;
@@ -56,6 +65,7 @@ class Connection
         Connection& operator=(const Connection& other);
         RequestParser   parser_;
         Request         request_;
+        bool            closeAfterResponse_;
 };
 
 #endif

@@ -11,19 +11,27 @@ ServerConfig setServerConfig()
     config.host_ = "localhost";
     config.serverName_ = "DefaultServer";
     config.maxBodySize_ = 1000000; // 1 MB
-    LocationConfig location;
-    location.path_ = "/";
-    location.root_ = "./www";
-    location.index_ = "index.html";
-    config.locations_.push_back(location);
-    config.locations_[0].allowedMethods_.push_back("GET");
-    location.path_ = "/cgi-bin";
-    location.root_ = "./www";
-    //location.cgiHandlers_[".py"] = "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3";
-    //location.cgiHandlers_[".py"] = "/bin/python3.10";
-    location.cgiHandlers_[".py"] = "/usr/bin/python3";
-    config.locations_.push_back(location);
-    config.locations_[1].allowedMethods_.push_back("GET");
+    LocationConfig locationStatic;
+    locationStatic.path_ = "/";
+    locationStatic.root_ = "./www";
+    locationStatic.index_ = "index.html";
+    locationStatic.allowedMethods_.push_back("GET");
+    config.locations_.push_back(locationStatic);
+    LocationConfig locationCgi;
+    locationCgi.path_ = "/cgi-bin";
+    locationCgi.root_ = "./www/cgi-bin";
+    locationCgi.cgiHandlers_[".py"] = "/usr/bin/python3";
+    locationCgi.allowedMethods_.push_back("GET");
+    locationCgi.allowedMethods_.push_back("POST");
+    config.locations_.push_back(locationCgi);
+    LocationConfig locationUpload;
+    locationUpload.path_ = "/upload";
+    locationUpload.root_ = "./www/upload";
+    locationUpload.uploadStore_ = "./www/upload";
+    locationUpload.allowedMethods_.push_back("POST");
+    locationUpload.allowedMethods_.push_back("GET");
+    locationUpload.allowedMethods_.push_back("DELETE");
+    config.locations_.push_back(locationUpload);
     return config;
 }
 
@@ -62,47 +70,88 @@ ConnectionStatus Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size
         conn->abortCgi();
         return RESPONSE_READY;
     }
-    int cgiFd = conn->getCgiOutputFd();
-    addFdToPoll(cgiFd);
-    cgiOwners_[cgiFd] = conn;
-    poll_fds_[pollfd_pos].events = 0;
+    addFdToPoll(conn->getCgiOutputFd(), POLLIN);
+    cgiOwners_[conn->getCgiOutputFd()] = conn;
+    if (conn->getCgiInputFd() != -1)
+    {
+        addFdToPoll(conn->getCgiInputFd(), POLLOUT);
+        cgiOwners_[conn->getCgiInputFd()] = conn;
+    }
+    poll_fds_[pollfd_pos].events = POLLIN;
     return CGI_STARTED;
 }
 
 void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
 {
     pollfd &cgiPollFd = poll_fds_[pollfd_pos];
+    int eventFd = cgiPollFd.fd;
     short revents = cgiPollFd.revents;
     if (revents & (POLLERR | POLLNVAL))
     {
         cgiOwner->queueErrorResponse(500, cgiOwner->getRequest().getVersion());
         updatePollEvents(cgiOwner->getFd(), POLLOUT);
-        cgiOwners_.erase(cgiPollFd.fd);
-        cgiPollFd.fd = -1;
-        cgiPollFd.events = 0;
+        removeCgiFd(eventFd);
+        removeCgiFds(cgiOwner);
         cgiOwner->abortCgi();
+        return;
     }
-    else if (revents & (POLLIN | POLLHUP))
+    if ((revents & POLLOUT) && eventFd == cgiOwner->getCgiInputFd())
+    {
+        ConnectionStatus status = cgiOwner->writeToCGIPipe();
+        if (status == WAIT_FOR_MORE)
+            return;
+        removeCgiFd(eventFd);
+        if (status == CGI_IO_ERROR)
+        {
+            removeCgiFds(cgiOwner);
+            updatePollEvents(cgiOwner->getFd(), POLLOUT);
+            cgiOwner->abortCgi();
+        }
+        return;
+    }
+    if ((revents & (POLLIN | POLLHUP)) && eventFd == cgiOwner->getCgiOutputFd())
     {
         ConnectionStatus status = cgiOwner->readFromCGIPipe();
         if (status == RESPONSE_READY || status == CGI_WAITING_FOR_EXIT ||
             status == CGI_IO_ERROR)
         {
-            cgiOwners_.erase(cgiPollFd.fd);
-            cgiPollFd.fd = -1;
-            cgiPollFd.events = 0;
+            removeCgiFd(eventFd);
             if (status == RESPONSE_READY)
             {
+                removeCgiFds(cgiOwner);
                 updatePollEvents(cgiOwner->getFd(), POLLOUT);
                 cgiOwner->resetCgiProcess();
             }
             else if (status == CGI_IO_ERROR)
             {
+                removeCgiFds(cgiOwner);
                 updatePollEvents(cgiOwner->getFd(), POLLOUT);
                 cgiOwner->abortCgi();
             }
         }
     }
+}
+
+void Server::removeCgiFd(int fd)
+{
+    if (fd == -1)
+        return;
+    cgiOwners_.erase(fd);
+    for (size_t i = 0; i < poll_fds_.size(); ++i)
+    {
+        if (poll_fds_[i].fd == fd)
+        {
+            poll_fds_[i].fd = -1;
+            poll_fds_[i].events = 0;
+            return;
+        }
+    }
+}
+
+void Server::removeCgiFds(Connection *cgiOwner)
+{
+    removeCgiFd(cgiOwner->getCgiOutputFd());
+    removeCgiFd(cgiOwner->getCgiInputFd());
 }
 
 /*
@@ -119,15 +168,27 @@ void Server::checkCgiChildren()
         Connection *conn = it->second;
         if (conn->cgiAbortIsPending())
         {
+            removeCgiFds(conn);
             conn->abortCgi();
             continue;
         }
-        if (!conn->cgiCompletionIsPending())
-            continue;
-        if (conn->checkCgiChild() == RESPONSE_READY)
+        if (conn->cgiCompletionIsPending())
         {
+            if (conn->checkCgiChild() == RESPONSE_READY)
+            {
+                updatePollEvents(conn->getFd(), POLLOUT);
+                conn->resetCgiProcess();
+                continue;
+            }
+        }
+        if (conn->cgiHasTimedOut())
+        {
+            removeCgiFds(conn);
+            conn->queueErrorResponse(504, conn->getRequest().getVersion(),
+                "Gateway Timeout: CGI process timed out", "text/plain");
             updatePollEvents(conn->getFd(), POLLOUT);
-            conn->resetCgiProcess();
+            conn->abortCgi();
+            continue;
         }
     }
     for (size_t i = closingConnections_.size(); i > 0; --i)
