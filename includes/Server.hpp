@@ -11,7 +11,6 @@
 class Server
 {
     public:
-        Server();
         Server(const ServerConfig& config);
         ~Server();
         void    initSocket();

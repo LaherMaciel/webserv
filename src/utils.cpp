@@ -1,7 +1,9 @@
+#include "webserv.hpp"
 #include <string>
 #include <cctype> // for std::tolower
 #include <sstream> // for std::ostringstream
 #include <fstream> // for std::ifstream
+#include <sys/stat.h>//for stat(), S_ISREG
 #include <fcntl.h>//for fcntl()
 
 //Note: commented out version superior but not allowed by project subject 
@@ -31,8 +33,34 @@ std::string toString(size_t value)
     return oss.str();
 }
 
+std::string quoteValue(const std::string &s)
+{
+    std::string out = "'";
+
+    for (size_t i = 0; i < s.size(); ++i)
+    {
+        if (s[i] == '\t')
+            out += "\\t";
+        else if (s[i] == '\n')
+            out += "\\n";
+        else if (s[i] == '\r')
+            out += "\\r";
+        else if (s[i] < 32 || s[i] > 126)
+            out += "\\?";
+        else
+            out += s[i];
+    }
+    out += "'";
+    return (out);
+}
+
 bool readFile(const std::string& path, std::string& content)
 {
+    struct stat sb;
+
+    if (stat(path.c_str(), &sb) != 0 || !S_ISREG(sb.st_mode))
+        return false;
+
     std::ifstream file(path.c_str(), std::ios::in | std::ios::binary);
     if (!file)
         return false;
@@ -41,6 +69,34 @@ bool readFile(const std::string& path, std::string& content)
     ss << file.rdbuf();
     content = ss.str();
     return true;
+}
+
+/**
+ * Returns the index of the first non-whitespace character at or after 'pos'.
+ *
+ * When everything from 'pos' onward is whitespace it returns str.size(), so
+ * the caller's "pos == str.size()" check still means "nothing left here".
+ * It never returns an index that cannot be read.
+ */
+size_t skipSpaces(const std::string &str, size_t pos)
+{
+    pos = str.find_first_not_of(WHITESPACE, pos);
+    if (pos == std::string::npos)
+        return (str.size());
+    return (pos);
+}
+
+/**
+ * Removes trailing whitespace from 'str', in place.
+ */
+void removeSpaceAfter(std::string &str)
+{
+    size_t last = str.find_last_not_of(WHITESPACE);
+
+    if (last == std::string::npos)
+        str.clear();
+    else
+        str.erase(last + 1);
 }
 
 /*

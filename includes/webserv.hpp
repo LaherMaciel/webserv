@@ -22,6 +22,12 @@ int 	set_non_blocking(int fd);
 std::string toLower(std::string s);
 std::string toString(size_t value);
 bool readFile(const std::string& path, std::string& content);
+std::string quoteValue(const std::string &s);
 std::string httpReasonPhrase(int code);
+# define WHITESPACE " \t\n\r\v\f"
+# define DEFAULT_CONFIG "config/default.conf"
+
+size_t skipSpaces(const std::string &str, size_t pos);
+void removeSpaceAfter(std::string &str);
 
 #endif

@@ -16,7 +16,6 @@
 
 static const int POLL_TIMEOUT_MS = 100;
 
-Server::Server(): config_(setServerConfig()), fd_(-1), port_(DEFAULT_PORT), router_(config_) {}
 
 Server::Server(const ServerConfig& config): config_(config), fd_(-1), port_(config.port_), router_(config_) {}
 
