@@ -77,59 +77,81 @@ ConnectionStatus Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size
         addFdToPoll(conn->getCgiInputFd(), POLLOUT);
         cgiOwners_[conn->getCgiInputFd()] = conn;
     }
-    poll_fds_[pollfd_pos].events = 0;//mute the client fd events until CGI is done
+    poll_fds_[pollfd_pos].events = POLLIN;
     return CGI_STARTED;
 }
 
 void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
 {
     pollfd &cgiPollFd = poll_fds_[pollfd_pos];
+    int eventFd = cgiPollFd.fd;
     short revents = cgiPollFd.revents;
     if (revents & (POLLERR | POLLNVAL))
     {
         cgiOwner->queueErrorResponse(500, cgiOwner->getRequest().getVersion());
         updatePollEvents(cgiOwner->getFd(), POLLOUT);
-        cgiOwners_.erase(cgiPollFd.fd);
-        cgiPollFd.fd = -1;
-        cgiPollFd.events = 0;
+        removeCgiFd(eventFd);
+        removeCgiFds(cgiOwner);
         cgiOwner->abortCgi();
+        return;
     }
-    if ((revents & POLLOUT) && cgiPollFd.fd == cgiOwner->getCgiInputFd())
+    if ((revents & POLLOUT) && eventFd == cgiOwner->getCgiInputFd())
     {
         ConnectionStatus status = cgiOwner->writeToCGIPipe();
-        if (status != WAIT_FOR_MORE)
-        {
-            cgiOwners_.erase(cgiPollFd.fd);
-            cgiPollFd.fd = -1;
-            cgiPollFd.events = 0;
-        }
+        if (status == WAIT_FOR_MORE)
+            return;
+        removeCgiFd(eventFd);
         if (status == CGI_IO_ERROR)
         {
+            removeCgiFds(cgiOwner);
             updatePollEvents(cgiOwner->getFd(), POLLOUT);
             cgiOwner->abortCgi();
         }
+        return;
     }
-    else if ((revents & (POLLIN | POLLHUP)) && cgiPollFd.fd == cgiOwner->getCgiOutputFd())
+    if ((revents & (POLLIN | POLLHUP)) && eventFd == cgiOwner->getCgiOutputFd())
     {
         ConnectionStatus status = cgiOwner->readFromCGIPipe();
         if (status == RESPONSE_READY || status == CGI_WAITING_FOR_EXIT ||
             status == CGI_IO_ERROR)
         {
-            cgiOwners_.erase(cgiPollFd.fd);
-            cgiPollFd.fd = -1;
-            cgiPollFd.events = 0;
+            removeCgiFd(eventFd);
             if (status == RESPONSE_READY)
             {
+                removeCgiFds(cgiOwner);
                 updatePollEvents(cgiOwner->getFd(), POLLOUT);
                 cgiOwner->resetCgiProcess();
             }
             else if (status == CGI_IO_ERROR)
             {
+                removeCgiFds(cgiOwner);
                 updatePollEvents(cgiOwner->getFd(), POLLOUT);
                 cgiOwner->abortCgi();
             }
         }
     }
+}
+
+void Server::removeCgiFd(int fd)
+{
+    if (fd == -1)
+        return;
+    cgiOwners_.erase(fd);
+    for (size_t i = 0; i < poll_fds_.size(); ++i)
+    {
+        if (poll_fds_[i].fd == fd)
+        {
+            poll_fds_[i].fd = -1;
+            poll_fds_[i].events = 0;
+            return;
+        }
+    }
+}
+
+void Server::removeCgiFds(Connection *cgiOwner)
+{
+    removeCgiFd(cgiOwner->getCgiOutputFd());
+    removeCgiFd(cgiOwner->getCgiInputFd());
 }
 
 /*
@@ -146,15 +168,27 @@ void Server::checkCgiChildren()
         Connection *conn = it->second;
         if (conn->cgiAbortIsPending())
         {
+            removeCgiFds(conn);
             conn->abortCgi();
             continue;
         }
-        if (!conn->cgiCompletionIsPending())
-            continue;
-        if (conn->checkCgiChild() == RESPONSE_READY)
+        if (conn->cgiCompletionIsPending())
         {
+            if (conn->checkCgiChild() == RESPONSE_READY)
+            {
+                updatePollEvents(conn->getFd(), POLLOUT);
+                conn->resetCgiProcess();
+                continue;
+            }
+        }
+        if (conn->cgiHasTimedOut())
+        {
+            removeCgiFds(conn);
+            conn->queueErrorResponse(504, conn->getRequest().getVersion(),
+                "Gateway Timeout: CGI process timed out", "text/plain");
             updatePollEvents(conn->getFd(), POLLOUT);
-            conn->resetCgiProcess();
+            conn->abortCgi();
+            continue;
         }
     }
     for (size_t i = closingConnections_.size(); i > 0; --i)

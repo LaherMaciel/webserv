@@ -44,6 +44,19 @@ bool CgiProcess::abortIsPending() const
     return killSent_ && childStatus_ == CHILD_RUNNING;
 }
 
+bool CgiProcess::isRunning() const
+{
+    return childStatus_ == CHILD_RUNNING;
+}
+
+bool CgiProcess::hasTimedOut() const
+{
+    if (childStatus_ != CHILD_RUNNING)
+        return false;
+    double secondsElapsed = std::difftime(std::time(NULL), startTime_);
+    return secondsElapsed >= CGI_TIMEOUT_SECONDS;
+}
+
 void CgiProcess::closeFd(int &fd)
 {
     if (fd != -1)
@@ -113,6 +126,8 @@ CgiReadStatus CgiProcess::readFromPipe()
     ssize_t bytesRead = read(cgiOutputFd_, buffer, sizeof(buffer));
     if (bytesRead > 0)
     {
+        if (buffer_.size() + bytesRead > CGI_MAX_OUTPUT)
+            return CGI_OUTPUT_TOO_LARGE;
         buffer_.append(buffer, bytesRead);
         return CGI_READING;
     }
@@ -292,11 +307,13 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
     if (pid_ == 0) // Child process
     {
         close(outputPipe[0]); // Close read end in child
-        dup2(outputPipe[1], STDOUT_FILENO); // Redirect stdin to pipe
+        if (dup2(outputPipe[1], STDOUT_FILENO) == -1)//redirect stdout to outputPipe
+            _exit(1);
         close(outputPipe[1]); // Close write end after duplicating
 
         close(inputPipe[1]); // Close write end in child
-        dup2(inputPipe[0], STDIN_FILENO);
+        if (dup2(inputPipe[0], STDIN_FILENO) == -1)//redirect stdin to inputPipe
+            _exit(1);
         close(inputPipe[0]); // Close read end after duplicating
         if (chdir(cgiInfo.workingDirectory_.c_str()) == -1)
             _exit(1);
@@ -313,6 +330,7 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
     }
     else // Parent process
     {
+        startTime_ = std::time(NULL);
         close(inputPipe[0]); // Close read end in parent
         if (request.getBody().empty())
             close(inputPipe[1]); // Close write end in parent if no body to send

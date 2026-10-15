@@ -41,6 +41,8 @@ class Connection
         ConnectionStatus checkCgiChild();
         bool cgiCompletionIsPending() const;
         bool cgiAbortIsPending() const;
+        bool cgiHasTimedOut() const;
+        bool cgiIsRunning() const;
         CgiCleanupStatus abortCgi();
         void closeClientFd();
         void resetCgiProcess();

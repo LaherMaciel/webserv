@@ -57,9 +57,19 @@ bool Connection::cgiAbortIsPending() const
     return cgiProcess_.abortIsPending();
 }
 
+bool Connection::cgiIsRunning() const
+{
+    return cgiProcess_.isRunning();
+}
+
 CgiCleanupStatus Connection::abortCgi()
 {
     return cgiProcess_.abort();
+}
+
+bool Connection::cgiHasTimedOut() const
+{
+    return cgiProcess_.hasTimedOut();
 }
 
 ConnectionStatus Connection::checkCgiChild()
@@ -79,8 +89,14 @@ ConnectionStatus Connection::readFromCGIPipe()
         return checkCgiChild();
     else if (status == CGI_READ_ERROR)
     {
-        queueErrorResponse(500, request_.getVersion(), 
+        queueErrorResponse(500, request_.getVersion(),
             "Internal Server Error: CGI read error", "text/plain");
+        return CGI_IO_ERROR;
+    }
+    else if (status == CGI_OUTPUT_TOO_LARGE)
+    {
+        queueErrorResponse(500, request_.getVersion(),
+            "Internal Server Error: CGI output too large", "text/plain");
         return CGI_IO_ERROR;
     }
     return WAIT_FOR_MORE;

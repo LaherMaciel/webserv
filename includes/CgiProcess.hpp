@@ -7,12 +7,17 @@
 #include <set>
 #include <map>
 #include <unistd.h>//for pipe(), fork(), dup2()
+#include <ctime>
+
+#define CGI_MAX_OUTPUT (1024 * 1024)
+#define CGI_TIMEOUT_SECONDS 5
 
 enum CgiReadStatus
 {
     CGI_READING,
     CGI_OUTPUT_COMPLETE,
-    CGI_READ_ERROR
+    CGI_READ_ERROR,
+    CGI_OUTPUT_TOO_LARGE
 };
 
 enum CgiWriteStatus
@@ -47,14 +52,17 @@ class CgiProcess
         bool checkChild();
         bool completionIsPending() const;
         bool abortIsPending() const;
+        bool isRunning() const;
         CgiCleanupStatus abort();
         int getOutputFd() const;
         int getInputFd() const;
         void reset();
+        bool hasTimedOut() const;
         std::vector<std::string> buildEnvp(const Request &request, const CgiInfo &cgiInfo);
         CgiWriteStatus writeToPipe(const std::string &data);
 
     private:
+        std::time_t startTime_;
         pid_t       pid_;
         int         cgiOutputFd_;
         int         cgiInputFd_;

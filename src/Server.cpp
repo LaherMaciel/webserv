@@ -230,6 +230,13 @@ void	Server::processEvents()
                 addClient(client_fd);
                 continue ;
            }
+           Connection *conn = getConnection(poll_fds_[i].fd);
+           if (conn && conn->cgiIsRunning())
+           {
+                if (conn->readFromSocket() == -1)
+                    dead_fds.push_back(conn->getFd());
+                continue;
+           }
            ConnectionStatus status = handleConnection(poll_fds_[i].fd, i);
            if (status == CLOSE_CONNECTION)
                 dead_fds.push_back(poll_fds_[i].fd);
