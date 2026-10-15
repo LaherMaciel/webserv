@@ -69,12 +69,7 @@ re: fclean
 	@echo "[" "$(YELLOW)..$(RESET)" "] | Rebuilding $(NAME)..."
 	@$(MAKE)
 
-# Define OS-specific flags
-ifeq ($(shell uname), Darwin)  # macOS
-ARG = config/config_macOs.conf
-else  # Assume Linux
-ARG = config/config_linux.conf
-endif
+ARG = config/prototype.conf
 
 run: $(NAME)
 	./$(NAME) $(ARG)
