@@ -4,7 +4,6 @@
 Response::Response() : statusCode_(500), version_("HTTP/1.1"), body_("")
 {
     setHeader("Content-Length", "0");
-    setHeader("Connection", "close");
     reasonPhrase_ = httpReasonPhrase(statusCode_);
 }
 
@@ -12,7 +11,6 @@ Response::Response(int statusCode, const std::string &version)
     : statusCode_(statusCode), version_(version)
 {
     setHeader("Content-Length", "0");
-    setHeader("Connection", "close");
     reasonPhrase_ = httpReasonPhrase(statusCode);
 }
 
@@ -21,7 +19,6 @@ Response::Response(int statusCode, const std::string &version, const std::string
 {
     setHeader("Content-Type", contentType);
     setHeader("Content-Length", toString(body.size()));
-    setHeader("Connection", "close");
     reasonPhrase_ = httpReasonPhrase(statusCode);
 }
 

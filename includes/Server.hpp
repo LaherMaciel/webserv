@@ -19,7 +19,7 @@ class Server
         void    addFdToPoll(int fd, short events = POLLIN);
         void    addClient(int client_fd);
         void    startServer();
-        ConnectionStatus handleConnection(int fd, size_t pollfd_pos);
+        ConnectionStatus processBufferedRequest(Connection *conn, size_t pollfd_pos);
         void    processEvents();
         void    runServer();
         int     acceptConnection();

@@ -6,6 +6,15 @@
 RequestParser::RequestParser() : endOfHeaders_(0), status_(PARSE_INCOMPLETE) {}
 RequestParser::~RequestParser() {}
 
+void RequestParser::reset()
+{
+    endOfHeaders_ = 0;
+    endOfBody_ = 0;
+    status_ = PARSE_INCOMPLETE;
+    rawRequestLine_.clear();
+    rawHeaders_.clear();
+}
+
 void RequestParser::validateRequestLine(const std::string &method, const std::string &path, const std::string &version)
 {
     if (method != "GET" && method != "POST" && method != "DELETE")// add all the methods allowed by HTTP/1.1
