@@ -50,8 +50,6 @@ void	Server::addClient(int clientfd, const std::string &remoteAddress)
     std::cout << "Client " << clientfd << ": Connected\n";
 }
 
-
-
 int    Server::acceptConnection(std::string &remoteAddress)
 {
     sockaddr_in clientAddr;
@@ -197,76 +195,87 @@ ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_
     return RESPONSE_READY;
 }
 
+ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
+{
+    int fd = poll_fds_[pollfd_pos].fd;
+    short revents = poll_fds_[pollfd_pos].revents;
+    Connection *conn = getConnection(fd);
+    if (!conn || (revents & (POLLERR | POLLNVAL)))
+        return CLOSE_CONNECTION;
+    ConnectionStatus status;
+    if (revents & POLLIN)
+    {
+        if (conn->readFromSocket() == -1)
+            return CLOSE_CONNECTION;
+        else if (conn->cgiIsRunning())
+            return CONTINUE_CONNECTION;
+        status = processBufferedRequest(conn, pollfd_pos);
+        if (status == CLOSE_CONNECTION)
+            return CLOSE_CONNECTION;
+    }
+    if (revents & POLLOUT)
+    {
+        status = conn->sendResponse();
+        if (status == WAIT_FOR_MORE)
+            return CONTINUE_CONNECTION;
+        if ((status == RESPONSE_SENT && conn->getCloseAfterResponse())
+            || status == CLOSE_CONNECTION)
+            return CLOSE_CONNECTION;
+        else if (status == RESPONSE_SENT)
+        {
+            conn->resetForNewRequest();
+            if (!conn->hasBufferedInput())
+            {
+                poll_fds_[pollfd_pos].events = POLLIN;
+                return CONTINUE_CONNECTION;
+            }
+            status = processBufferedRequest(conn, pollfd_pos);
+            if (status == WAIT_FOR_MORE)
+                poll_fds_[pollfd_pos].events = POLLIN;
+            else if (status == RESPONSE_READY)
+                poll_fds_[pollfd_pos].events = POLLOUT;
+        }
+    }
+    if (revents & POLLHUP)
+        return CLOSE_CONNECTION;
+    return CONTINUE_CONNECTION;
+}
+
+void    Server::handleListenerEvent(size_t pollfd_pos)
+{
+    short revents = poll_fds_[pollfd_pos].revents;
+    if (revents & (POLLERR | POLLHUP | POLLNVAL))
+        throw std::runtime_error("Listening socket poll error");
+    if (!(revents & POLLIN))
+        return;
+    std::string clientIp;
+    int clientFd = acceptConnection(clientIp);
+    if (clientFd != -1)
+        addClient(clientFd, clientIp);
+}
+
 void	Server::processEvents()
 {
-    int     client_fd;
     std::vector<int>			dead_fds;
 
     for (size_t i = 0; i < poll_fds_.size(); ++i)
     {
+        if (poll_fds_[i].revents == 0)
+            continue;
         Connection *cgiOwner = getCgiOwner(poll_fds_[i].fd);
         if (cgiOwner)
         {
             handleCgiEvent(cgiOwner, i);
             continue ;
         }
-        if (poll_fds_[i].revents & (POLLERR | POLLHUP | POLLNVAL))//if error, hangup, or invalid request, mark fd for removal
+        if (poll_fds_[i].fd == fd_)
         {
-            dead_fds.push_back(poll_fds_[i].fd);
+            handleListenerEvent(i);
             continue ;
         }
-        if (poll_fds_[i].revents & POLLIN)
-        {
-           if (poll_fds_[i].fd == fd_)
-           {
-                std::string client_ip;
-                client_fd = acceptConnection(client_ip);
-                if (client_fd == -1)
-                    continue ;
-                addClient(client_fd, client_ip);
-                continue ;
-           }
-           Connection *conn = getConnection(poll_fds_[i].fd);
-           if (!conn || conn->readFromSocket() == -1)
-           {
-                dead_fds.push_back(poll_fds_[i].fd);
-                continue ;
-           }
-           else if (conn->cgiIsRunning())
-                continue;
-           ConnectionStatus status = processBufferedRequest(conn, i);
-           if (status == CLOSE_CONNECTION)
-                dead_fds.push_back(poll_fds_[i].fd);
-        }
-        if (poll_fds_[i].revents & POLLOUT)
-        {
-            Connection *conn = getConnection(poll_fds_[i].fd);
-            if (!conn)
-            {
-                dead_fds.push_back(poll_fds_[i].fd);
-                continue;
-            }
-            ConnectionStatus status = conn->sendResponse();
-            if (status == WAIT_FOR_MORE)
-                continue;
-            if ((status == RESPONSE_SENT && conn->getCloseAfterResponse()) 
-                || status == CLOSE_CONNECTION)
-                dead_fds.push_back(poll_fds_[i].fd);
-            else if (status == RESPONSE_SENT)
-            {
-                conn->resetForNewRequest();
-                if (!conn->hasBufferedInput())
-                {
-                    poll_fds_[i].events = POLLIN;
-                    continue;
-                }
-                status = processBufferedRequest(conn, i);
-                if (status == WAIT_FOR_MORE)
-                    poll_fds_[i].events = POLLIN;
-                else if (status == RESPONSE_READY)
-                    poll_fds_[i].events = POLLOUT;
-            }
-        } 
+        int connectionFd = poll_fds_[i].fd;
+        if (handleConnectionEvent(i) == CLOSE_CONNECTION)
+            dead_fds.push_back(connectionFd);
     }
     cleanDeadFds(dead_fds);
 }

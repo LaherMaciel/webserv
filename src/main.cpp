@@ -58,15 +58,15 @@ int main(int argc, char **argv)
     try
     {
         server.startServer();
+        signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
+        server.runServer();
     }
     catch (std::exception &e)
     {
         std::cerr << e.what() << std::endl;
-        std::cerr << "Failed to create server socket\n";
+        std::cerr << "Server stopped due to an error\n";
         return (-1);
     }
-    signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
-    server.runServer();
     
     return (0);
 }

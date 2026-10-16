@@ -25,6 +25,8 @@ class Server
         void    cleanDeadFds(std::vector<int> &deadfds);
         void    updatePollEvents(int fd, short events);
         void    handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos);
+        void    handleListenerEvent(size_t pollfd_pos);
+        ConnectionStatus handleConnectionEvent(size_t pollfd_pos);
         void    removeCgiFd(int fd);
         void    removeCgiFds(Connection *cgiOwner);
         void    checkCgiChildren();
