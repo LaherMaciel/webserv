@@ -16,12 +16,12 @@ class Server
         void    initSocket();
         void    bindSocket();
         void    addFdToPoll(int fd, short events = POLLIN);
-        void    addClient(int client_fd);
+        void    addClient(int client_fd, const std::string &remoteAddress);
         void    startServer();
         ConnectionStatus processBufferedRequest(Connection *conn, size_t pollfd_pos);
         void    processEvents();
         void    runServer();
-        int     acceptConnection();
+        int     acceptConnection(std::string &remoteAddress);
         void    cleanDeadFds(std::vector<int> &deadfds);
         void    updatePollEvents(int fd, short events);
         void    handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos);

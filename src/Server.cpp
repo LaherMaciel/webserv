@@ -41,19 +41,24 @@ void Server::addFdToPoll(int fd, short events)//used for both the server socket 
     poll_fds_.push_back(entry);
 }
 
-void	Server::addClient(int clientfd)
+void	Server::addClient(int clientfd, const std::string &remoteAddress)
 {
     std::cout << "Handling client connection (fd: " << clientfd << ")\n";
-    Connection *new_client = new Connection(clientfd);
+    Connection *new_client = new Connection(clientfd, remoteAddress);
     conns_[clientfd] = new_client;
     addFdToPoll(clientfd);
     std::cout << "Client " << clientfd << ": Connected\n";
 }
 
 
-int    Server::acceptConnection()
+
+int    Server::acceptConnection(std::string &remoteAddress)
 {
-    int clientfd = accept(fd_, NULL, NULL);
+    sockaddr_in clientAddr;
+    socklen_t clientAddrLen = sizeof(clientAddr);
+    std::memset(&clientAddr, 0, sizeof(clientAddr));
+
+    int clientfd = accept(fd_, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
 
     if (clientfd < 0 || conns_.size() >= MAX_CONNECTIONS)
     {
@@ -68,6 +73,7 @@ int    Server::acceptConnection()
         close(clientfd);
         return (-1);
     }
+    remoteAddress = ipv4LongToString(ntohl(clientAddr.sin_addr.s_addr));
     return (clientfd);
 }
 
@@ -213,10 +219,11 @@ void	Server::processEvents()
         {
            if (poll_fds_[i].fd == fd_)
            {
-                client_fd = acceptConnection();
+                std::string client_ip;
+                client_fd = acceptConnection(client_ip);
                 if (client_fd == -1)
                     continue ;
-                addClient(client_fd);
+                addClient(client_fd, client_ip);
                 continue ;
            }
            Connection *conn = getConnection(poll_fds_[i].fd);

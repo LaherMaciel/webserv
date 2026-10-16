@@ -7,9 +7,9 @@
 #include <sys/socket.h> //for recv() send()
 #include <cerrno>//for errno
 
-Connection::Connection() : fd_(-1), in_buffer_(""), out_buffer_(""), bytes_sent_(0), closeAfterResponse_(true) {}
-
-Connection::Connection(int fd) : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0), closeAfterResponse_(true) {}
+Connection::Connection(int fd, const std::string &remoteAddress)
+                    : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0)
+                    , closeAfterResponse_(true), remoteAddress_(remoteAddress) {}
 
 Connection::~Connection() { closeClientFd(); }
 
@@ -50,7 +50,7 @@ bool Connection::hasBufferedInput() const { return !in_buffer_.empty(); }
 
 void Connection::startCgi(const CgiInfo &cgiInfo)
 {
-    cgiProcess_.startCgi(cgiInfo, request_);
+    cgiProcess_.startCgi(cgiInfo, request_, remoteAddress_);
 }
 
 void Connection::resetCgiProcess()

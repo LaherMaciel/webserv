@@ -1,6 +1,7 @@
 #ifndef ROUTER_HPP
 # define ROUTER_HPP
 # include <string>
+# include <map>
 
 class Response;
 class Request;
@@ -24,6 +25,8 @@ struct CgiInfo
     std::string pathInfo_;//extra path after script e.g. /users/42
     std::string interpreterPath_;//program that runs script e.g. /usr/bin/python3
     std::string workingDirectory_;//directory where script runs e.g. ./www/cgi-bin
+    std::string serverName_;
+    std::string serverPort_;
 };
 
 class Router
@@ -44,6 +47,7 @@ class Router
         void removeFile(const std::string &filePath);
         RouteType routeDelete(const Request& request, const LocationConfig *location, Response& response);
         RouteType routeGet(const Request& request, const LocationConfig *location, Response& response);
+        std::string getPrimaryServerName(const std::map<std::string, std::string> &requestHeaders);
 
 
     private:

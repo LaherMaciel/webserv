@@ -148,6 +148,8 @@ static void printCgiInfo(const CgiInfo &cgiInfo)
     std::cout << "Interpreter Path: " << cgiInfo.interpreterPath_ << "\n";
     std::cout << "Working Directory: " << cgiInfo.workingDirectory_ << "\n";
     std::cout << "Script Filename: " << cgiInfo.scriptFilename_ << "\n";
+    std::cout << "Server Name: " << cgiInfo.serverName_ << "\n";
+    std::cout << "Server Port: " << cgiInfo.serverPort_ << "\n";
 }
 
 bool Router::splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension)
@@ -184,6 +186,30 @@ void Router::validateCgiScript(const std::string &scriptPath)
         throw 403;
 }
 
+//for cgi environment vars
+std::string Router::getPrimaryServerName(const std::map<std::string, std::string> &requestHeaders)
+{
+    std::string serverName;
+    size_t start = config_.serverName_.find_first_not_of(WHITESPACE);
+    if (start != std::string::npos)
+    {
+        size_t end = config_.serverName_.find_first_of(WHITESPACE, start);
+        serverName = config_.serverName_.substr(start, end - start);
+    }
+    else
+    {
+        std::map<std::string, std::string>::const_iterator it = requestHeaders.find("host");
+        size_t colon;
+        if (it != requestHeaders.end() && (colon = it->second.find(':')) != std::string::npos)
+            serverName = it->second.substr(0, colon);
+        else if (it != requestHeaders.end())
+            serverName = it->second;
+        else
+            serverName = config_.host_;
+    }
+    return serverName;
+}
+
 void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
 {
     const std::map<std::string, std::string> &handlers = location->cgiHandlers_;
@@ -208,6 +234,8 @@ void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const Loc
                 size_t slash = info.scriptFilesystemPath_.rfind('/');
                 info.workingDirectory_ = info.scriptFilesystemPath_.substr(0, slash);
                 info.scriptFilename_ = info.scriptFilesystemPath_.substr(slash + 1);
+                info.serverName_ = getPrimaryServerName(request.getHeaders());
+                info.serverPort_ = toString(config_.port_);
                 cgiInfo = info;
             }
         }

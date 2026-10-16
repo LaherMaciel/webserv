@@ -19,6 +19,12 @@ int set_non_blocking(int fd)
     return 0;
 }
 
+std::string ipv4LongToString(unsigned long ip)
+{
+    return toString((ip >> 24) & 255) + "." + toString((ip >> 16) & 255) + "."
+        + toString((ip >> 8) & 255) + "." + toString(ip & 255);
+}
+
 std::string toLower(std::string s)
 {
     for (size_t i = 0; i < s.size(); ++i)
