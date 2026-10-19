@@ -8,20 +8,28 @@
 # include "Router.hpp"
 # include "ServerConfig.hpp"
 
+struct Listener
+{
+    int fd_;
+    std::vector<std::string> host_;
+    size_t port_;
+    std::vector<int> configIndex_;
+};
+
 class Server
 {
     public:
         Server(const std::vector<ServerConfig>& config);
         ~Server();
-        void    initSocket();
-        void    bindSocket();
+        void    initSocket(Listener &listener);
+        void    bindSocket(Listener &listener);
         void    addFdToPoll(int fd, short events = POLLIN);
         void    addClient(int client_fd, const std::string &remoteAddress);
         void    startServer();
         ConnectionStatus processBufferedRequest(Connection *conn, size_t pollfd_pos);
         void    processEvents();
         void    runServer();
-        int     acceptConnection(std::string &remoteAddress);
+        int     acceptConnection(std::string &remoteAddress, size_t pollfd_pos);
         void    cleanDeadFds(std::vector<int> &deadfds);
         void    updatePollEvents(int fd, short events);
         void    handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos);
@@ -31,21 +39,22 @@ class Server
         void    removeCgiFds(Connection *cgiOwner);
         void    checkCgiChildren();
         ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos);
+        bool    addToExistingListener(int configIndex, int port, std::string &host);
 
     private:
         std::vector<ServerConfig> config_;
+        std::vector<Listener> listeners_;
         std::map<int, Connection *>	conns_;
         std::map<int, Connection *> cgiOwners_;
         std::vector<Connection *>   closingConnections_;
         std::vector<struct pollfd>	poll_fds_;
-        int     fd_;
-        int     port_;
 
         Server(const Server& other);
         Server& operator=(const Server& other);
 
         Connection *getConnection(int fd);
         Connection *getCgiOwner(int fd);
+        Listener   *getListener(int fd);
 };
 
 #endif

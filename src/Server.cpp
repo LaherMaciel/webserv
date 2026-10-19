@@ -18,7 +18,7 @@
 static const int POLL_TIMEOUT_MS = 100;
 
 
-Server::Server(const std::vector<ServerConfig>& config): config_(config), fd_(-1), port_(config[0].port_) {}
+Server::Server(const std::vector<ServerConfig>& config): config_(config) {}
 
 Server::~Server()
 {
@@ -29,8 +29,12 @@ Server::~Server()
     conns_.clear();
     closingConnections_.clear();
     poll_fds_.clear();
-    if (fd_ != -1)
-        close(fd_);
+    for (size_t i = 0; i < listeners_.size(); ++i)
+    {
+        if (listeners_[i].fd_ != -1)
+            close(listeners_[i].fd_);
+    }
+    
 }
 
 void Server::addFdToPoll(int fd, short events)//used for both the server socket and the client sockets
@@ -51,13 +55,13 @@ void	Server::addClient(int clientfd, const std::string &remoteAddress)
     std::cout << "Client " << clientfd << ": Connected\n";
 }
 
-int    Server::acceptConnection(std::string &remoteAddress)
+int    Server::acceptConnection(std::string &remoteAddress, size_t pollfd_pos)
 {
     sockaddr_in clientAddr;
     socklen_t clientAddrLen = sizeof(clientAddr);
     std::memset(&clientAddr, 0, sizeof(clientAddr));
 
-    int clientfd = accept(fd_, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
+    int clientfd = accept(poll_fds_[pollfd_pos].fd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
 
     if (clientfd < 0 || conns_.size() >= MAX_CONNECTIONS)
     {
@@ -123,14 +127,14 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
     }
 }
 
-void Server::initSocket()
+void Server::initSocket(Listener &listener)
 {
     int fd = socket(AF_INET, SOCK_STREAM, 0);//AF_INET = IPv4, SOCK_STREAM = TCP, 0 = default protocol (TCP for SOCK_STREAM)
     if (fd < 0)
     {
         throw std::runtime_error("Failed to create socket");
     }
-    fd_ = fd;
+    listener.fd_ = fd;
     if (set_non_blocking(fd) < 0)
     {
         throw std::runtime_error("Failed to set socket to non-blocking");
@@ -142,30 +146,71 @@ void Server::initSocket()
     }
 }
 
-void Server::bindSocket()
+void Server::bindSocket(Listener &listener)
 {
     //define port and address for binding
     sockaddr_in address;
     std::memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;//IPv4
     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);//converts to network byte order. Eventually use INADDR_ANY
-    address.sin_port = htons(static_cast<unsigned short>(port_));//convert port to network byte order
-    if (bind(fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
+    address.sin_port = htons(static_cast<unsigned short>(listener.port_));//convert port to network byte order
+    if (bind(listener.fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
     {
         throw std::runtime_error("Failed to bind socket");
     }
-    if (listen(fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
+    if (listen(listener.fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
     {
         throw std::runtime_error("Failed to listen on socket");
     }
 }
 
+bool Server::addToExistingListener(int configIndex, int port, std::string &host)
+{
+    for (size_t i = 0; i < listeners_.size(); i++)
+    {
+        if (config_[configIndex].port_ == listeners_[i].port_)
+        {
+            listeners_[i].configIndex_.push_back(configIndex);
+            listeners_[i].host_.push_back(host);
+            std::cout << "Virtual host added to Listener " << listeners_[i].fd_ << " host: " << host << " port:" << port << "\n";
+            return (true);
+        }
+    }
+    return (false);
+}
+
 void Server::startServer()
 {
-    initSocket();
-    bindSocket();
-    addFdToPoll(fd_);
-    std::cout << "Server listening on port " << port_ << "\n";
+    for (size_t i = 0; i < config_.size(); i++)
+    {
+        int port = config_[i].port_;
+        std::string host = config_[i].host_;
+        if (!addToExistingListener(i, port, host))
+        {
+            Listener newListener;
+            newListener.fd_ = -1;
+            newListener.port_ = port;
+            newListener.configIndex_.push_back(i);
+            newListener.host_.push_back(host);
+            initSocket(newListener);
+            std::cout << "Server adding Listener " << newListener.fd_ << " host: " << host[i] << " port: " << port << "\n";
+            bindSocket(newListener);
+            addFdToPoll(newListener.fd_);
+            listeners_.push_back(newListener);
+            std::cout << "Server added Listener " << listeners_[i].fd_ << " host: " << host[i] << " port:" << port << "\n";
+        }
+    }  
+    
+}
+
+Listener *Server::getListener(int fd)
+{
+    for (size_t i = 0; i < listeners_.size(); i++)
+    {
+        if (fd == listeners_[i].fd_)
+            return &listeners_[i];
+    }
+    return NULL;
 }
 
 Connection *Server::getConnection(int fd)
@@ -251,7 +296,7 @@ void    Server::handleListenerEvent(size_t pollfd_pos)
     if (!(revents & POLLIN))
         return;
     std::string clientIp;
-    int clientFd = acceptConnection(clientIp);
+    int clientFd = acceptConnection(clientIp, pollfd_pos);
     if (clientFd != -1)
         addClient(clientFd, clientIp);
 }
@@ -270,7 +315,8 @@ void	Server::processEvents()
             handleCgiEvent(cgiOwner, i);
             continue ;
         }
-        if (poll_fds_[i].fd == fd_)
+        Listener *listener = getListener(poll_fds_[i].fd);
+        if (listener)
         {
             handleListenerEvent(i);
             continue ;
