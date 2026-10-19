@@ -11,7 +11,7 @@
 struct Listener
 {
     int fd_;
-    std::vector<std::string> host_;
+    std::string host_;
     size_t port_;
     std::vector<int> configIndex_;
 };

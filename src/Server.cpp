@@ -168,11 +168,11 @@ bool Server::addToExistingListener(int configIndex, int port, std::string &host)
 {
     for (size_t i = 0; i < listeners_.size(); i++)
     {
-        if (config_[configIndex].port_ == listeners_[i].port_)
+        if (config_[configIndex].port_ == listeners_[i].port_ &&
+            config_[configIndex].host_ == listeners_[i].host_)
         {
             listeners_[i].configIndex_.push_back(configIndex);
-            listeners_[i].host_.push_back(host);
-            std::cout << "Virtual host added to Listener " << listeners_[i].fd_ << " host: " << host << " port:" << port << "\n";
+            std::cout << "Virtual host " << config_[configIndex].serverName_ << " added to Listener " << listeners_[i].fd_ << ", host: " << host << ", port: " << port << "\n";
             return (true);
         }
     }
@@ -191,13 +191,13 @@ void Server::startServer()
             newListener.fd_ = -1;
             newListener.port_ = port;
             newListener.configIndex_.push_back(i);
-            newListener.host_.push_back(host);
+            newListener.host_ = host;
             initSocket(newListener);
-            std::cout << "Server adding Listener " << newListener.fd_ << " host: " << host[i] << " port: " << port << "\n";
             bindSocket(newListener);
             addFdToPoll(newListener.fd_);
             listeners_.push_back(newListener);
-            std::cout << "Server added Listener " << listeners_[i].fd_ << " host: " << host[i] << " port:" << port << "\n";
+            std::string name = config_[i].serverName_.empty() ? "[not named]" : config_[i].serverName_;
+            std::cout << "Server " << name << " added Listener fd " << newListener.fd_ << ", host: " << host << ", port: " << port << "\n";
         }
     }  
     
