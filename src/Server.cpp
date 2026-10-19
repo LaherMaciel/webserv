@@ -13,11 +13,12 @@
 #include <iostream>
 #include <poll.h>//for poll()
 #include <stdexcept>//for exception types
+#include <vector>
 
 static const int POLL_TIMEOUT_MS = 100;
 
 
-Server::Server(const std::vector<ServerConfig>& config): config_(config), fd_(-1), port_(config[0].port_), router_(config_[0]) {}
+Server::Server(const ServerConfig& config): config_(config), fd_(-1), port_(config.port_), router_(config_[0]) {}
 
 Server::~Server()
 {
@@ -183,7 +184,8 @@ ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_
     {
         Response response;
         CgiInfo cgiInfo;
-        RouteType result = router_.routeRequest(conn->getRequest(), response, cgiInfo);
+        Router router(config_[0]);
+        RouteType result = router.routeRequest(conn->getRequest(), response, cgiInfo);
         if (result != ROUTE_CGI)
             conn->queueResponse(response);
         else
