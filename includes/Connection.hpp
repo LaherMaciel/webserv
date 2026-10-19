@@ -25,8 +25,7 @@ enum ConnectionStatus
 class Connection
 {
     public:
-        Connection();
-        Connection(int fd);
+        Connection(int fd, const std::string &remoteAddress);
         ~Connection();
         ConnectionStatus handleRequest();
         int             readFromSocket();
@@ -66,6 +65,7 @@ class Connection
         RequestParser   parser_;
         Request         request_;
         bool            closeAfterResponse_;
+        std::string     remoteAddress_;//ip of client
 };
 
 #endif

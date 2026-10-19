@@ -256,7 +256,7 @@ void CgiProcess::finishCgi(Response &response)
     response.setBody(cgiBody);
 }
 
-std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const CgiInfo &cgiInfo)
+std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const CgiInfo &cgiInfo, const std::string &remoteAddress)
 {
     std::vector<std::string> envp;
     envp.push_back("REQUEST_METHOD=" + request.getMethod());
@@ -267,6 +267,10 @@ std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const Cgi
     envp.push_back("SCRIPT_FILENAME=" + cgiInfo.scriptFilename_);
     envp.push_back("PATH_INFO=" + cgiInfo.pathInfo_);
     envp.push_back("CONTENT_LENGTH=" + toString(request.getBody().size()));
+    envp.push_back("SERVER_SOFTWARE=webserv/1.0");
+    envp.push_back("SERVER_NAME=" + cgiInfo.serverName_);
+    envp.push_back("SERVER_PORT=" + cgiInfo.serverPort_);
+    envp.push_back("REMOTE_ADDR=" + remoteAddress);
     for (std::map<std::string, std::string>::const_iterator it = request.getHeaders().begin();
          it != request.getHeaders().end(); ++it)
     {
@@ -283,7 +287,7 @@ std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const Cgi
     return envp;
 }
 
-void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
+void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request, const std::string &remoteAddress)
 {
     int outputPipe[2];
     if (pipe(outputPipe) == -1)
@@ -319,7 +323,7 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request)
             _exit(1);
         char *argv[] = {const_cast<char *>(cgiInfo.interpreterPath_.c_str()),
                         const_cast<char *>(cgiInfo.scriptFilename_.c_str()), NULL};
-        std::vector<std::string> envp = buildEnvp(request, cgiInfo);
+        std::vector<std::string> envp = buildEnvp(request, cgiInfo, remoteAddress);
         std::vector<char *> envpArray;
         for (size_t i = 0; i < envp.size(); ++i)
             envpArray.push_back(const_cast<char *>(envp[i].c_str()));

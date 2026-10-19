@@ -46,7 +46,7 @@ class CgiProcess
     public:
         CgiProcess();
         ~CgiProcess();
-        void startCgi(const CgiInfo &cgiInfo, const Request &request);
+        void startCgi(const CgiInfo &cgiInfo, const Request &request, const std::string &remoteAddress);
         void finishCgi(Response &response);
         CgiReadStatus readFromPipe();
         bool checkChild();
@@ -58,7 +58,7 @@ class CgiProcess
         int getInputFd() const;
         void reset();
         bool hasTimedOut() const;
-        std::vector<std::string> buildEnvp(const Request &request, const CgiInfo &cgiInfo);
+        std::vector<std::string> buildEnvp(const Request &request, const CgiInfo &cgiInfo, const std::string &remoteAddress);
         CgiWriteStatus writeToPipe(const std::string &data);
 
     private:

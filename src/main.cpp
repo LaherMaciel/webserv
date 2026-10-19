@@ -6,7 +6,7 @@
 /*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/10/15 20:31:11 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/10/19 15:16:13 by lahermaciel      ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -54,19 +54,19 @@ int main(int argc, char **argv)
             << " server block(s) ignored, multiple ports not wired up yet"
             << std::endl;
 
-    Server  server(configs[0]);
+    Server  server(configs);
     try
     {
         server.startServer();
+        signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
+        server.runServer();
     }
     catch (std::exception &e)
     {
         std::cerr << e.what() << std::endl;
-        std::cerr << "Failed to create server socket\n";
+        std::cerr << "Server stopped due to an error\n";
         return (-1);
     }
-    signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
-    server.runServer();
     
     return (0);
 }

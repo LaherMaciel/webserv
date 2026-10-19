@@ -11,27 +11,29 @@
 class Server
 {
     public:
-        Server(const ServerConfig& config);
+        Server(const std::vector<ServerConfig>& config);
         ~Server();
         void    initSocket();
         void    bindSocket();
         void    addFdToPoll(int fd, short events = POLLIN);
-        void    addClient(int client_fd);
+        void    addClient(int client_fd, const std::string &remoteAddress);
         void    startServer();
         ConnectionStatus processBufferedRequest(Connection *conn, size_t pollfd_pos);
         void    processEvents();
         void    runServer();
-        int     acceptConnection();
+        int     acceptConnection(std::string &remoteAddress);
         void    cleanDeadFds(std::vector<int> &deadfds);
         void    updatePollEvents(int fd, short events);
         void    handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos);
+        void    handleListenerEvent(size_t pollfd_pos);
+        ConnectionStatus handleConnectionEvent(size_t pollfd_pos);
         void    removeCgiFd(int fd);
         void    removeCgiFds(Connection *cgiOwner);
         void    checkCgiChildren();
         ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos);
 
     private:
-        ServerConfig config_;
+        std::vector<ServerConfig> config_;
         std::map<int, Connection *>	conns_;
         std::map<int, Connection *> cgiOwners_;
         std::vector<Connection *>   closingConnections_;
