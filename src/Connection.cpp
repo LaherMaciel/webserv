@@ -7,13 +7,16 @@
 #include <sys/socket.h> //for recv() send()
 #include <cerrno>//for errno
 
-Connection::Connection(int fd, const std::string &remoteAddress)
+Connection::Connection(int fd, const std::string &remoteAddress, Listener *listener)
                     : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0)
-                    , closeAfterResponse_(true), remoteAddress_(remoteAddress) {}
+                    , closeAfterResponse_(true), remoteAddress_(remoteAddress)
+                    , listener_(listener) {}
 
 Connection::~Connection() { closeClientFd(); }
 
 int Connection::getFd() const { return fd_; }
+
+Listener *Connection::getListener() const { return listener_; }
 
 int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
 

@@ -17,6 +17,11 @@
 
 static const int POLL_TIMEOUT_MS = 100;
 
+Listener::Listener(ServerConfig *config)
+    : fd_(-1), host_(config->host_), port_(config->port_)
+{
+    configs_.push_back(config);
+}
 
 Server::Server(const std::vector<ServerConfig>& config): config_(config) {}
 
@@ -46,10 +51,11 @@ void Server::addFdToPoll(int fd, short events)//used for both the server socket 
     poll_fds_.push_back(entry);
 }
 
-void	Server::addClient(int clientfd, const std::string &remoteAddress)
+void	Server::addClient(int clientfd, const std::string &remoteAddress,
+                       Listener *listener)
 {
     std::cout << "Handling client connection (fd: " << clientfd << ")\n";
-    Connection *new_client = new Connection(clientfd, remoteAddress);
+    Connection *new_client = new Connection(clientfd, remoteAddress, listener);
     conns_[clientfd] = new_client;
     addFdToPoll(clientfd);
     std::cout << "Client " << clientfd << ": Connected\n";
@@ -164,15 +170,18 @@ void Server::bindSocket(Listener &listener)
     }
 }
 
-bool Server::addToExistingListener(int configIndex, int port, std::string &host)
+bool Server::addToExistingListener(ServerConfig *config)
 {
     for (size_t i = 0; i < listeners_.size(); i++)
     {
-        if (config_[configIndex].port_ == listeners_[i].port_ &&
-            config_[configIndex].host_ == listeners_[i].host_)
+        if (config->port_ == listeners_[i].port_ &&
+            config->host_ == listeners_[i].host_)
         {
-            listeners_[i].configIndex_.push_back(configIndex);
-            std::cout << "Virtual host " << config_[configIndex].serverName_ << " added to Listener " << listeners_[i].fd_ << ", host: " << host << ", port: " << port << "\n";
+            listeners_[i].configs_.push_back(config);
+            std::cout << "Virtual host " << config->serverName_
+                      << " added to Listener " << listeners_[i].fd_
+                      << ", host: " << config->host_
+                      << ", port: " << config->port_ << "\n";
             return (true);
         }
     }
@@ -183,21 +192,18 @@ void Server::startServer()
 {
     for (size_t i = 0; i < config_.size(); i++)
     {
-        int port = config_[i].port_;
-        std::string host = config_[i].host_;
-        if (!addToExistingListener(i, port, host))
+        ServerConfig *config = &config_[i];
+        if (!addToExistingListener(config))
         {
-            Listener newListener;
-            newListener.fd_ = -1;
-            newListener.port_ = port;
-            newListener.configIndex_.push_back(i);
-            newListener.host_ = host;
+            Listener newListener(config);
             initSocket(newListener);
             bindSocket(newListener);
             addFdToPoll(newListener.fd_);
             listeners_.push_back(newListener);
-            std::string name = config_[i].serverName_.empty() ? "[not named]" : config_[i].serverName_;
-            std::cout << "Server " << name << " added Listener fd " << newListener.fd_ << ", host: " << host << ", port: " << port << "\n";
+            std::string name = config->serverName_.empty() ? "[not named]" : config->serverName_;
+            std::cout << "Server " << name << " added Listener fd "
+                      << newListener.fd_ << ", host: " << newListener.host_
+                      << ", port: " << newListener.port_ << "\n";
         }
     }  
     
@@ -288,7 +294,7 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
     return CONTINUE_CONNECTION;
 }
 
-void    Server::handleListenerEvent(size_t pollfd_pos)
+void    Server::handleListenerEvent(size_t pollfd_pos, Listener *listener)
 {
     short revents = poll_fds_[pollfd_pos].revents;
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
@@ -298,7 +304,7 @@ void    Server::handleListenerEvent(size_t pollfd_pos)
     std::string clientIp;
     int clientFd = acceptConnection(clientIp, pollfd_pos);
     if (clientFd != -1)
-        addClient(clientFd, clientIp);
+        addClient(clientFd, clientIp, listener);
 }
 
 void	Server::processEvents()
@@ -318,7 +324,7 @@ void	Server::processEvents()
         Listener *listener = getListener(poll_fds_[i].fd);
         if (listener)
         {
-            handleListenerEvent(i);
+            handleListenerEvent(i, listener);
             continue ;
         }
         int connectionFd = poll_fds_[i].fd;
