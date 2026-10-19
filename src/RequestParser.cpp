@@ -2,6 +2,7 @@
 #include "webserv.hpp"
 #include "Request.hpp"
 #include <cstdlib>
+#include <climits>
 
 RequestParser::RequestParser() : endOfHeaders_(0), status_(PARSE_INCOMPLETE) {}
 RequestParser::~RequestParser() {}

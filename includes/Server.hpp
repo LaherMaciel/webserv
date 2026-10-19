@@ -11,7 +11,7 @@
 class Server
 {
     public:
-        Server(const ServerConfig& config);
+        Server(const std::vector<ServerConfig>& config);
         ~Server();
         void    initSocket();
         void    bindSocket();
@@ -33,14 +33,13 @@ class Server
         ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos);
 
     private:
-        ServerConfig config_;
+        std::vector<ServerConfig> config_;
         std::map<int, Connection *>	conns_;
         std::map<int, Connection *> cgiOwners_;
         std::vector<Connection *>   closingConnections_;
         std::vector<struct pollfd>	poll_fds_;
         int     fd_;
         int     port_;
-        Router  router_;
 
         Server(const Server& other);
         Server& operator=(const Server& other);
