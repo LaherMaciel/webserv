@@ -14,11 +14,17 @@
 #include <poll.h>//for poll()
 #include <stdexcept>//for exception types
 #include <vector>
+#include <netdb.h>
 
 static const int POLL_TIMEOUT_MS = 100;
 
+Listener::Listener(ServerConfig *config)
+    : fd_(-1), host_(config->host_), port_(config->port_)
+{
+    configs_.push_back(config);
+}
 
-Server::Server(const std::vector<ServerConfig>& config): config_(config), fd_(-1), port_(config[0].port_) {}
+Server::Server(const std::vector<ServerConfig>& config): config_(config) {}
 
 Server::~Server()
 {
@@ -29,8 +35,12 @@ Server::~Server()
     conns_.clear();
     closingConnections_.clear();
     poll_fds_.clear();
-    if (fd_ != -1)
-        close(fd_);
+    for (size_t i = 0; i < listeners_.size(); ++i)
+    {
+        if (listeners_[i].fd_ != -1)
+            close(listeners_[i].fd_);
+    }
+    
 }
 
 void Server::addFdToPoll(int fd, short events)//used for both the server socket and the client sockets
@@ -42,22 +52,29 @@ void Server::addFdToPoll(int fd, short events)//used for both the server socket 
     poll_fds_.push_back(entry);
 }
 
-void	Server::addClient(int clientfd, const std::string &remoteAddress)
+void	Server::addClient(int clientFd, const std::string &remoteAddress, Listener *listener)
 {
-    std::cout << "Handling client connection (fd: " << clientfd << ")\n";
-    Connection *new_client = new Connection(clientfd, remoteAddress);
-    conns_[clientfd] = new_client;
-    addFdToPoll(clientfd);
-    std::cout << "Client " << clientfd << ": Connected\n";
+    if (!listener || listener->configs_.empty())
+    {
+        std::cerr << "Cannot add client without a valid listener config\n";
+        close(clientFd);
+        return;
+    }
+    std::cout << "Handling client connection (fd: " << clientFd << ")\n";
+    ServerConfig *defaultConfig = listener->configs_[0];
+    Connection *new_client = new Connection(clientFd, remoteAddress, listener, defaultConfig);
+    conns_[clientFd] = new_client;
+    addFdToPoll(clientFd);
+    std::cout << "Client " << clientFd << ": Connected\n";
 }
 
-int    Server::acceptConnection(std::string &remoteAddress)
+int    Server::acceptConnection(std::string &remoteAddress, size_t pollfd_pos)
 {
     sockaddr_in clientAddr;
     socklen_t clientAddrLen = sizeof(clientAddr);
     std::memset(&clientAddr, 0, sizeof(clientAddr));
 
-    int clientfd = accept(fd_, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
+    int clientfd = accept(poll_fds_[pollfd_pos].fd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
 
     if (clientfd < 0 || conns_.size() >= MAX_CONNECTIONS)
     {
@@ -123,14 +140,14 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
     }
 }
 
-void Server::initSocket()
+void Server::initSocket(Listener &listener)
 {
     int fd = socket(AF_INET, SOCK_STREAM, 0);//AF_INET = IPv4, SOCK_STREAM = TCP, 0 = default protocol (TCP for SOCK_STREAM)
     if (fd < 0)
     {
         throw std::runtime_error("Failed to create socket");
     }
-    fd_ = fd;
+    listener.fd_ = fd;
     if (set_non_blocking(fd) < 0)
     {
         throw std::runtime_error("Failed to set socket to non-blocking");
@@ -142,30 +159,96 @@ void Server::initSocket()
     }
 }
 
-void Server::bindSocket()
+// void Server::bindSocket(Listener &listener)
+// {
+//     //define port and address for binding
+//     sockaddr_in address;
+//     std::memset(&address, 0, sizeof(address));
+//     address.sin_family = AF_INET;//IPv4
+//     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);//converts to network byte order. Eventually use INADDR_ANY
+//     address.sin_port = htons(static_cast<unsigned short>(listener.port_));//convert port to network byte order
+//     if (bind(listener.fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
+//     {
+//         throw std::runtime_error("Failed to bind socket");
+//     }
+//     if (listen(listener.fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
+//     {
+//         throw std::runtime_error("Failed to listen on socket");
+//     }
+// }
+
+//new approach to binding required to ensure each listener only listens on the configured host ip
+//in the old approach we would have had to parse the ip string to an unsigned long
+void Server::bindSocket(Listener &listener)
 {
     //define port and address for binding
-    sockaddr_in address;
-    std::memset(&address, 0, sizeof(address));
-    address.sin_family = AF_INET;//IPv4
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);//converts to network byte order. Eventually use INADDR_ANY
-    address.sin_port = htons(static_cast<unsigned short>(port_));//convert port to network byte order
-    if (bind(fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
-    {
+    struct addrinfo hints;
+    struct addrinfo *result;
+
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET; //IPv4
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    std::string port = toString(listener.port_);
+
+    int status = getaddrinfo(listener.host_.c_str(), port.c_str(), &hints, &result);
+    if (status != 0)
+        throw std::runtime_error(gai_strerror(status));
+    int bindResult = bind(listener.fd_, result->ai_addr, result->ai_addrlen); //bind socket with address/port
+    freeaddrinfo(result);
+    if (bindResult < 0)
         throw std::runtime_error("Failed to bind socket");
-    }
-    if (listen(fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
-    {
+    if (listen(listener.fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
         throw std::runtime_error("Failed to listen on socket");
+}
+
+bool Server::addToExistingListener(ServerConfig *config)
+{
+    for (size_t i = 0; i < listeners_.size(); i++)
+    {
+        if (config->port_ == listeners_[i].port_ &&
+            config->host_ == listeners_[i].host_)
+        {
+            listeners_[i].configs_.push_back(config);
+            std::cout << "Virtual host " << config->serverName_
+                      << " added to Listener " << listeners_[i].fd_
+                      << ", host: " << config->host_
+                      << ", port: " << config->port_ << "\n";
+            return (true);
+        }
     }
+    return (false);
 }
 
 void Server::startServer()
 {
-    initSocket();
-    bindSocket();
-    addFdToPoll(fd_);
-    std::cout << "Server listening on port " << port_ << "\n";
+    for (size_t i = 0; i < config_.size(); i++)
+    {
+        ServerConfig *config = &config_[i];
+        if (!addToExistingListener(config))
+        {
+            Listener newListener(config);
+            initSocket(newListener);
+            bindSocket(newListener);
+            addFdToPoll(newListener.fd_);
+            listeners_.push_back(newListener);
+            std::string name = config->serverName_.empty() ? "[not named]" : config->serverName_;
+            std::cout << "Server " << name << " added Listener fd "
+                      << newListener.fd_ << ", host: " << newListener.host_
+                      << ", port: " << newListener.port_ << "\n";
+        }
+    }  
+    
+}
+
+Listener *Server::getListener(int fd)
+{
+    for (size_t i = 0; i < listeners_.size(); i++)
+    {
+        if (fd == listeners_[i].fd_)
+            return &listeners_[i];
+    }
+    return NULL;
 }
 
 Connection *Server::getConnection(int fd)
@@ -176,6 +259,29 @@ Connection *Server::getConnection(int fd)
     return it->second;
 }
 
+ServerConfig *Server::selectServerConfig(Connection *connection)
+{
+    Listener *listener = connection->getListener();
+    if (!listener)
+    {
+        throw std::runtime_error("Server error");
+    }
+    const std::map<std::string, std::string> headers = connection->getRequest().getHeaders();
+    std::map<std::string, std::string>::const_iterator host = headers.find("host");
+    if (host != headers.end())
+    {
+        std::string name = host->second;
+        for (size_t i = 0; i < listener->configs_.size(); ++i)
+        {
+            if (listener->configs_[i]->serverName_ == name)//need to compare multiple names
+            {
+                return (listener->configs_[i]);
+            }
+        }
+    }
+    return (listener->configs_[0]);
+}
+
 // moved the multiple request in buffer check to main loop, after first response is fully sent
 ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
 {
@@ -184,7 +290,9 @@ ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_
     {
         Response response;
         CgiInfo cgiInfo;
-        Router router(config_[0]);
+        ServerConfig *config = selectServerConfig(conn);
+        conn->setSelectedConfig(config);
+        Router router(*config);
         RouteType result = router.routeRequest(conn->getRequest(), response, cgiInfo);
         if (result != ROUTE_CGI)
             conn->queueResponse(response);
@@ -243,7 +351,7 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
     return CONTINUE_CONNECTION;
 }
 
-void    Server::handleListenerEvent(size_t pollfd_pos)
+void    Server::handleListenerEvent(size_t pollfd_pos, Listener *listener)
 {
     short revents = poll_fds_[pollfd_pos].revents;
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
@@ -251,9 +359,9 @@ void    Server::handleListenerEvent(size_t pollfd_pos)
     if (!(revents & POLLIN))
         return;
     std::string clientIp;
-    int clientFd = acceptConnection(clientIp);
+    int clientFd = acceptConnection(clientIp, pollfd_pos);
     if (clientFd != -1)
-        addClient(clientFd, clientIp);
+        addClient(clientFd, clientIp, listener);
 }
 
 void	Server::processEvents()
@@ -270,14 +378,14 @@ void	Server::processEvents()
             handleCgiEvent(cgiOwner, i);
             continue ;
         }
-        if (poll_fds_[i].fd == fd_)
+        Listener *listener = getListener(poll_fds_[i].fd);
+        if (listener)
         {
-            handleListenerEvent(i);
+            handleListenerEvent(i, listener);
             continue ;
         }
-        int connectionFd = poll_fds_[i].fd;
         if (handleConnectionEvent(i) == CLOSE_CONNECTION)
-            dead_fds.push_back(connectionFd);
+            dead_fds.push_back(poll_fds_[i].fd);
     }
     cleanDeadFds(dead_fds);
 }

@@ -8,6 +8,7 @@
 #include "CgiProcess.hpp"
 
 class Response;
+struct Listener;
 
 enum ConnectionStatus
 {
@@ -25,7 +26,7 @@ enum ConnectionStatus
 class Connection
 {
     public:
-        Connection(int fd, const std::string &remoteAddress);
+        Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig);
         ~Connection();
         ConnectionStatus handleRequest();
         int             readFromSocket();
@@ -33,6 +34,9 @@ class Connection
         ConnectionStatus sendResponse();
         ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
         int getFd() const;
+        Listener *getListener() const;
+        void setSelectedConfig(ServerConfig *config);
+        ServerConfig *getSelectedConfig() const;
         int getCgiOutputFd() const;
         int getCgiInputFd() const;
         const Request&  getRequest() const;
@@ -66,6 +70,9 @@ class Connection
         Request         request_;
         bool            closeAfterResponse_;
         std::string     remoteAddress_;//ip of client
+        Listener        *listener_;//non-owning pointer; Server owns the Listener
+        ServerConfig    *defaultConfig_;//default for the listener;
+        ServerConfig    *selectedConfig_;//starts as default then later selected based on Request host header
 };
 
 #endif
