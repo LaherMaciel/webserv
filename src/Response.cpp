@@ -71,6 +71,8 @@ void Response::setStatusCode(int statusCode, const std::string& reasonPhrase)
 
 void Response::setDefaultErrorBody()
 {
+    if (errorPage())
+        return ;
     std::string status = toString(statusCode_) + " " + reasonPhrase_;
     std::string body = "<!DOCTYPE html>\n"
         "<html lang=\"en\">\n"
@@ -98,4 +100,18 @@ std::string Response::serialize() const
     //4) Body (if any)
     response += body_;
     return response;
+}
+
+bool    Response::errorPage()
+{
+    std::map<int, std::string>::const_iterator it = errorPages_.find(statusCode_);
+    if (it == errorPages_.end())
+        return (false);
+    std::string contType = contentType(it->second);
+    std::string body;
+    if (!readFile(it->second, body))
+        return (false);
+    setHeader("Content-Type", contType);
+    setBody(body);
+    return (true);
 }

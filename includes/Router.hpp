@@ -49,17 +49,7 @@ class Router
         RouteType routeGet(const Request& request, const LocationConfig *location, Response& response);
         std::string getPrimaryServerName(const std::map<std::string, std::string> &requestHeaders);
 
-
     private:
-        struct MimeType
-        {
-            const char *extension_;
-            const char *contentType_;
-        };
-
-        static const MimeType mimeTypes_[];
-        static const size_t mimeTypeCount_;
-
         Router(const Router& other);
         Router& operator=(const Router& other);
 
@@ -68,7 +58,6 @@ class Router
         RouteType serveFile(const Request& request, const std::string &filePath, Response& response);
         RouteType routeDirectory(const Request& request, const std::string &directoryPath,
                                 const LocationConfig *location, Response& response);
-        std::string contentType(const std::string &path);
         ServerConfig &config_;
 };
 

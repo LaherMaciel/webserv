@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "configurations": [
+        {
+            "name": "webserv (default.conf)",
+            "type": "lldb-dap",
+            "request": "launch",
+            "program": "${workspaceFolder}/webserv",
+            "args": ["config/default.conf"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "make debug"
+        },
+        {
+            "name": "webserv (prototype.conf)",
+            "type": "lldb-dap",
+            "request": "launch",
+            "program": "${workspaceFolder}/webserv",
+            "args": ["config/prototype.conf"],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "make debug"
+        },
+        {
+            "name": "webserv (attach to running)",
+            "type": "lldb-dap",
+            "request": "attach",
+            "program": "${workspaceFolder}/webserv"
+        }
+    ]
+}

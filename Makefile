@@ -69,6 +69,11 @@ re: fclean
 	@echo "[" "$(YELLOW)..$(RESET)" "] | Rebuilding $(NAME)..."
 	@$(MAKE)
 
+# Rebuild with debug symbols, for lldb and the VSCode debugger
+debug: fclean
+	@echo "[" "$(YELLOW)..$(RESET)" "] | Rebuilding $(NAME) with debug symbols..."
+	@$(MAKE) CXXFLAGS="$(CXXFLAGS) -g3 -O0"
+
 ARG = config/prototype.conf
 
 run: $(NAME)
@@ -87,6 +92,7 @@ help:
 	@echo "  clean       - Remove object files"
 	@echo "  fclean      - Remove object files and executable"
 	@echo "  re          - Rebuild everything"
+	@echo "  debug       - Rebuild with debug symbols (-g3 -O0)"
 	@echo "  help        - Show this help message"
 
-.PHONY: all clean fclean re norm help
+.PHONY: all clean fclean re debug norm help

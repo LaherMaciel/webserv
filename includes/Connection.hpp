@@ -50,9 +50,10 @@ class Connection
         void            resetRequest();
         void            resetForNewRequest();
         bool            hasPendingResponse() const;
-        bool           hasBufferedInput() const;
+        bool            hasBufferedInput() const;
         ConnectionStatus writeToCGIPipe();
         void applyConnectionClosePolicy();
+
 
     private:
         int             fd_;
@@ -66,6 +67,7 @@ class Connection
         Request         request_;
         bool            closeAfterResponse_;
         std::string     remoteAddress_;//ip of client
+        std::map<int, std::string>  errorPages_;
 };
 
 #endif
