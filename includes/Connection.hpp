@@ -26,7 +26,7 @@ enum ConnectionStatus
 class Connection
 {
     public:
-        Connection(int fd, const std::string &remoteAddress, Listener *listener);
+        Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig);
         ~Connection();
         ConnectionStatus handleRequest();
         int             readFromSocket();
@@ -36,6 +36,7 @@ class Connection
         int getFd() const;
         Listener *getListener() const;
         void setSelectedConfig(ServerConfig *config);
+        ServerConfig *getSelectedConfig() const;
         int getCgiOutputFd() const;
         int getCgiInputFd() const;
         const Request&  getRequest() const;
@@ -70,7 +71,8 @@ class Connection
         bool            closeAfterResponse_;
         std::string     remoteAddress_;//ip of client
         Listener        *listener_;//non-owning pointer; Server owns the Listener
-        ServerConfig    *selectedConfig_;
+        ServerConfig    *defaultConfig_;//default for the listener;
+        ServerConfig    *selectedConfig_;//starts as default then later selected based on Request host header
 };
 
 #endif

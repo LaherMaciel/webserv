@@ -52,14 +52,20 @@ void Server::addFdToPoll(int fd, short events)//used for both the server socket 
     poll_fds_.push_back(entry);
 }
 
-void	Server::addClient(int clientfd, const std::string &remoteAddress,
-                       Listener *listener)
+void	Server::addClient(int clientFd, const std::string &remoteAddress, Listener *listener)
 {
-    std::cout << "Handling client connection (fd: " << clientfd << ")\n";
-    Connection *new_client = new Connection(clientfd, remoteAddress, listener);
-    conns_[clientfd] = new_client;
-    addFdToPoll(clientfd);
-    std::cout << "Client " << clientfd << ": Connected\n";
+    if (!listener || listener->configs_.empty())
+    {
+        std::cerr << "Cannot add client without a valid listener config\n";
+        close(clientFd);
+        return;
+    }
+    std::cout << "Handling client connection (fd: " << clientFd << ")\n";
+    ServerConfig *defaultConfig = listener->configs_[0];
+    Connection *new_client = new Connection(clientFd, remoteAddress, listener, defaultConfig);
+    conns_[clientFd] = new_client;
+    addFdToPoll(clientFd);
+    std::cout << "Client " << clientFd << ": Connected\n";
 }
 
 int    Server::acceptConnection(std::string &remoteAddress, size_t pollfd_pos)

@@ -26,7 +26,7 @@ class Server
         void    initSocket(Listener &listener);
         void    bindSocket(Listener &listener);
         void    addFdToPoll(int fd, short events = POLLIN);
-        void    addClient(int client_fd, const std::string &remoteAddress,
+        void    addClient(int clientFd, const std::string &remoteAddress,
                           Listener *listener);
         void    startServer();
         ConnectionStatus processBufferedRequest(Connection *conn, size_t pollfd_pos);
