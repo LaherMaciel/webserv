@@ -14,6 +14,7 @@
 #include <poll.h>//for poll()
 #include <stdexcept>//for exception types
 #include <vector>
+#include <netdb.h>
 
 static const int POLL_TIMEOUT_MS = 100;
 
@@ -152,22 +153,47 @@ void Server::initSocket(Listener &listener)
     }
 }
 
+// void Server::bindSocket(Listener &listener)
+// {
+//     //define port and address for binding
+//     sockaddr_in address;
+//     std::memset(&address, 0, sizeof(address));
+//     address.sin_family = AF_INET;//IPv4
+//     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);//converts to network byte order. Eventually use INADDR_ANY
+//     address.sin_port = htons(static_cast<unsigned short>(listener.port_));//convert port to network byte order
+//     if (bind(listener.fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
+//     {
+//         throw std::runtime_error("Failed to bind socket");
+//     }
+//     if (listen(listener.fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
+//     {
+//         throw std::runtime_error("Failed to listen on socket");
+//     }
+// }
+
+//new approach to binding required to ensure each listener only listens on the configured host ip
+//in the old approach we would have had to parse the ip string to an unsigned long
 void Server::bindSocket(Listener &listener)
 {
     //define port and address for binding
-    sockaddr_in address;
-    std::memset(&address, 0, sizeof(address));
-    address.sin_family = AF_INET;//IPv4
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);//converts to network byte order. Eventually use INADDR_ANY
-    address.sin_port = htons(static_cast<unsigned short>(listener.port_));//convert port to network byte order
-    if (bind(listener.fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
-    {
+    struct addrinfo hints;
+    struct addrinfo *result;
+
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET; //IPv4
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    std::string port = toString(listener.port_);
+
+    int status = getaddrinfo(listener.host_.c_str(), port.c_str(), &hints, &result);
+    if (status != 0)
+        throw std::runtime_error(gai_strerror(status));
+    int bindResult = bind(listener.fd_, result->ai_addr, result->ai_addrlen); //bind socket with address/port
+    freeaddrinfo(result);
+    if (bindResult < 0)
         throw std::runtime_error("Failed to bind socket");
-    }
     if (listen(listener.fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
-    {
         throw std::runtime_error("Failed to listen on socket");
-    }
 }
 
 bool Server::addToExistingListener(ServerConfig *config)
@@ -327,9 +353,8 @@ void	Server::processEvents()
             handleListenerEvent(i, listener);
             continue ;
         }
-        int connectionFd = poll_fds_[i].fd;
         if (handleConnectionEvent(i) == CLOSE_CONNECTION)
-            dead_fds.push_back(connectionFd);
+            dead_fds.push_back(poll_fds_[i].fd);
     }
     cleanDeadFds(dead_fds);
 }
