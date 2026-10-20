@@ -18,6 +18,8 @@ int Connection::getFd() const { return fd_; }
 
 Listener *Connection::getListener() const { return listener_; }
 
+void Connection::setSelectedConfig(ServerConfig *config) { selectedConfig_ = config; }
+
 int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
 
 int Connection::getCgiInputFd() const { return cgiProcess_.getInputFd(); }

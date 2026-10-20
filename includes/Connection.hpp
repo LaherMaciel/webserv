@@ -35,6 +35,7 @@ class Connection
         ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
         int getFd() const;
         Listener *getListener() const;
+        void setSelectedConfig(ServerConfig *config);
         int getCgiOutputFd() const;
         int getCgiInputFd() const;
         const Request&  getRequest() const;
@@ -69,6 +70,7 @@ class Connection
         bool            closeAfterResponse_;
         std::string     remoteAddress_;//ip of client
         Listener        *listener_;//non-owning pointer; Server owns the Listener
+        ServerConfig    *selectedConfig_;
 };
 
 #endif

@@ -253,6 +253,29 @@ Connection *Server::getConnection(int fd)
     return it->second;
 }
 
+ServerConfig *Server::selectServerConfig(Connection *connection)
+{
+    Listener *listener = connection->getListener();
+    if (!listener)
+    {
+        throw std::runtime_error("Server error");
+    }
+    const std::map<std::string, std::string> headers = connection->getRequest().getHeaders();
+    std::map<std::string, std::string>::const_iterator host = headers.find("host");
+    if (host != headers.end())
+    {
+        std::string name = host->second;
+        for (size_t i = 0; i < listener->configs_.size(); ++i)
+        {
+            if (listener->configs_[i]->serverName_ == name)//need to compare multiple names
+            {
+                return (listener->configs_[i]);
+            }
+        }
+    }
+    return (listener->configs_[0]);
+}
+
 // moved the multiple request in buffer check to main loop, after first response is fully sent
 ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
 {
@@ -261,7 +284,9 @@ ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_
     {
         Response response;
         CgiInfo cgiInfo;
-        Router router(config_[0]);
+        ServerConfig *config = selectServerConfig(conn);
+        conn->setSelectedConfig(config);
+        Router router(*config);
         RouteType result = router.routeRequest(conn->getRequest(), response, cgiInfo);
         if (result != ROUTE_CGI)
             conn->queueResponse(response);

@@ -43,6 +43,7 @@ class Server
         void    checkCgiChildren();
         ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos);
         bool    addToExistingListener(ServerConfig *config);
+        ServerConfig *selectServerConfig(Connection *connection);
 
     private:
         std::vector<ServerConfig> config_;
