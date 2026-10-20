@@ -7,13 +7,20 @@
 #include <sys/socket.h> //for recv() send()
 #include <cerrno>//for errno
 
-Connection::Connection(int fd, const std::string &remoteAddress)
+Connection::Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig)
                     : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0)
-                    , closeAfterResponse_(true), remoteAddress_(remoteAddress) {}
+                    , closeAfterResponse_(true), remoteAddress_(remoteAddress)
+                    , listener_(listener), defaultConfig_(defaultConfig), selectedConfig_(defaultConfig) {}
 
 Connection::~Connection() { closeClientFd(); }
 
 int Connection::getFd() const { return fd_; }
+
+Listener *Connection::getListener() const { return listener_; }
+
+ServerConfig *Connection::getSelectedConfig() const { return selectedConfig_; }
+
+void Connection::setSelectedConfig(ServerConfig *config) { selectedConfig_ = config; }
 
 int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
 
@@ -42,6 +49,7 @@ void Connection::resetForNewRequest()
     request_ = Request();
     parser_.reset();
     closeAfterResponse_ = true;
+    selectedConfig_ = defaultConfig_;
 }
 
 bool Connection::hasPendingResponse() const { return !out_buffer_.empty(); }
