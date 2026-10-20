@@ -74,7 +74,7 @@ debug: fclean
 	@echo "[" "$(YELLOW)..$(RESET)" "] | Rebuilding $(NAME) with debug symbols..."
 	@$(MAKE) CXXFLAGS="$(CXXFLAGS) -g3 -O0"
 
-ARG = config/prototype.conf
+ARG = config/default.conf
 
 run: $(NAME)
 	./$(NAME) $(ARG)

@@ -9,7 +9,7 @@ ServerConfig setServerConfig()
     ServerConfig config;
     config.port_ = DEFAULT_PORT;
     config.host_ = "localhost";
-    config.serverName_ = "DefaultServer";
+    config.serverName_.push_back("DefaultServer");
     config.maxBodySize_ = 1000000; // 1 MB
     LocationConfig locationStatic;
     locationStatic.path_ = "/";
