@@ -69,12 +69,12 @@ re: fclean
 	@echo "[" "$(YELLOW)..$(RESET)" "] | Rebuilding $(NAME)..."
 	@$(MAKE)
 
-# Define OS-specific flags
-ifeq ($(shell uname), Darwin)  # macOS
-ARG = config/config_macOs.conf
-else  # Assume Linux
-ARG = config/config_linux.conf
-endif
+# Rebuild with debug symbols, for lldb and the VSCode debugger
+debug: fclean
+	@echo "[" "$(YELLOW)..$(RESET)" "] | Rebuilding $(NAME) with debug symbols..."
+	@$(MAKE) CXXFLAGS="$(CXXFLAGS) -g3 -O0"
+
+ARG = config/default.conf
 
 run: $(NAME)
 	./$(NAME) $(ARG)

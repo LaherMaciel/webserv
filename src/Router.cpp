@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <fstream>
 #include <cerrno>
+#include <dirent.h>
+#include <algorithm>
 
 const Router::MimeType Router::mimeTypes_[] = {
     {"html", "text/html"},
@@ -190,12 +192,8 @@ void Router::validateCgiScript(const std::string &scriptPath)
 std::string Router::getPrimaryServerName(const std::map<std::string, std::string> &requestHeaders)
 {
     std::string serverName;
-    size_t start = config_.serverName_.find_first_not_of(WHITESPACE);
-    if (start != std::string::npos)
-    {
-        size_t end = config_.serverName_.find_first_of(WHITESPACE, start);
-        serverName = config_.serverName_.substr(start, end - start);
-    }
+    if (!config_.serverName_.empty())
+        serverName = config_.serverName_[0];
     else
     {
         std::map<std::string, std::string>::const_iterator it = requestHeaders.find("host");
@@ -339,20 +337,116 @@ RouteType Router::serveFile(const Request& request, const std::string &filePath,
     return ROUTE_STATIC;
 }
 
+std::vector<std::string> Router::listDirectoryEntries(const std::string &directoryPath)
+{
+    std::vector<std::string> entries;
+    DIR *dir = opendir(directoryPath.c_str());
+    if (!dir)
+    {
+        int error = errno;
+        if (error == EACCES || error == EPERM)
+            throw 403;
+        if (error == ENOENT || error == ENOTDIR)
+            throw 404;
+        throw 500;
+    }
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        if (name == "." || name == "..")
+            continue;
+        entries.push_back(name);
+    }
+    closedir(dir);
+    return entries;
+}
+
+static std::string htmlEscape(const std::string &value)
+{
+    std::string result;
+
+    for (size_t i = 0; i < value.size(); ++i)
+    {
+        switch (value[i])
+        {
+            case '&':  result += "&amp;";  break;
+            case '<':  result += "&lt;";   break;
+            case '>':  result += "&gt;";   break;
+            case '"':  result += "&quot;"; break;
+            case '\'': result += "&#39;";  break;
+            default:   result += value[i];
+        }
+    }
+    return result;
+}
+
+void Router::generateAutoindex(const std::string &directoryPath, Response& response, const Request& request)
+{
+    std::vector<std::string> entries = listDirectoryEntries(directoryPath);
+    std::sort(entries.begin(), entries.end());
+    std::string escapedPath = htmlEscape(request.getPath());
+    std::string body = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\">"
+        "<title>Index of " + escapedPath + "</title></head><body>"
+        "<h1>Index of " + escapedPath + "</h1><ul>";
+    for (size_t i = 0; i < entries.size(); ++i)
+    {
+        struct stat fileInfo;
+        std::string fullPath = directoryPath;
+        if (!fullPath.empty() && fullPath[fullPath.size() - 1] != '/')
+            fullPath += "/";
+        fullPath += entries[i];
+        if (stat(fullPath.c_str(), &fileInfo) == -1)
+            continue;
+        std::string escapedEntry = htmlEscape(entries[i]);
+        if (S_ISDIR(fileInfo.st_mode))
+            body += "<li><a href=\"" + escapedEntry + "/\">" + escapedEntry + "/</a></li>";
+        else
+            body += "<li><a href=\"" + escapedEntry + "\">" + escapedEntry + "</a></li>";
+    }
+    body += "</ul></body></html>";
+    response = Response(200, request.getVersion(), body, "text/html");
+}
+
 RouteType Router::routeDirectory(const Request& request, const std::string &directoryPath,
                                  const LocationConfig *location, Response& response)
 {
-    if (location->index_.empty())
-        throw 403;
+    std::string urlPath = request.getPath();
+    if (urlPath[urlPath.size() - 1] != '/')
+    {
+        std::string target = urlPath + "/";
+        if (!request.getQuery().empty())
+            target += "?" + request.getQuery();
+        return routeRedirect(request, response, 301, target);
+    }
     std::string indexPath = directoryPath;
-    if (indexPath[indexPath.size() - 1] != '/')
+    if (!indexPath.empty() && indexPath[indexPath.size() - 1] != '/')
         indexPath += "/";
     indexPath += location->index_;
     struct stat indexInfo;
-    getPathInfo(indexPath, indexInfo, 403);
-    if (!S_ISREG(indexInfo.st_mode))
+    try
+    {
+        getPathInfo(indexPath, indexInfo, 404);
+        if (!S_ISREG(indexInfo.st_mode))
+            throw 403;
+        return serveFile(request, indexPath, response);
+    }
+    catch(int e)
+    {
+        if (e != 404)
+            throw e;
+    }
+    if (!location->autoindex_)
         throw 403;
-    return serveFile(request, indexPath, response);
+    generateAutoindex(directoryPath, response, request);
+    return ROUTE_STATIC;
+}
+
+RouteType Router::routeRedirect(const Request& request, Response& response, int returnCode, const std::string &target)
+{
+    response = Response(returnCode, request.getVersion());
+    response.setHeader("Location", target);
+    return ROUTE_REDIRECT;
 }
 
 RouteType Router::routeGet(const Request& request, const LocationConfig *location, Response& response)
@@ -378,6 +472,8 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
         LocationConfig *location = findLocation(request.getPath());
         if (!location)
             throw 404;
+        if (location->returnCode_ != 0)
+            return routeRedirect(request, response, location->returnCode_, location->returnTarget_);
         if (!isValidMethod(request.getMethod(), location))
             throw 405;
         if (!location->cgiHandlers_.empty())

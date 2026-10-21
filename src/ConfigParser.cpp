@@ -98,9 +98,24 @@ void applyServerDirective(ServerConfig &server, const Directive &directive)
     }
     else if (name == "server_name")
     {
+        size_t pos = 0;
+        std::string token = "";
+
         if (args.empty())
             throw std::runtime_error("config: 'server_name' needs a value");
-        server.serverName_ = args;
+        while ((pos = args.find_first_not_of(WHITESPACE, pos)) != std::string::npos)
+        {
+            size_t      tokenEnd = args.find_first_of(WHITESPACE, pos);
+            if (tokenEnd == std::string::npos)
+            {
+                token = args.substr(pos);
+                server.serverName_.push_back(token);
+                break ;
+            }
+            token = args.substr(pos, tokenEnd - pos);
+            server.serverName_.push_back(token);
+            pos = tokenEnd;
+        }
     }
     else if (name == "client_max_body_size")
         server.maxBodySize_ = parseSize(args, name);
@@ -185,10 +200,11 @@ void applyLocationDirective(LocationConfig &location, const Directive &directive
             throw std::runtime_error("config: 'return' wants a code and a target, "
                 "got " + quoteValue(args));
         size_t code = parseSize(tokens[0], name);
-
-        if (code < 300 || code > 399)
-            throw std::runtime_error("config: 'return' wants a redirect code "
-                "(300-399), got " + quoteValue(tokens[0]));
+        bool supported = code == 301 || code == 302 ||
+            code == 307 || code == 308;
+        if (!supported)
+            throw std::runtime_error("config: unsupported redirect code "
+                + quoteValue(tokens[0]));
         location.returnCode_ = static_cast<int>(code);
         location.returnTarget_ = tokens[1];
     }
@@ -287,9 +303,12 @@ void printConfig(const std::vector<ServerConfig> &configs)
         const ServerConfig &sv = configs[b];
 
         std::cout << "server " << b << ": listen " << sv.port_
-            << "  host " << sv.host_
-            << "  server_name \"" << sv.serverName_ << "\""
-            << "  client_max_body_size ";
+            << "  host " << sv.host_;
+        for (size_t i = 0; i < sv.serverName_.size(); i++)
+        {
+            std::cout << "  server_name \"" << sv.serverName_[i] << "\"";
+        }
+        std:: cout << "  client_max_body_size ";
         if (sv.maxBodySize_ == 0)
             std::cout << "0 (unlimited)" << std::endl;
         else

@@ -122,6 +122,10 @@ std::string httpReasonPhrase(int code)
     {
         case 200: return "OK";
         case 201: return "Created";
+        case 301: return "Moved Permanently";
+        case 302: return "Found";
+        case 307: return "Temporary Redirect";
+        case 308: return "Permanent Redirect";
         case 400: return "Bad Request";
         case 403: return "Forbidden";
         case 404: return "Not Found";
