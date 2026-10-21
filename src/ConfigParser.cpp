@@ -200,10 +200,11 @@ void applyLocationDirective(LocationConfig &location, const Directive &directive
             throw std::runtime_error("config: 'return' wants a code and a target, "
                 "got " + quoteValue(args));
         size_t code = parseSize(tokens[0], name);
-
-        if (code < 300 || code > 399)
-            throw std::runtime_error("config: 'return' wants a redirect code "
-                "(300-399), got " + quoteValue(tokens[0]));
+        bool supported = code == 301 || code == 302 ||
+            code == 307 || code == 308;
+        if (!supported)
+            throw std::runtime_error("config: unsupported redirect code "
+                + quoteValue(tokens[0]));
         location.returnCode_ = static_cast<int>(code);
         location.returnTarget_ = tokens[1];
     }

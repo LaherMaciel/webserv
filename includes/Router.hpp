@@ -11,6 +11,7 @@ struct LocationConfig;
 enum RouteType
 {
     ROUTE_STATIC,
+    ROUTE_REDIRECT,
     ROUTE_UPLOAD,
     ROUTE_DELETE,
     ROUTE_CGI,
@@ -49,7 +50,6 @@ class Router
         RouteType routeGet(const Request& request, const LocationConfig *location, Response& response);
         std::string getPrimaryServerName(const std::map<std::string, std::string> &requestHeaders);
 
-
     private:
         struct MimeType
         {
@@ -69,6 +69,9 @@ class Router
         RouteType routeDirectory(const Request& request, const std::string &directoryPath,
                                 const LocationConfig *location, Response& response);
         std::string contentType(const std::string &path);
+        void generateAutoindex(const std::string &directoryPath, Response& response, const Request& request);
+        std::vector<std::string> listDirectoryEntries(const std::string &directoryPath);
+        RouteType routeRedirect(const Request& request, Response& response, int returnCode, const std::string &target);
         ServerConfig &config_;
 };
 
