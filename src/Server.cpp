@@ -210,8 +210,12 @@ bool Server::addToExistingListener(ServerConfig *config)
             config->host_ == listeners_[i].host_)
         {
             listeners_[i].configs_.push_back(config);
-            std::cout << "Virtual host " << config->serverName_
-                      << " added to Listener " << listeners_[i].fd_
+            std::cout << "Virtual host ";
+            for (size_t i = 0; i < config->serverName_.size(); i++)
+            {
+                std::cout << config->serverName_[i] << " ";
+            }
+            std::cout << "added to Listener " << listeners_[i].fd_
                       << ", host: " << config->host_
                       << ", port: " << config->port_ << "\n";
             return (true);
@@ -232,7 +236,7 @@ void Server::startServer()
             bindSocket(newListener);
             addFdToPoll(newListener.fd_);
             listeners_.push_back(newListener);
-            std::string name = config->serverName_.empty() ? "[not named]" : config->serverName_;
+            std::string name = config->serverName_.empty() ? "[not named]" : config->serverName_[0];
             std::cout << "Server " << name << " added Listener fd "
                       << newListener.fd_ << ", host: " << newListener.host_
                       << ", port: " << newListener.port_ << "\n";
@@ -270,12 +274,16 @@ ServerConfig *Server::selectServerConfig(Connection *connection)
     std::map<std::string, std::string>::const_iterator host = headers.find("host");
     if (host != headers.end())
     {
-        std::string name = host->second;
+        std::string name = toLower(host->second);
+        size_t pos = name.find(':');
+        if (pos != std::string::npos)
+            name = name.substr(0, pos);
         for (size_t i = 0; i < listener->configs_.size(); ++i)
         {
-            if (listener->configs_[i]->serverName_ == name)//need to compare multiple names
+            for (size_t j = 0; j < listener->configs_[i]->serverName_.size(); ++j)
             {
-                return (listener->configs_[i]);
+                if (toLower(listener->configs_[i]->serverName_[j]) == name)//need to compare multiple names
+                    return (listener->configs_[i]);
             }
         }
     }

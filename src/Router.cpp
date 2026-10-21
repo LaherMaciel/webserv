@@ -190,12 +190,8 @@ void Router::validateCgiScript(const std::string &scriptPath)
 std::string Router::getPrimaryServerName(const std::map<std::string, std::string> &requestHeaders)
 {
     std::string serverName;
-    size_t start = config_.serverName_.find_first_not_of(WHITESPACE);
-    if (start != std::string::npos)
-    {
-        size_t end = config_.serverName_.find_first_of(WHITESPACE, start);
-        serverName = config_.serverName_.substr(start, end - start);
-    }
+    if (!config_.serverName_.empty())
+        serverName = config_.serverName_[0];
     else
     {
         std::map<std::string, std::string>::const_iterator it = requestHeaders.find("host");
