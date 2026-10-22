@@ -142,3 +142,53 @@ std::string httpReasonPhrase(int code)
         default:  return "Unknown Status";
     }
 }
+
+struct MimeType
+{
+    const char *extension_;
+    const char *contentType_;
+};
+
+static const MimeType mimeTypes_[] = {
+    {"html", "text/html"},
+    {"htm", "text/html"},
+    {"css", "text/css"},
+    {"js", "application/javascript"},
+    {"json", "application/json"},
+    {"txt", "text/plain"},
+    {"csv", "text/csv"},
+    {"xml", "application/xml"},
+    {"jpg", "image/jpeg"},
+    {"jpeg", "image/jpeg"},
+    {"png", "image/png"},
+    {"gif", "image/gif"},
+    {"svg", "image/svg+xml"},
+    {"webp", "image/webp"},
+    {"ico", "image/x-icon"},
+    {"pdf", "application/pdf"},
+    {"mp3", "audio/mpeg"},
+    {"wav", "audio/wav"},
+    {"mp4", "video/mp4"},
+    {"webm", "video/webm"},
+    {"woff", "font/woff"},
+    {"woff2", "font/woff2"},
+    {"ttf", "font/ttf"},
+    {"otf", "font/otf"}
+};
+
+static const size_t mimeTypeCount_ = sizeof(mimeTypes_) / sizeof(mimeTypes_[0]);
+
+std::string contentType(const std::string &path)
+{
+    size_t slash = path.rfind('/');
+    size_t dot = path.rfind('.');
+    if (dot == std::string::npos || (slash != std::string::npos && dot < slash))
+        return "application/octet-stream";
+    std::string extension = toLower(path.substr(dot + 1));
+    for (size_t i = 0; i < mimeTypeCount_; ++i)
+    {
+        if (extension == mimeTypes_[i].extension_)
+            return mimeTypes_[i].contentType_;
+    }
+    return "application/octet-stream";
+}

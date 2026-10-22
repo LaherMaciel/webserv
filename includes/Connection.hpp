@@ -54,9 +54,10 @@ class Connection
         void            resetRequest();
         void            resetForNewRequest();
         bool            hasPendingResponse() const;
-        bool           hasBufferedInput() const;
+        bool            hasBufferedInput() const;
         ConnectionStatus writeToCGIPipe();
         void applyConnectionClosePolicy();
+
 
     private:
         int             fd_;

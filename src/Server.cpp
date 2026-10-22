@@ -1,4 +1,3 @@
-
 #include "webserv.hpp"
 #include "Server.hpp"
 #include "Connection.hpp"
@@ -301,7 +300,18 @@ ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_
         ServerConfig *config = selectServerConfig(conn);
         conn->setSelectedConfig(config);
         Router router(*config);
-        RouteType result = router.routeRequest(conn->getRequest(), response, cgiInfo);
+        RouteType result;
+        try
+        {
+            result = router.routeRequest(conn->getRequest(), response, cgiInfo);
+        }
+        catch (int errorCode)
+        {
+            response = Response(errorCode, conn->getRequest().getVersion());
+            response.setErrorPage(config->errorPages_);
+            response.setDefaultErrorBody();
+            result = ROUTE_ERROR;
+        }
         if (result != ROUTE_CGI)
             conn->queueResponse(response);
         else

@@ -51,15 +51,6 @@ class Router
         std::string getPrimaryServerName(const std::map<std::string, std::string> &requestHeaders);
 
     private:
-        struct MimeType
-        {
-            const char *extension_;
-            const char *contentType_;
-        };
-
-        static const MimeType mimeTypes_[];
-        static const size_t mimeTypeCount_;
-
         Router(const Router& other);
         Router& operator=(const Router& other);
 
@@ -68,7 +59,6 @@ class Router
         RouteType serveFile(const Request& request, const std::string &filePath, Response& response);
         RouteType routeDirectory(const Request& request, const std::string &directoryPath,
                                 const LocationConfig *location, Response& response);
-        std::string contentType(const std::string &path);
         void generateAutoindex(const std::string &directoryPath, Response& response, const Request& request);
         std::vector<std::string> listDirectoryEntries(const std::string &directoryPath);
         RouteType routeRedirect(const Request& request, Response& response, int returnCode, const std::string &target);
