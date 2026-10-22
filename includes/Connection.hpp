@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <ctime>
 #include "RequestParser.hpp"
 #include "Request.hpp"
 #include "CgiProcess.hpp"
@@ -23,6 +24,17 @@ enum ConnectionStatus
     RESPONSE_SENT
 };
 
+enum ConnectionState
+{
+    CONN_WAITING_FOR_REQUEST,
+    CONN_READING_HEADERS,
+    CONN_READING_BODY,
+    CONN_READY_TO_ROUTE,
+    CONN_RUNNING_CGI,
+    CONN_WRITING_RESPONSE,
+    CONN_CLOSING
+};
+
 class Connection
 {
     public:
@@ -41,20 +53,21 @@ class Connection
         int getCgiInputFd() const;
         const Request&  getRequest() const;
         bool            getCloseAfterResponse() const;
+        ConnectionState getState() const;
         void startCgi(const CgiInfo &cgiInfo);
         ConnectionStatus readFromCGIPipe();
         ConnectionStatus checkCgiChild();
         bool cgiCompletionIsPending() const;
         bool cgiAbortIsPending() const;
         bool cgiHasTimedOut() const;
-        bool cgiIsRunning() const;
         CgiCleanupStatus abortCgi();
         void closeClientFd();
         void resetCgiProcess();
-        void            resetRequest();
         void            resetForNewRequest();
         bool            hasPendingResponse() const;
         bool            hasBufferedInput() const;
+        bool            headerDeadlineExpired() const;
+        bool            clientHasTimedOut() const;
         ConnectionStatus writeToCGIPipe();
         void applyConnectionClosePolicy();
 
@@ -74,6 +87,11 @@ class Connection
         Listener        *listener_;//non-owning pointer; Server owns the Listener
         ServerConfig    *defaultConfig_;//default for the listener;
         ServerConfig    *selectedConfig_;//starts as default then later selected based on Request host header
+        std::time_t     lastActivity_;
+        std::time_t     headersStart_;
+        ConnectionState state_;
+
+        void            refreshActivity();
 };
 
 #endif

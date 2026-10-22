@@ -317,7 +317,7 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
     {
         if (conn->readFromSocket() == -1)
             return CLOSE_CONNECTION;
-        else if (conn->cgiIsRunning())
+        else if (conn->getState() == CONN_RUNNING_CGI)
             return CONTINUE_CONNECTION;
         status = processBufferedRequest(conn, pollfd_pos);
         if (status == CLOSE_CONNECTION)
@@ -328,8 +328,7 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
         status = conn->sendResponse();
         if (status == WAIT_FOR_MORE)
             return CONTINUE_CONNECTION;
-        if ((status == RESPONSE_SENT && conn->getCloseAfterResponse())
-            || status == CLOSE_CONNECTION)
+        if (status == CLOSE_CONNECTION)
             return CLOSE_CONNECTION;
         else if (status == RESPONSE_SENT)
         {
@@ -410,6 +409,25 @@ void	Server::processEvents()
     cleanDeadFds(dead_fds);
 }
 
+void Server::checkClientTimeouts()
+{
+    std::vector<int> timedOutFds;
+    for (std::map<int, Connection *>::iterator it = conns_.begin(); it != conns_.end(); ++it)
+    {
+        if (it->second->headerDeadlineExpired())
+        {
+            std::cout << "Client " << it->first << ": header deadline expired\n";
+            timedOutFds.push_back(it->first);
+        }
+        else if (it->second->clientHasTimedOut())
+        {
+            std::cout << "Client " << it->first << ": idle timeout\n";
+            timedOutFds.push_back(it->first);
+        }
+    }
+    cleanDeadFds(timedOutFds);
+}
+
 void Server::runServer()
 {
     while (true)
@@ -420,5 +438,6 @@ void Server::runServer()
         if (ready > 0)
             processEvents();
         checkCgiChildren();
+        checkClientTimeouts();
     }
 }
