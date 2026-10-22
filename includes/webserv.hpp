@@ -2,7 +2,8 @@
 # define WEBSERV_HPP
 
 #define DEFAULT_PORT 8080
-#define MAX_CONNECTIONS 10
+#define MAX_CONNECTIONS 128
+#define MAX_OVERLOAD_CONNECTIONS 8
 #define MAX_PENDING_CONNECTIONS 10
 
 #include <iostream>
