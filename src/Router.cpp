@@ -324,28 +324,19 @@ RouteType Router::routeGet(const Request& request, const LocationConfig *locatio
 
 RouteType Router::routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo)
 {
-    try
-    {
-        validateUrlPath(request.getPath());
-        LocationConfig *location = findLocation(request.getPath());
-        if (!location)
-            throw 404;
-        if (!isValidMethod(request.getMethod(), location))
-            throw 405;
-        if (!location->cgiHandlers_.empty())
-            return routeCGI(request, location, cgiInfo);
-        if (request.getMethod() == "POST")
-            return routeUpload(request, location, response);
-        if (request.getMethod() == "DELETE")
-            return routeDelete(request, location, response);
-        if (request.getMethod() == "GET")
-            return routeGet(request, location, response);
+    validateUrlPath(request.getPath());
+    LocationConfig *location = findLocation(request.getPath());
+    if (!location)
+        throw 404;
+    if (!isValidMethod(request.getMethod(), location))
         throw 405;
-    }
-    catch (int errorCode)
-    {
-        response = Response(errorCode, request.getVersion());
-        response.setDefaultErrorBody();
-        return ROUTE_ERROR;
-    }
+    if (!location->cgiHandlers_.empty())
+        return routeCGI(request, location, cgiInfo);
+    if (request.getMethod() == "POST")
+        return routeUpload(request, location, response);
+    if (request.getMethod() == "DELETE")
+        return routeDelete(request, location, response);
+    if (request.getMethod() == "GET")
+        return routeGet(request, location, response);
+    throw 405;
 }

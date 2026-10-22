@@ -26,7 +26,8 @@ Response::~Response() {}
 
 Response::Response(const Response& other)
     : statusCode_(other.statusCode_), reasonPhrase_(other.reasonPhrase_)
-    , version_(other.version_), body_(other.body_), headers_(other.headers_) {}
+    , version_(other.version_), body_(other.body_)
+    , headers_(other.headers_), errorPages_(other.errorPages_) {}
 
 Response& Response::operator=(const Response& other)
 {
@@ -37,6 +38,7 @@ Response& Response::operator=(const Response& other)
         version_ = other.version_;
         body_ = other.body_;
         headers_ = other.headers_;
+        errorPages_ = other.errorPages_;
     }
     return *this;
 }
@@ -69,6 +71,8 @@ void Response::setStatusCode(int statusCode, const std::string& reasonPhrase)
     reasonPhrase_ = reasonPhrase;
 }
 
+void Response::setErrorPage(const std::map<int, std::string>&  errorPages) {errorPages_ = errorPages;}
+
 bool    Response::errorPage()
 {
     std::map<int, std::string>::const_iterator it = errorPages_.find(statusCode_);
@@ -77,7 +81,10 @@ bool    Response::errorPage()
     std::string contType = contentType(it->second);
     std::string body;
     if (!readFile(it->second, body))
+    {
+        std::cerr << "error_page: cannot read " << quoteValue(it->second) << std::endl;
         return (false);
+    }
     setHeader("Content-Type", contType);
     setBody(body);
     return (true);
@@ -88,16 +95,44 @@ void Response::setDefaultErrorBody()
     if (errorPage())
         return ;
     std::string status = toString(statusCode_) + " " + reasonPhrase_;
-    std::string body = "<!DOCTYPE html>\n"
-        "<html lang=\"en\">\n"
-        "<head>\n"
-        "<meta charset=\"UTF-8\">\n"
-        "<title>" + status + "</title>\n"
-        "</head>\n"
-        "<body>\n"
-        "<h1>" + status + "</h1>\n"
-        "</body>\n"
-        "</html>\n";
+    std::string body;
+    if (statusCode_ == 404)
+    {
+        body = "<div class=\"error-page d-flex align-items-center justify-content-center\">"
+                "<div class=\"error-container text-center p-4\">"
+                "<h1 class=\"error-code mb-0\">404</h1>"
+                "<h2 class=\"display-6 error-message mb-3\">Page Not Found</h2>"
+                "<p class=\"lead error-message mb-5\">We can't seem to find the page you're looking for.</p>"
+                "<div class=\"d-flex justify-content-center gap-3\">"
+                "<a href=\"#\" class=\"btn btn-glass px-4 py-2\">Return Home</a>"
+                "<a href=\"#\" class=\"btn btn-glass px-4 py-2\">Report Problem</a>"
+                "</div>"
+                "</div>"
+                "</div>";
+    }
+    else
+    {
+        body = "<!DOCTYPE html>"
+                "<html>"
+                "<head>"
+                "<title>Error</title>"
+                "<style>"
+                "html { color-scheme: light dark; }"
+                "body { width: 35em; margin: 0 auto;"
+                "font-family: Tahoma, Verdana, Arial, sans-serif; }"
+                "</style>"
+                "</head>"
+                "<body>"
+                "<h1>An error occurred.</h1>"
+                "<p>Sorry, the page you are looking for is currently unavailable.<br/>"
+                "Please try again later.</p>"
+                "<p>If you are the system administrator of this resource then you should check"
+                "the error log for details.</p>"
+                "<p><em>Faithfully yours, nginx.</em></p>"
+                "</body>"
+                "</html>";
+    }
+        
     setHeader("Content-Type", "text/html");
     setBody(body);
 }

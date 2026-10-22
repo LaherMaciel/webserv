@@ -20,15 +20,17 @@ class Response
         void setStatusCode(int statusCode);
         void setStatusCode(int statusCode, const std::string& reasonPhrase);
         void setDefaultErrorBody();
+        void setErrorPage(const std::map<int, std::string>&  errorPages);
         bool errorPage();
         std::string serialize() const;
+
     private:
         int statusCode_;
         std::string reasonPhrase_;
         std::string version_;
         std::string body_;
-        std::map<int, std::string>  errorPages_;
         std::map<std::string, std::string> headers_;
+        std::map<int, std::string>  errorPages_;
 };
 
 #endif

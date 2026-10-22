@@ -2,6 +2,7 @@
 #include "Connection.hpp"
 #include "webserv.hpp"
 #include "Response.hpp"
+#include "ServerConfig.hpp"
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h> //for recv() send()
@@ -187,6 +188,7 @@ ConnectionStatus Connection::queueErrorResponse(int code, std::string version, s
         version = "HTTP/1.1";
     std::cerr << httpReasonPhrase(code) << " (fd: " << fd_ << ")\n";
     Response response(code, version);
+    response.setErrorPage(selectedConfig_->errorPages_);
     if (!body.empty())
         response.setBody(body, contentType);
     else
