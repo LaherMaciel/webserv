@@ -18,7 +18,7 @@
 static const int POLL_TIMEOUT_MS = 100;
 
 Listener::Listener(ServerConfig *config)
-    : fd_(-1), host_(config->host_), port_(config->port_)
+    : fd_(-1), host_(config->host_), port_(config->port_), maxBodySizeLimit_(config->maxBodySizeLimit_)
 {
     configs_.push_back(config);
 }
@@ -208,6 +208,8 @@ bool Server::addToExistingListener(ServerConfig *config)
         if (config->port_ == listeners_[i].port_ &&
             config->host_ == listeners_[i].host_)
         {
+            if (listeners_[i].maxBodySizeLimit_ < config->maxBodySizeLimit_)
+                listeners_[i].maxBodySizeLimit_ = config->maxBodySizeLimit_;
             listeners_[i].configs_.push_back(config);
             std::cout << "Virtual host ";
             for (size_t i = 0; i < config->serverName_.size(); i++)

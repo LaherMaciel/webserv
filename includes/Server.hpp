@@ -10,11 +10,11 @@
 
 struct Listener
 {
-    int fd_;
+    int         fd_;
     std::string host_;
-    size_t port_;
+    size_t      port_;
     std::vector<ServerConfig *> configs_;
-
+    size_t      maxBodySizeLimit_;
     Listener(ServerConfig *config);
 };
 

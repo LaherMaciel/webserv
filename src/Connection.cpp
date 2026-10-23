@@ -3,6 +3,7 @@
 #include "webserv.hpp"
 #include "Response.hpp"
 #include "ServerConfig.hpp"
+#include "Server.hpp"
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h> //for recv() send()
@@ -225,7 +226,7 @@ ConnectionStatus Connection::handleRequest()
             applyConnectionClosePolicy();
             in_buffer_.erase(0, parser_.endOfHeaders_);
         }
-        parser_.parseRequestBody(in_buffer_, request_);
+        parser_.parseRequestBody(in_buffer_, request_, listener_->maxBodySizeLimit_);
         in_buffer_.erase(0, parser_.endOfBody_);
         if (!request_.getIsBodyComplete())
             return WAIT_FOR_MORE;

@@ -33,30 +33,30 @@ class Connection
         void            queueResponse(Response &response);
         ConnectionStatus sendResponse();
         ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
-        int getFd() const;
+        int             getFd() const;
         Listener *getListener() const;
-        void setSelectedConfig(ServerConfig *config);
+        void            setSelectedConfig(ServerConfig *config);
         ServerConfig *getSelectedConfig() const;
-        int getCgiOutputFd() const;
-        int getCgiInputFd() const;
+        int             getCgiOutputFd() const;
+        int             getCgiInputFd() const;
         const Request&  getRequest() const;
         bool            getCloseAfterResponse() const;
         void startCgi(const CgiInfo &cgiInfo);
         ConnectionStatus readFromCGIPipe();
         ConnectionStatus checkCgiChild();
-        bool cgiCompletionIsPending() const;
-        bool cgiAbortIsPending() const;
-        bool cgiHasTimedOut() const;
-        bool cgiIsRunning() const;
+        bool            cgiCompletionIsPending() const;
+        bool            cgiAbortIsPending() const;
+        bool            cgiHasTimedOut() const;
+        bool            cgiIsRunning() const;
         CgiCleanupStatus abortCgi();
-        void closeClientFd();
-        void resetCgiProcess();
+        void            closeClientFd();
+        void            resetCgiProcess();
         void            resetRequest();
         void            resetForNewRequest();
         bool            hasPendingResponse() const;
         bool            hasBufferedInput() const;
         ConnectionStatus writeToCGIPipe();
-        void applyConnectionClosePolicy();
+        void            applyConnectionClosePolicy();
 
 
     private:
