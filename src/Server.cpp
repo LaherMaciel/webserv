@@ -51,22 +51,6 @@ void Server::addFdToPoll(int fd, short events)//used for both the server socket 
     poll_fds_.push_back(entry);
 }
 
-void	Server::addClient(int clientFd, const std::string &remoteAddress, Listener *listener)
-{
-    if (!listener || listener->configs_.empty())
-    {
-        std::cerr << "Cannot add client without a valid listener config\n";
-        close(clientFd);
-        return;
-    }
-    std::cout << "Handling client connection (fd: " << clientFd << ")\n";
-    ServerConfig *defaultConfig = listener->configs_[0];
-    Connection *new_client = new Connection(clientFd, remoteAddress, listener, defaultConfig);
-    conns_[clientFd] = new_client;
-    addFdToPoll(clientFd);
-    std::cout << "Client " << clientFd << ": Connected\n";
-}
-
 int    Server::acceptConnection(std::string &remoteAddress, size_t pollfd_pos)
 {
     sockaddr_in clientAddr;
@@ -75,11 +59,9 @@ int    Server::acceptConnection(std::string &remoteAddress, size_t pollfd_pos)
 
     int clientfd = accept(poll_fds_[pollfd_pos].fd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
 
-    if (clientfd < 0 || conns_.size() >= MAX_CONNECTIONS)
+    if (clientfd < 0)
     {
         std::cerr << "Error accepting new connection\n";
-        if (clientfd >= 0)
-            close(clientfd);
         return (-1);
     }
     if (set_non_blocking(clientfd) < 0)
@@ -337,7 +319,7 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
     {
         if (conn->readFromSocket() == -1)
             return CLOSE_CONNECTION;
-        else if (conn->cgiIsRunning())
+        else if (conn->getState() == CONN_RUNNING_CGI)
             return CONTINUE_CONNECTION;
         status = processBufferedRequest(conn, pollfd_pos);
         if (status == CLOSE_CONNECTION)
@@ -348,8 +330,7 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
         status = conn->sendResponse();
         if (status == WAIT_FOR_MORE)
             return CONTINUE_CONNECTION;
-        if ((status == RESPONSE_SENT && conn->getCloseAfterResponse())
-            || status == CLOSE_CONNECTION)
+        if (status == CLOSE_CONNECTION)
             return CLOSE_CONNECTION;
         else if (status == RESPONSE_SENT)
         {
@@ -380,8 +361,28 @@ void    Server::handleListenerEvent(size_t pollfd_pos, Listener *listener)
         return;
     std::string clientIp;
     int clientFd = acceptConnection(clientIp, pollfd_pos);
-    if (clientFd != -1)
-        addClient(clientFd, clientIp, listener);
+    if (clientFd == -1)
+        return;
+    if (conns_.size() >= MAX_CONNECTIONS + MAX_OVERLOAD_CONNECTIONS)
+    {
+        std::cerr << "Connection hard limit reached; closing client "
+                  << clientFd << " without a response\n";
+        close(clientFd);
+        return;
+    }
+    Connection *new_client = new Connection(clientFd, clientIp, listener,
+                                            listener->configs_[0]);
+    conns_[clientFd] = new_client;
+    if (conns_.size() > MAX_CONNECTIONS)
+    {
+        std::cerr << "Connection soft limit reached; sending 503 to client "
+                  << clientFd << "\n";
+        new_client->queueErrorResponse(503);
+        addFdToPoll(clientFd, POLLOUT);
+        return;
+    }
+    addFdToPoll(clientFd, POLLIN);
+    std::cout << "Client " << clientFd << ": Connected\n";
 }
 
 void	Server::processEvents()
@@ -410,6 +411,25 @@ void	Server::processEvents()
     cleanDeadFds(dead_fds);
 }
 
+void Server::checkClientTimeouts()
+{
+    std::vector<int> timedOutFds;
+    for (std::map<int, Connection *>::iterator it = conns_.begin(); it != conns_.end(); ++it)
+    {
+        if (it->second->headerDeadlineExpired())
+        {
+            std::cout << "Client " << it->first << ": header deadline expired\n";
+            timedOutFds.push_back(it->first);
+        }
+        else if (it->second->clientHasTimedOut())
+        {
+            std::cout << "Client " << it->first << ": idle timeout\n";
+            timedOutFds.push_back(it->first);
+        }
+    }
+    cleanDeadFds(timedOutFds);
+}
+
 void Server::runServer()
 {
     while (true)
@@ -420,5 +440,6 @@ void Server::runServer()
         if (ready > 0)
             processEvents();
         checkCgiChildren();
+        checkClientTimeouts();
     }
 }

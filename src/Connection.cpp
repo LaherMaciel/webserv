@@ -12,7 +12,8 @@
 Connection::Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig)
                     : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0)
                     , closeAfterResponse_(true), remoteAddress_(remoteAddress)
-                    , listener_(listener), defaultConfig_(defaultConfig), selectedConfig_(defaultConfig) {}
+                    , listener_(listener), defaultConfig_(defaultConfig), selectedConfig_(defaultConfig)
+                    , lastActivity_(std::time(NULL)), state_(CONN_WAITING_FOR_REQUEST) {}
 
 Connection::~Connection() { closeClientFd(); }
 
@@ -30,8 +31,11 @@ int Connection::getCgiInputFd() const { return cgiProcess_.getInputFd(); }
 
 bool Connection::getCloseAfterResponse() const { return closeAfterResponse_; }
 
+ConnectionState Connection::getState() const { return state_; }
+
 void Connection::closeClientFd()
 {
+    state_ = CONN_CLOSING;
     if (fd_ != -1)
     {
         close(fd_);
@@ -41,13 +45,10 @@ void Connection::closeClientFd()
 
 const Request& Connection::getRequest() const { return request_; }
 
-void Connection::resetRequest()
-{
-    request_ = Request();
-}
-
 void Connection::resetForNewRequest()
 {
+    state_ = CONN_WAITING_FOR_REQUEST;
+    refreshActivity();
     request_ = Request();
     parser_.reset();
     closeAfterResponse_ = true;
@@ -58,8 +59,26 @@ bool Connection::hasPendingResponse() const { return !out_buffer_.empty(); }
 
 bool Connection::hasBufferedInput() const { return !in_buffer_.empty(); }
 
+void Connection::refreshActivity() { lastActivity_ = std::time(NULL); }
+
+//Absolute header deadline protects against Slowloris-style clients
+bool Connection::headerDeadlineExpired() const
+{
+    if (state_ != CONN_READING_HEADERS)
+        return false;
+    return std::difftime(std::time(NULL), headersStart_) >= CLIENT_HEADER_DEADLINE_SECONDS;
+}
+
+bool Connection::clientHasTimedOut() const
+{
+    if (state_ == CONN_RUNNING_CGI || state_ == CONN_READY_TO_ROUTE || state_ == CONN_CLOSING)
+        return false;
+    return std::difftime(std::time(NULL), lastActivity_) >= CLIENT_IDLE_TIMEOUT_SECONDS;
+}
+
 void Connection::startCgi(const CgiInfo &cgiInfo)
 {
+    state_ = CONN_RUNNING_CGI;
     cgiProcess_.startCgi(cgiInfo, request_, remoteAddress_);
 }
 
@@ -76,11 +95,6 @@ bool Connection::cgiCompletionIsPending() const
 bool Connection::cgiAbortIsPending() const
 {
     return cgiProcess_.abortIsPending();
-}
-
-bool Connection::cgiIsRunning() const
-{
-    return cgiProcess_.isRunning();
 }
 
 CgiCleanupStatus Connection::abortCgi()
@@ -153,6 +167,7 @@ int Connection::readFromSocket()
     }
     else
     {
+        refreshActivity();
         std::cout << "Received data:\n";
         std::cout.write(buffer, bytes_received) << "\n";
         in_buffer_.append(buffer, bytes_received);
@@ -168,16 +183,21 @@ ConnectionStatus Connection::sendResponse()
     ssize_t sent = send(fd_, out_buffer_.c_str() + bytes_sent_, bytes_left, 0);
     if (sent <= 0)
         return CLOSE_CONNECTION;
+    refreshActivity();
     bytes_sent_ += sent;
     if (bytes_sent_ < out_buffer_.size())
         return WAIT_FOR_MORE;
     out_buffer_.clear();
     bytes_sent_ = 0;
+    if (closeAfterResponse_)
+        return CLOSE_CONNECTION;
     return RESPONSE_SENT;
 }
 
 void Connection::queueResponse(Response &response)
 {
+    refreshActivity();
+    state_ = CONN_WRITING_RESPONSE;
     if (closeAfterResponse_)
         response.setHeader("Connection", "close");
     out_buffer_ += response.serialize();
@@ -220,16 +240,24 @@ ConnectionStatus Connection::handleRequest()
     {
         if (request_.getMethod().empty())
         {
+            if (state_ == CONN_WAITING_FOR_REQUEST)
+            {
+                state_ = CONN_READING_HEADERS;
+                headersStart_ = std::time(NULL);
+            }
             parser_.parseRequest(in_buffer_, request_);
             if (parser_.status_ == PARSE_INCOMPLETE)
                 return WAIT_FOR_MORE;
             applyConnectionClosePolicy();
             in_buffer_.erase(0, parser_.endOfHeaders_);
         }
+        if (state_ == CONN_READING_HEADERS)
+            state_ = CONN_READING_BODY;
         parser_.parseRequestBody(in_buffer_, request_, listener_->maxBodySizeLimit_);
         in_buffer_.erase(0, parser_.endOfBody_);
         if (!request_.getIsBodyComplete())
             return WAIT_FOR_MORE;
+        state_ = CONN_READY_TO_ROUTE;
     }
     catch(int error)
     {
