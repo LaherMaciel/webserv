@@ -208,7 +208,7 @@ int RequestParser::copyByLength(std::map<std::string, std::string> header, Reque
  * The idea behind both -1 returns is to wait for the complete message,
  * because it's most likely incomplete so we should wait for the rest of the input.
  */
-int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, std::string &str, char *end)
+int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, std::string &str, char *end, size_t bodySize)
 {
     endline = str.find("\r\n");
     if (endline == std::string::npos)
@@ -223,6 +223,8 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
     n = static_cast<size_t>(value);
     if ((*end != '\0' && *end != ';'))
         throw 400;
+    if (bodySize + n > maxBodySize_)
+            throw 413;
     if (str.size() < endline + 2 + n + 2)
     {
         std::cout << "The expected size is bigger than the actual size, "
@@ -247,18 +249,16 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
     std::string hex;
     size_t n;
     std::cout << it->first << ": " << it->second << std::endl;
-    if (getChunkIndex(endline, hex, n, str, end) == -1)
+    if (getChunkIndex(endline, hex, n, str, end, request.getBody().size()) == -1)
         return (-1);
     while (n != 0)
     {
         endOfBody_ += str.find("\r\n") + 2;
         str.erase(0, str.find("\r\n") + 2);
-        if (request.getBody().size() + n > maxBodySize_)
-            throw 413;
         request.appendToBody(str.substr(0, n));
         endOfBody_ += n + 2;
         str.erase(0, n + 2);
-        if (getChunkIndex(endline, hex, n, str, end) == -1)
+        if (getChunkIndex(endline, hex, n, str, end, request.getBody().size()) == -1)
             return (-1);
     }
     if (str.find("0\r\n\r\n") != 0)

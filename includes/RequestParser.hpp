@@ -40,7 +40,7 @@ class RequestParser
         RequestParser(const RequestParser& other);
         RequestParser& operator=(const RequestParser& other);
 
-        int     getChunkIndex(size_t &endline, std::string &hex, size_t &n, std::string &str, char *end);
+        int     getChunkIndex(size_t &endline, std::string &hex, size_t &n, std::string &str, char *end, size_t bodySize);
         int     copyByLength(std::map<std::string, std::string> header, Request &request);
         int     copyByChunks(std::map<std::string, std::string> header, Request &request);
         void    parseRequestLine(Request &request);
