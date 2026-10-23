@@ -253,9 +253,9 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
     {
         endOfBody_ += str.find("\r\n") + 2;
         str.erase(0, str.find("\r\n") + 2);
-        request.appendToBody(str.substr(0, n));
-        if (request.getBody().size() > maxBodySize_)
+        if (request.getBody().size() + n > maxBodySize_)
             throw 413;
+        request.appendToBody(str.substr(0, n));
         endOfBody_ += n + 2;
         str.erase(0, n + 2);
         if (getChunkIndex(endline, hex, n, str, end) == -1)
