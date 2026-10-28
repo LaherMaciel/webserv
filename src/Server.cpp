@@ -194,9 +194,9 @@ bool Server::addToExistingListener(ServerConfig *config)
                 listeners_[i].maxBodySizeLimit_ = config->maxBodySizeLimit_;
             listeners_[i].configs_.push_back(config);
             std::cout << "Virtual host ";
-            for (size_t i = 0; i < config->serverName_.size(); i++)
+            for (size_t j = 0; j < config->serverName_.size(); j++)
             {
-                std::cout << config->serverName_[i] << " ";
+                std::cout << config->serverName_[j] << " ";
             }
             std::cout << "added to Listener " << listeners_[i].fd_
                       << ", host: " << config->host_
@@ -347,7 +347,7 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
                 poll_fds_[pollfd_pos].events = POLLOUT;
         }
     }
-    if (revents & POLLHUP)
+    if ((revents & POLLHUP) && !conn->hasPendingResponse())
         return CLOSE_CONNECTION;
     return CONTINUE_CONNECTION;
 }

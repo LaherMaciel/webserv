@@ -36,6 +36,7 @@ class RequestParser
         size_t      maxBodySize_;
 
         std::string parseQuery(std::string &requestTarget);
+        std::string percentDecode(const std::string &target);
         bool validateRequestTarget(const std::string &target);
         RequestParser(const RequestParser& other);
         RequestParser& operator=(const RequestParser& other);

@@ -246,7 +246,7 @@ static void checkDuplicates(const std::vector<Directive> &directives)
     }
 }
 
-static void setMAxBodySizeLimit(ServerConfig& server)
+static void setMaxBodySizeLimit(ServerConfig& server)
 {
     server.maxBodySizeLimit_ = server.maxBodySize_;
     for (std::vector<LocationConfig>::iterator it = server.locations_.begin();
@@ -305,7 +305,7 @@ std::vector<ServerConfig> parseConfig(const std::string &path)
         if (server.locations_.empty())
             throw std::runtime_error("config: server block on port "
                 + toString(server.port_) + " has no 'location'");
-        setMAxBodySizeLimit(server);
+        setMaxBodySizeLimit(server);
         configs.push_back(server);
     }
     return (configs);

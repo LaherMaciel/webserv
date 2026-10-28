@@ -6,6 +6,8 @@
 #include <sys/wait.h>//for waitpid()
 #include <signal.h>//for kill()
 #include <cerrno>//for EINTR
+#include <cctype>//for std::isdigit
+#include <cstdlib>//for std::strtol
 #include <vector>
 #include <map>
 #include <set>
@@ -174,7 +176,13 @@ bool CgiProcess::setStatus(Response &response, const std::string &value)
     }
     if (statusCodeStr.size() != 3)
         return false;
-    int statusCode = std::atoi(statusCodeStr.c_str());
+    for (size_t i = 0; i < statusCodeStr.size(); i++)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(statusCodeStr[i])))
+            return false;
+    }
+    char *end;
+    long statusCode = std::strtol(statusCodeStr.c_str(), &end, 10);
     if (statusCode < 100 || statusCode > 599)
         return false;
     if (reasonPhrase.empty())

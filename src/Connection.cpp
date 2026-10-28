@@ -7,13 +7,13 @@
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h> //for recv() send()
-#include <cerrno>//for errno
 
 Connection::Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig)
                     : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0)
                     , closeAfterResponse_(true), remoteAddress_(remoteAddress)
                     , listener_(listener), defaultConfig_(defaultConfig), selectedConfig_(defaultConfig)
-                    , lastActivity_(std::time(NULL)), state_(CONN_WAITING_FOR_REQUEST) {}
+                    , lastActivity_(std::time(NULL)), headersStart_(std::time(NULL))
+                    , state_(CONN_NEW) {}
 
 Connection::~Connection() { closeClientFd(); }
 
@@ -64,7 +64,7 @@ void Connection::refreshActivity() { lastActivity_ = std::time(NULL); }
 //Absolute header deadline protects against Slowloris-style clients
 bool Connection::headerDeadlineExpired() const
 {
-    if (state_ != CONN_READING_HEADERS)
+    if (state_ != CONN_NEW && state_ != CONN_READING_HEADERS)
         return false;
     return std::difftime(std::time(NULL), headersStart_) >= CLIENT_HEADER_DEADLINE_SECONDS;
 }
@@ -240,7 +240,7 @@ ConnectionStatus Connection::handleRequest()
     {
         if (request_.getMethod().empty())
         {
-            if (state_ == CONN_WAITING_FOR_REQUEST)
+            if (state_ == CONN_NEW || state_ == CONN_WAITING_FOR_REQUEST)
             {
                 state_ = CONN_READING_HEADERS;
                 headersStart_ = std::time(NULL);
