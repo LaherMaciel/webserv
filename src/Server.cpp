@@ -17,29 +17,43 @@
 
 static const int POLL_TIMEOUT_MS = 100;
 
+volatile sig_atomic_t Server::shutdownRequested_ = 0;
+
 Listener::Listener(ServerConfig *config)
     : fd_(-1), host_(config->host_), port_(config->port_)
 {
     configs_.push_back(config);
 }
 
-Server::Server(const std::vector<ServerConfig>& config): config_(config) {}
+Server::Server(const std::vector<ServerConfig>& config): config_(config)
+{
+    shutdownRequested_ = 0;
+}
 
 Server::~Server()
 {
+    for (size_t i = 0; i < listeners_.size(); ++i)
+    {
+        if (listeners_[i].fd_ != -1)
+        {
+            close(listeners_[i].fd_);
+            listeners_[i].fd_ = -1;
+        }
+    }
     for (std::map<int, Connection *>::iterator it = conns_.begin(); it != conns_.end(); ++it)
         delete it->second;
     for (size_t i = 0; i < closingConnections_.size(); ++i)
         delete closingConnections_[i];
     conns_.clear();
     closingConnections_.clear();
+    cgiOwners_.clear();
     poll_fds_.clear();
-    for (size_t i = 0; i < listeners_.size(); ++i)
-    {
-        if (listeners_[i].fd_ != -1)
-            close(listeners_[i].fd_);
-    }
-    
+}
+
+void Server::requestShutdown(int signal)
+{
+    (void)signal;
+    shutdownRequested_ = 1;
 }
 
 void Server::addFdToPoll(int fd, short events)//used for both the server socket and the client sockets
@@ -140,32 +154,11 @@ void Server::initSocket(Listener &listener)
     }
 }
 
-// void Server::bindSocket(Listener &listener)
-// {
-//     //define port and address for binding
-//     sockaddr_in address;
-//     std::memset(&address, 0, sizeof(address));
-//     address.sin_family = AF_INET;//IPv4
-//     address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);//converts to network byte order. Eventually use INADDR_ANY
-//     address.sin_port = htons(static_cast<unsigned short>(listener.port_));//convert port to network byte order
-//     if (bind(listener.fd_, reinterpret_cast<sockaddr *>(&address), sizeof(address)) < 0) //bind socket with address/port
-//     {
-//         throw std::runtime_error("Failed to bind socket");
-//     }
-//     if (listen(listener.fd_, MAX_PENDING_CONNECTIONS) < 0)//set socket to listen for incoming connections
-//     {
-//         throw std::runtime_error("Failed to listen on socket");
-//     }
-// }
-
-//new approach to binding required to ensure each listener only listens on the configured host ip
-//in the old approach we would have had to parse the ip string to an unsigned long
 void Server::bindSocket(Listener &listener)
 {
-    //define port and address for binding
     struct addrinfo hints;
     struct addrinfo *result;
-
+    
     std::memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; //IPv4
     hints.ai_socktype = SOCK_STREAM;
@@ -468,7 +461,7 @@ void Server::checkClientTimeouts()
 
 void Server::runServer()
 {
-    while (true)
+    while (!shutdownRequested_)
     {
         int ready = poll(&poll_fds_[0], poll_fds_.size(), POLL_TIMEOUT_MS);
         if (ready < 0)
@@ -478,4 +471,5 @@ void Server::runServer()
         checkCgiChildren();
         checkClientTimeouts();
     }
+    std::cout << "Server shutdown requested\n";
 }

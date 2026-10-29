@@ -4,6 +4,7 @@
 # include <map>
 # include <vector>
 # include <exception>
+# include <csignal>
 # include "Connection.hpp"
 # include "Router.hpp"
 # include "ServerConfig.hpp"
@@ -28,6 +29,7 @@ class Server
     public:
         Server(const std::vector<ServerConfig>& config);
         ~Server();
+        static void requestShutdown(int signal);
         void    initSocket(Listener &listener);
         void    bindSocket(Listener &listener);
         void    addFdToPoll(int fd, short events = POLLIN);
@@ -57,6 +59,7 @@ class Server
         std::map<int, Connection *> cgiOwners_;
         std::vector<Connection *>   closingConnections_;
         std::vector<struct pollfd>	poll_fds_;
+        static volatile sig_atomic_t shutdownRequested_;
 
         Server(const Server& other);
         Server& operator=(const Server& other);

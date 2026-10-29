@@ -57,8 +57,10 @@ int main(int argc, char **argv)
     Server  server(configs);
     try
     {
-        server.startServer();
         signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
+        signal(SIGINT, Server::requestShutdown);
+        signal(SIGTERM, Server::requestShutdown);
+        server.startServer();
         server.runServer();
     }
     catch (std::exception &e)

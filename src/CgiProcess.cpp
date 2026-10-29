@@ -30,7 +30,15 @@ CgiProcess::CgiProcess()
     : pid_(-1), cgiOutputFd_(-1), cgiInputFd_(-1), inputOffset_(0),
       childStatus_(CHILD_NOT_STARTED), outputEof_(false), killSent_(false) {}
 
-CgiProcess::~CgiProcess() { closeFd(cgiOutputFd_); closeFd(cgiInputFd_); }
+CgiProcess::~CgiProcess()
+{
+    if (abort() == CGI_CLEANUP_PENDING)
+    {
+        int status;
+        while (waitpid(pid_, &status, 0) == -1 && errno == EINTR)
+            ;
+    }
+}
 
 int CgiProcess::getOutputFd() const { return cgiOutputFd_; }
 
