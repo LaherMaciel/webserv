@@ -271,6 +271,29 @@ ServerConfig *Server::selectServerConfig(Connection *connection)
     return (listener->configs_[0]);
 }
 
+void Server::routeConnectionRequest(Connection *conn, size_t pollfd_pos)
+{
+    Response response;
+    CgiInfo cgiInfo;
+    Router router(*conn->getSelectedConfig());
+    RouteType result;
+    try
+    {
+        result = router.routeRequest(conn->getRequest(), response, cgiInfo);
+    }
+    catch (int errorCode)
+    {
+        response = Response(errorCode, conn->getRequest().getVersion());
+        response.setErrorPage(conn->getSelectedConfig()->errorPages_);
+        response.setDefaultErrorBody();
+        result = ROUTE_ERROR;
+    }
+    if (result == ROUTE_CGI)
+        startCgi(conn, cgiInfo, pollfd_pos);
+    else
+        conn->queueResponse(response);
+}
+
 void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
 {
     conn->processRequestHeaders();
@@ -292,30 +315,7 @@ void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
     if (conn->getState() == CONN_READING_BODY)
         conn->processRequestBody();
     if (conn->getState() == CONN_READY_TO_ROUTE)
-    {
-        Response response;
-        CgiInfo cgiInfo;
-        Router router(*conn->getSelectedConfig());
-        RouteType result;
-        try
-        {
-            result = router.routeRequest(conn->getRequest(), response, cgiInfo);
-        }
-        catch (int errorCode)
-        {
-            response = Response(errorCode, conn->getRequest().getVersion());
-            response.setErrorPage(conn->getSelectedConfig()->errorPages_);
-            response.setDefaultErrorBody();
-            result = ROUTE_ERROR;
-        }
-        if (result != ROUTE_CGI)
-            conn->queueResponse(response);
-        else
-        {
-            startCgi(conn, cgiInfo, pollfd_pos);
-            return ;
-        }
-    }
+        routeConnectionRequest(conn, pollfd_pos);
     if (conn->getState() == CONN_WRITING_RESPONSE)
         poll_fds_[pollfd_pos].events = POLLOUT;
 }

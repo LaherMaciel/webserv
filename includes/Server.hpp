@@ -61,6 +61,7 @@ class Server
         Server(const Server& other);
         Server& operator=(const Server& other);
 
+        void routeConnectionRequest(Connection *conn, size_t pollfd_pos);
         Connection *getConnection(int fd);
         Connection *getCgiOwner(int fd);
         Listener   *getListener(int fd);
