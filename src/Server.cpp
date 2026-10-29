@@ -273,17 +273,20 @@ ServerConfig *Server::selectServerConfig(Connection *connection)
     return (listener->configs_[0]);
 }
 
-// moved the multiple request in buffer check to main loop, after first response is fully sent
 void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
 {
-    conn->handleRequest();
+    conn->processRequestHeaders();
+    if (conn->getState() == CONN_READING_BODY)
+    {
+        if (!conn->serverConfigSelected())
+            conn->setSelectedConfig(selectServerConfig(conn));
+        conn->processRequestBody(conn->getSelectedConfig()->maxBodySizeLimit_);
+    }
     if (conn->getState() == CONN_READY_TO_ROUTE)
     {
         Response response;
         CgiInfo cgiInfo;
-        ServerConfig *config = selectServerConfig(conn);
-        conn->setSelectedConfig(config);
-        Router router(*config);
+        Router router(*conn->getSelectedConfig());
         RouteType result;
         try
         {
@@ -292,7 +295,7 @@ void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
         catch (int errorCode)
         {
             response = Response(errorCode, conn->getRequest().getVersion());
-            response.setErrorPage(config->errorPages_);
+            response.setErrorPage(conn->getSelectedConfig()->errorPages_);
             response.setDefaultErrorBody();
             result = ROUTE_ERROR;
         }
@@ -304,9 +307,8 @@ void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
             return ;
         }
     }
-    if (!conn->hasPendingResponse())
-        return ;
-    poll_fds_[pollfd_pos].events = POLLOUT;
+    if (conn->getState() == CONN_WRITING_RESPONSE)
+        poll_fds_[pollfd_pos].events = POLLOUT;
 }
 
 ConnEventResult Server::handleConnectionWrite(Connection *conn, size_t pollfd_pos)

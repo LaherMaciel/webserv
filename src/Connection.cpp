@@ -12,6 +12,7 @@ Connection::Connection(int fd, const std::string &remoteAddress, Listener *liste
                     : fd_(fd), in_buffer_(""), out_buffer_(""), bytes_sent_(0)
                     , closeAfterResponse_(true), remoteAddress_(remoteAddress)
                     , listener_(listener), defaultConfig_(defaultConfig), selectedConfig_(defaultConfig)
+                    , serverConfigSelected_(false)
                     , lastActivity_(std::time(NULL)), headersStart_(std::time(NULL))
                     , state_(CONN_NEW) {}
 
@@ -23,7 +24,11 @@ Listener *Connection::getListener() const { return listener_; }
 
 ServerConfig *Connection::getSelectedConfig() const { return selectedConfig_; }
 
-void Connection::setSelectedConfig(ServerConfig *config) { selectedConfig_ = config; }
+void Connection::setSelectedConfig(ServerConfig *config)
+{
+    selectedConfig_ = config;
+    serverConfigSelected_ = true;
+}
 
 int Connection::getCgiOutputFd() const { return cgiProcess_.getOutputFd(); }
 
@@ -55,6 +60,7 @@ void Connection::resetForNewRequest()
     parser_.reset();
     closeAfterResponse_ = true;
     selectedConfig_ = defaultConfig_;
+    serverConfigSelected_ = false;
 }
 
 bool Connection::hasPendingResponse() const { return !out_buffer_.empty(); }
@@ -228,28 +234,41 @@ void Connection::applyConnectionClosePolicy()
     }
 }
 
-//merged the 2 try/catch blocks into 1
-void Connection::handleRequest()
+bool Connection::serverConfigSelected() const
 {
-    std::cout << "Handling client connection (fd: " << fd_ << ")\n";
+    return serverConfigSelected_;
+}
+
+void Connection::processRequestHeaders()
+{
+    if (state_ == CONN_NEW || state_ == CONN_WAITING_FOR_REQUEST)
+    {
+        state_ = CONN_READING_HEADERS;
+        headersStart_ = std::time(NULL);
+    }
+    if (state_ != CONN_READING_HEADERS)
+        return;
     try
     {
-        if (request_.getMethod().empty())
-        {
-            if (state_ == CONN_NEW || state_ == CONN_WAITING_FOR_REQUEST)
-            {
-                state_ = CONN_READING_HEADERS;
-                headersStart_ = std::time(NULL);
-            }
-            parser_.parseRequest(in_buffer_, request_);
-            if (parser_.status_ == PARSE_INCOMPLETE)
-                return ;
-            applyConnectionClosePolicy();
-            in_buffer_.erase(0, parser_.endOfHeaders_);
-        }
-        if (state_ == CONN_READING_HEADERS)
-            state_ = CONN_READING_BODY;
-        parser_.parseRequestBody(in_buffer_, request_, listener_->maxBodySizeLimit_);
+        parser_.parseRequest(in_buffer_, request_);
+        if (parser_.status_ == PARSE_INCOMPLETE)
+            return ;
+        applyConnectionClosePolicy();
+        in_buffer_.erase(0, parser_.endOfHeaders_);
+        state_ = CONN_READING_BODY;
+    }
+    catch(int error)
+    {
+        closeAfterResponse_ = true;
+        queueErrorResponse(error, request_.getVersion());
+    }
+}
+
+void Connection::processRequestBody(size_t maxBodySize)
+{
+    try
+    {
+        parser_.parseRequestBody(in_buffer_, request_, maxBodySize);
         in_buffer_.erase(0, parser_.endOfBody_);
         if (!request_.getIsBodyComplete())
             return ;

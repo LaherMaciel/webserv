@@ -43,7 +43,9 @@ class Connection
     public:
         Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig);
         ~Connection();
-        void            handleRequest();
+        void            processRequestHeaders();
+        void            processRequestBody(size_t maxBodySize);
+        bool            serverConfigSelected() const;
         SocketReadResult readFromSocket();
         void            queueResponse(Response &response);
         SendResult sendResponse();
@@ -91,6 +93,7 @@ class Connection
         Listener        *listener_;//non-owning pointer; Server owns the Listener
         ServerConfig    *defaultConfig_;//default for the listener;
         ServerConfig    *selectedConfig_;//starts as default then later selected based on Request host header
+        bool            serverConfigSelected_;
         std::time_t     lastActivity_;
         std::time_t     headersStart_;
         ConnectionState state_;
