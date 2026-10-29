@@ -49,11 +49,6 @@ int main(int argc, char **argv)
     }
     printConfig(configs);
 
-    if (configs.size() > 1)
-        std::cerr << "warning: " << configs.size() - 1
-            << " server block(s) ignored, multiple ports not wired up yet"
-            << std::endl;
-
     Server  server(configs);
     try
     {

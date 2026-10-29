@@ -4,7 +4,7 @@ SRCS_DIRECTORY = src/
 SRCS_LIST = $(addprefix $(SRCS_DIRECTORY), $(SRCS_CPP))
 
 # Header files
-HEADER_LIST = webserv.hpp Connection.hpp RequestParser.hpp Request.hpp Response.hpp Router.hpp ServerConfig.hpp CgiProcess.hpp
+HEADER_LIST = webserv.hpp Connection.hpp RequestParser.hpp Request.hpp Response.hpp Router.hpp Server.hpp ServerConfig.hpp CgiProcess.hpp
 HEADER_DIRECTORY = includes/
 HEADERS = $(addprefix $(HEADER_DIRECTORY), $(HEADER_LIST))
 

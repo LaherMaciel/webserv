@@ -6,12 +6,12 @@
 # is done. Each test prints what it expects so a failure tells you which rule
 # is not implemented yet.
 #
-# POST_PATH: a route that allows POST. Change it if your config differs.
+# POST_PATH: a side-effect-free route that accepts and echoes POST bodies.
 
 HOST=127.0.0.1
 PORT=8080
 BIN=./webserv
-POST_PATH=/upload
+POST_PATH=/cgi-bin/post_echo.py
 
 PASS=0
 FAIL=0
@@ -160,17 +160,17 @@ r=$(send "${TE_HDR}0\r\n\r\n")
 expect_status "empty chunked body (just 0) -> 2xx (or 501 stub)" "20[0-9]|501" "$r"
 
 # ===========================================================================
-echo; echo "D. BOTH HEADERS  (Transfer-Encoding must win)"
+echo; echo "D. BOTH HEADERS  (ambiguous framing must be rejected)"
 
 BOTH="POST $POST_PATH HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\nTransfer-Encoding: chunked\r\n\r\n"
 
 r=$(send "${BOTH}0\r\n\r\n")
-expect_status "both headers, empty chunked body -> 2xx (or 501), not hung" "20[0-9]|501" "$r"
+expect_status "both headers -> 400" "400" "$r"
 
-# If CL were trusted, the server would eat 5 bytes ('0\r\n\r\nG') and never
-# see the GET. Two responses proves chunked framing was used.
+# Rejecting ambiguous framing also prevents the appended request from being
+# interpreted under either conflicting body-length rule.
 r=$(send "${BOTH}0\r\n\r\n${GET_ROOT}")
-expect_count "both headers then GET -> 2 responses (proves TE was used)" 2 "$r"
+expect_count "both headers then GET -> one 400 response" 1 "$r"
 
 # ===========================================================================
 echo; echo "E. LIMITS  (needs the config's client_max_body_size)"
