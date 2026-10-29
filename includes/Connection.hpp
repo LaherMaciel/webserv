@@ -44,7 +44,8 @@ class Connection
         Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig);
         ~Connection();
         void            processRequestHeaders();
-        void            processRequestBody(size_t maxBodySize);
+        void            processRequestBody();
+        void            setRequestBodyLimit(size_t maxBodySize);
         bool            serverConfigSelected() const;
         SocketReadResult readFromSocket();
         void            queueResponse(Response &response);

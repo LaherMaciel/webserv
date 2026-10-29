@@ -5,8 +5,14 @@
 #include <climits>
 #include <cctype>
 
-RequestParser::RequestParser() : endOfHeaders_(0), status_(PARSE_INCOMPLETE) {}
+RequestParser::RequestParser()
+    : endOfHeaders_(0), endOfBody_(0), status_(PARSE_INCOMPLETE), maxBodySize_(0) {}
 RequestParser::~RequestParser() {}
+
+void RequestParser::setMaxBodySize(size_t maxBodySize)
+{
+    maxBodySize_ = maxBodySize;
+}
 
 void RequestParser::reset()
 {
@@ -204,7 +210,7 @@ int RequestParser::copyByLength(std::map<std::string, std::string> header, Reque
     if (it->second.empty() || *end != '\0' || value < 0)
         throw 400;
     size_t n = static_cast<size_t>(value);
-    if (n > maxBodySize_)
+    if (maxBodySize_ != 0 && n > maxBodySize_)
         throw 413;
     size_t missing = n - request.getBody().size();
     std::string newBody = rawRequestLine_.substr(0, missing);
@@ -262,7 +268,7 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
     n = static_cast<size_t>(value);
     if ((*end != '\0' && *end != ';'))
         throw 400;
-    if (bodySize + n > maxBodySize_)
+    if (maxBodySize_ != 0 && bodySize + n > maxBodySize_)
             throw 413;
     if (n == 0)
         return (0);
@@ -320,11 +326,10 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
  * * transfer-encoding -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nTransfer-encoding: chunked\r\n\r\n6\r\nhello \r\n5\r\nworld\r\n0\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
  * * content-length + transfer-encoding -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nContent-Length: 11\r\nTransfer-encoding: chunked\r\n\r\n6\r\nhello \r\n6\r\nworld\r\n0\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
  */
-int RequestParser::parseRequestBody(const std::string &raw_request, Request &request, size_t maxBodySize)
+int RequestParser::parseRequestBody(const std::string &raw_request, Request &request)
 {
     endOfBody_ = 0;
     rawRequestLine_ = raw_request;
-    maxBodySize_ = maxBodySize;
     std::map<std::string, std::string> header = request.getHeaders();
     std::map<std::string, std::string>::iterator chunked = header.find("transfer-encoding");
     std::map<std::string, std::string>::iterator lenght = header.find("content-length");

@@ -3,7 +3,6 @@
 ServerConfig::ServerConfig(): port_(0), host_("0.0.0.0")
 {
     maxBodySize_ = 1000000;
-    maxBodySizeLimit_ = 0;
 }
 
 LocationConfig::LocationConfig(): index_("index.html"), autoindex_(false),

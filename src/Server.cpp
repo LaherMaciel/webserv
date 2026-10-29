@@ -18,7 +18,7 @@
 static const int POLL_TIMEOUT_MS = 100;
 
 Listener::Listener(ServerConfig *config)
-    : fd_(-1), host_(config->host_), port_(config->port_), maxBodySizeLimit_(config->maxBodySizeLimit_)
+    : fd_(-1), host_(config->host_), port_(config->port_)
 {
     configs_.push_back(config);
 }
@@ -190,8 +190,6 @@ bool Server::addToExistingListener(ServerConfig *config)
         if (config->port_ == listeners_[i].port_ &&
             config->host_ == listeners_[i].host_)
         {
-            if (listeners_[i].maxBodySizeLimit_ < config->maxBodySizeLimit_)
-                listeners_[i].maxBodySizeLimit_ = config->maxBodySizeLimit_;
             listeners_[i].configs_.push_back(config);
             std::cout << "Virtual host ";
             for (size_t j = 0; j < config->serverName_.size(); j++)
@@ -276,12 +274,23 @@ ServerConfig *Server::selectServerConfig(Connection *connection)
 void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
 {
     conn->processRequestHeaders();
-    if (conn->getState() == CONN_READING_BODY)
+    if (conn->getState() == CONN_READING_HEADERS)
+        return ;
+    if (conn->getState() == CONN_READING_BODY && !conn->serverConfigSelected())
     {
-        if (!conn->serverConfigSelected())
-            conn->setSelectedConfig(selectServerConfig(conn));
-        conn->processRequestBody(conn->getSelectedConfig()->maxBodySizeLimit_);
+        conn->setSelectedConfig(selectServerConfig(conn));
+        Router router(*conn->getSelectedConfig());
+        const LocationConfig *location = router.findLocation(conn->getRequest().getPath());
+        if (!location)
+        {
+            conn->closeAfterCurrentResponse();
+            conn->queueErrorResponse(404, conn->getRequest().getVersion());
+        }
+        else
+            conn->setRequestBodyLimit(location->maxBodySize_);
     }
+    if (conn->getState() == CONN_READING_BODY)
+        conn->processRequestBody();
     if (conn->getState() == CONN_READY_TO_ROUTE)
     {
         Response response;

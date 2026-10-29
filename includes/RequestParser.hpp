@@ -25,9 +25,10 @@ class RequestParser
         RequestParser();
         ~RequestParser();
 
-        int     parseRequestBody(const std::string &raw_request, Request &request, size_t maxBodySize);
+        int     parseRequestBody(const std::string &raw_request, Request &request);
         void    parseRequest(const std::string &raw_request, Request &request);
         void    parseHeader(Request &request);
+        void    setMaxBodySize(size_t maxBodySize);
         void    reset();
 
     private:

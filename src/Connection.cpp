@@ -264,11 +264,16 @@ void Connection::processRequestHeaders()
     }
 }
 
-void Connection::processRequestBody(size_t maxBodySize)
+void Connection::setRequestBodyLimit(size_t maxBodySize)
+{
+    parser_.setMaxBodySize(maxBodySize);
+}
+
+void Connection::processRequestBody()
 {
     try
     {
-        parser_.parseRequestBody(in_buffer_, request_, maxBodySize);
+        parser_.parseRequestBody(in_buffer_, request_);
         in_buffer_.erase(0, parser_.endOfBody_);
         if (!request_.getIsBodyComplete())
             return ;

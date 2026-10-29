@@ -28,7 +28,6 @@ struct ServerConfig
     std::string                 host_;
     std::vector<std::string>    serverName_;
     size_t                      maxBodySize_;
-    size_t                      maxBodySizeLimit_;
     std::map<int, std::string>  errorPages_;
     std::vector<LocationConfig> locations_;
 

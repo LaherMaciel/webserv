@@ -425,7 +425,7 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
     LocationConfig *location = findLocation(request.getPath());
     if (!location)
         throw 404;
-    if (request.getBody().size() > location->maxBodySize_)
+    if (location->maxBodySize_ != 0 && request.getBody().size() > location->maxBodySize_)
         throw 413;
     if (location->returnCode_ != 0)
         return routeRedirect(request, response, location->returnCode_, location->returnTarget_);

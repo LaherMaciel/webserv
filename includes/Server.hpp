@@ -20,7 +20,6 @@ struct Listener
     std::string host_;
     size_t      port_;
     std::vector<ServerConfig *> configs_;
-    size_t      maxBodySizeLimit_;
     Listener(ServerConfig *config);
 };
 
