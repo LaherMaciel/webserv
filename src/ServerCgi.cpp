@@ -55,7 +55,7 @@ Connection *Server::getCgiOwner(int fd)
     return it->second;
 }
 
-ConnectionStatus Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos)
+void Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos)
 {
     try
     {
@@ -68,7 +68,7 @@ ConnectionStatus Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size
             "Internal Server Error: Failed to start CGI", "text/plain");
         poll_fds_[pollfd_pos].events = POLLOUT;
         conn->abortCgi();
-        return RESPONSE_READY;
+        return;
     }
     addFdToPoll(conn->getCgiOutputFd(), POLLIN);
     cgiOwners_[conn->getCgiOutputFd()] = conn;
@@ -78,7 +78,6 @@ ConnectionStatus Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size
         cgiOwners_[conn->getCgiInputFd()] = conn;
     }
     poll_fds_[pollfd_pos].events = POLLIN;
-    return CGI_STARTED;
 }
 
 void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
@@ -97,11 +96,11 @@ void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
     }
     if ((revents & POLLOUT) && eventFd == cgiOwner->getCgiInputFd())
     {
-        ConnectionStatus status = cgiOwner->writeToCGIPipe();
-        if (status == WAIT_FOR_MORE)
+        CgiWriteStatus status = cgiOwner->writeToCGIPipe();
+        if (status == CGI_WRITING)
             return;
         removeCgiFd(eventFd);
-        if (status == CGI_IO_ERROR)
+        if (status == CGI_WRITE_ERROR)
         {
             removeCgiFds(cgiOwner);
             updatePollEvents(cgiOwner->getFd(), POLLOUT);
@@ -111,23 +110,21 @@ void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
     }
     if ((revents & (POLLIN | POLLHUP)) && eventFd == cgiOwner->getCgiOutputFd())
     {
-        ConnectionStatus status = cgiOwner->readFromCGIPipe();
-        if (status == RESPONSE_READY || status == CGI_WAITING_FOR_EXIT ||
-            status == CGI_IO_ERROR)
+        CgiReadStatus status = cgiOwner->readFromCGIPipe();
+        if (status == CGI_READING)
+            return;
+        removeCgiFd(eventFd);
+        if (status == CGI_READ_ERROR || status == CGI_OUTPUT_TOO_LARGE)
         {
-            removeCgiFd(eventFd);
-            if (status == RESPONSE_READY)
-            {
-                removeCgiFds(cgiOwner);
-                updatePollEvents(cgiOwner->getFd(), POLLOUT);
-                cgiOwner->resetCgiProcess();
-            }
-            else if (status == CGI_IO_ERROR)
-            {
-                removeCgiFds(cgiOwner);
-                updatePollEvents(cgiOwner->getFd(), POLLOUT);
-                cgiOwner->abortCgi();
-            }
+            removeCgiFds(cgiOwner);
+            updatePollEvents(cgiOwner->getFd(), POLLOUT);
+            cgiOwner->abortCgi();
+        }
+        if (status == CGI_OUTPUT_COMPLETE && cgiOwner->checkCgiChild())
+        {
+            removeCgiFds(cgiOwner);
+            updatePollEvents(cgiOwner->getFd(), POLLOUT);
+            cgiOwner->resetCgiProcess();
         }
     }
 }
@@ -174,7 +171,7 @@ void Server::checkCgiChildren()
         }
         if (conn->cgiCompletionIsPending())
         {
-            if (conn->checkCgiChild() == RESPONSE_READY)
+            if (conn->checkCgiChild())
             {
                 updatePollEvents(conn->getFd(), POLLOUT);
                 conn->resetCgiProcess();

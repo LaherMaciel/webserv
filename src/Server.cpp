@@ -274,10 +274,10 @@ ServerConfig *Server::selectServerConfig(Connection *connection)
 }
 
 // moved the multiple request in buffer check to main loop, after first response is fully sent
-ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
+void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
 {
-    ConnectionStatus status = conn->handleRequest();
-    if (status == REQUEST_READY)
+    conn->handleRequest();
+    if (conn->getState() == CONN_READY_TO_ROUTE)
     {
         Response response;
         CgiInfo cgiInfo;
@@ -299,40 +299,36 @@ ConnectionStatus Server::processBufferedRequest(Connection *conn, size_t pollfd_
         if (result != ROUTE_CGI)
             conn->queueResponse(response);
         else
-            return startCgi(conn, cgiInfo, pollfd_pos);
+        {
+            startCgi(conn, cgiInfo, pollfd_pos);
+            return ;
+        }
     }
     if (!conn->hasPendingResponse())
-        return WAIT_FOR_MORE;
+        return ;
     poll_fds_[pollfd_pos].events = POLLOUT;
-    return RESPONSE_READY;
 }
 
-ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
+ConnEventResult Server::handleConnectionEvent(size_t pollfd_pos)
 {
     int fd = poll_fds_[pollfd_pos].fd;
     short revents = poll_fds_[pollfd_pos].revents;
     Connection *conn = getConnection(fd);
     if (!conn || (revents & (POLLERR | POLLNVAL)))
         return CLOSE_CONNECTION;
-    ConnectionStatus status;
     if (revents & POLLIN)
     {
         if (conn->readFromSocket() == -1)
             return CLOSE_CONNECTION;
-        else if (conn->getState() == CONN_RUNNING_CGI)
-            return CONTINUE_CONNECTION;
-        status = processBufferedRequest(conn, pollfd_pos);
-        if (status == CLOSE_CONNECTION)
-            return CLOSE_CONNECTION;
+        else if (conn->getState() != CONN_RUNNING_CGI)
+            processBufferedRequest(conn, pollfd_pos);
     }
     if (revents & POLLOUT)
     {
-        status = conn->sendResponse();
-        if (status == WAIT_FOR_MORE)
-            return CONTINUE_CONNECTION;
-        if (status == CLOSE_CONNECTION)
+        SendResult status = conn->sendResponse();
+        if (status == SEND_FAILED || (status == SEND_COMPLETE && conn->getState() == CONN_CLOSING))
             return CLOSE_CONNECTION;
-        else if (status == RESPONSE_SENT)
+        if (status == SEND_COMPLETE)
         {
             conn->resetForNewRequest();
             if (!conn->hasBufferedInput())
@@ -340,10 +336,10 @@ ConnectionStatus Server::handleConnectionEvent(size_t pollfd_pos)
                 poll_fds_[pollfd_pos].events = POLLIN;
                 return CONTINUE_CONNECTION;
             }
-            status = processBufferedRequest(conn, pollfd_pos);
-            if (status == WAIT_FOR_MORE)
+            processBufferedRequest(conn, pollfd_pos);
+            if (conn->getState() == CONN_WAITING_FOR_REQUEST || conn->getState() == CONN_READING_HEADERS || conn->getState() == CONN_READING_BODY)
                 poll_fds_[pollfd_pos].events = POLLIN;
-            else if (status == RESPONSE_READY)
+            else if (conn->getState() == CONN_READY_TO_ROUTE || conn->getState() == CONN_WRITING_RESPONSE)
                 poll_fds_[pollfd_pos].events = POLLOUT;
         }
     }

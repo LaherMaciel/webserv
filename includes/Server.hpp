@@ -8,6 +8,12 @@
 # include "Router.hpp"
 # include "ServerConfig.hpp"
 
+enum ConnEventResult
+{
+    CLOSE_CONNECTION,
+    CONTINUE_CONNECTION,
+};
+
 struct Listener
 {
     int         fd_;
@@ -27,7 +33,7 @@ class Server
         void    bindSocket(Listener &listener);
         void    addFdToPoll(int fd, short events = POLLIN);
         void    startServer();
-        ConnectionStatus processBufferedRequest(Connection *conn, size_t pollfd_pos);
+        void    processBufferedRequest(Connection *conn, size_t pollfd_pos);
         void    processEvents();
         void    runServer();
         int     acceptConnection(std::string &remoteAddress, size_t pollfd_pos);
@@ -35,12 +41,12 @@ class Server
         void    updatePollEvents(int fd, short events);
         void    handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos);
         void    handleListenerEvent(size_t pollfd_pos, Listener *listener);
-        ConnectionStatus handleConnectionEvent(size_t pollfd_pos);
+        ConnEventResult handleConnectionEvent(size_t pollfd_pos);
         void    removeCgiFd(int fd);
         void    removeCgiFds(Connection *cgiOwner);
         void    checkCgiChildren();
         void    checkClientTimeouts();
-        ConnectionStatus startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos);
+        void    startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_pos);
         bool    addToExistingListener(ServerConfig *config);
         ServerConfig *selectServerConfig(Connection *connection);
 

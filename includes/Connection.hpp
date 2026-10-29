@@ -11,17 +11,11 @@
 class Response;
 struct Listener;
 
-enum ConnectionStatus
+enum SendResult
 {
-    CLOSE_CONNECTION,
-    WAIT_FOR_MORE,
-    REQUEST_READY,
-    CGI_STARTED,
-    CGI_WAITING_FOR_EXIT,
-    CGI_IO_ERROR,
-    RESPONSE_READY,
-    CONTINUE_CONNECTION,
-    RESPONSE_SENT
+    SEND_PENDING,
+    SEND_COMPLETE,
+    SEND_FAILED
 };
 
 enum ConnectionState
@@ -40,11 +34,11 @@ class Connection
     public:
         Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig);
         ~Connection();
-        ConnectionStatus handleRequest();
+        void            handleRequest();
         int             readFromSocket();
         void            queueResponse(Response &response);
-        ConnectionStatus sendResponse();
-        ConnectionStatus queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
+        SendResult sendResponse();
+        void            queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
         int             getFd() const;
         Listener *getListener() const;
         void            setSelectedConfig(ServerConfig *config);
@@ -55,8 +49,9 @@ class Connection
         bool            getCloseAfterResponse() const;
         ConnectionState getState() const;
         void startCgi(const CgiInfo &cgiInfo);
-        ConnectionStatus readFromCGIPipe();
-        ConnectionStatus checkCgiChild();
+        CgiReadStatus   readFromCGIPipe();
+        CgiWriteStatus  writeToCGIPipe();
+        bool            checkCgiChild();
         bool            cgiCompletionIsPending() const;
         bool            cgiAbortIsPending() const;
         bool            cgiHasTimedOut() const;
@@ -70,7 +65,6 @@ class Connection
         bool            hasBufferedInput() const;
         bool            headerDeadlineExpired() const;
         bool            clientHasTimedOut() const;
-        ConnectionStatus writeToCGIPipe();
         void            applyConnectionClosePolicy();
 
 

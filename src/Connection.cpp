@@ -107,48 +107,41 @@ bool Connection::cgiHasTimedOut() const
     return cgiProcess_.hasTimedOut();
 }
 
-ConnectionStatus Connection::checkCgiChild()
+bool Connection::checkCgiChild()
 {
     if (!cgiProcess_.checkChild())
-        return CGI_WAITING_FOR_EXIT;
+        return false;
     Response response(500, request_.getVersion());
     cgiProcess_.finishCgi(response);
     queueResponse(response);
-    return RESPONSE_READY;
+    return true;
 }
 
-ConnectionStatus Connection::readFromCGIPipe()
+CgiReadStatus Connection::readFromCGIPipe()
 {
     CgiReadStatus status = cgiProcess_.readFromPipe();
-    if (status == CGI_OUTPUT_COMPLETE)
-        return checkCgiChild();
-    else if (status == CGI_READ_ERROR)
+    if (status == CGI_READ_ERROR)
     {
         queueErrorResponse(500, request_.getVersion(),
             "Internal Server Error: CGI read error", "text/plain");
-        return CGI_IO_ERROR;
     }
     else if (status == CGI_OUTPUT_TOO_LARGE)
     {
         queueErrorResponse(500, request_.getVersion(),
             "Internal Server Error: CGI output too large", "text/plain");
-        return CGI_IO_ERROR;
     }
-    return WAIT_FOR_MORE;
+    return status;
 }
 
-ConnectionStatus Connection::writeToCGIPipe()
+CgiWriteStatus Connection::writeToCGIPipe()
 {
     CgiWriteStatus status = cgiProcess_.writeToPipe(request_.getBody());
-    if (status == CGI_INPUT_COMPLETE)
-        return CGI_STARTED;
-    else if (status == CGI_WRITE_ERROR)
+    if (status == CGI_WRITE_ERROR)
     {
         queueErrorResponse(500, request_.getVersion(), 
             "Internal Server Error: CGI write error", "text/plain");
-        return CGI_IO_ERROR;
     }
-    return WAIT_FOR_MORE;
+    return status;
 }
 
 int Connection::readFromSocket()
@@ -175,23 +168,25 @@ int Connection::readFromSocket()
     return 0;
 }
 
-ConnectionStatus Connection::sendResponse()
+SendResult Connection::sendResponse()
 {
     size_t bytes_left = out_buffer_.size() - bytes_sent_;
     if (bytes_left == 0)
-        return RESPONSE_SENT;
+    {
+        state_ = closeAfterResponse_ ? CONN_CLOSING : CONN_WAITING_FOR_REQUEST;
+        return SEND_COMPLETE;
+    }
     ssize_t sent = send(fd_, out_buffer_.c_str() + bytes_sent_, bytes_left, 0);
     if (sent <= 0)
-        return CLOSE_CONNECTION;
+        return SEND_FAILED;
     refreshActivity();
     bytes_sent_ += sent;
     if (bytes_sent_ < out_buffer_.size())
-        return WAIT_FOR_MORE;
+        return SEND_PENDING;
     out_buffer_.clear();
     bytes_sent_ = 0;
-    if (closeAfterResponse_)
-        return CLOSE_CONNECTION;
-    return RESPONSE_SENT;
+    state_ = closeAfterResponse_ ? CONN_CLOSING : CONN_WAITING_FOR_REQUEST;
+    return SEND_COMPLETE;
 }
 
 void Connection::queueResponse(Response &response)
@@ -203,7 +198,7 @@ void Connection::queueResponse(Response &response)
     out_buffer_ += response.serialize();
 }
 
-ConnectionStatus Connection::queueErrorResponse(int code, std::string version, std::string body, std::string contentType)
+void Connection::queueErrorResponse(int code, std::string version, std::string body, std::string contentType)
 {
     if (version.empty())
         version = "HTTP/1.1";
@@ -215,7 +210,6 @@ ConnectionStatus Connection::queueErrorResponse(int code, std::string version, s
     else
         response.setDefaultErrorBody();
     queueResponse(response);
-    return RESPONSE_READY;
 }
 
 void Connection::applyConnectionClosePolicy()
@@ -233,7 +227,7 @@ void Connection::applyConnectionClosePolicy()
 }
 
 //merged the 2 try/catch blocks into 1
-ConnectionStatus Connection::handleRequest()
+void Connection::handleRequest()
 {
     std::cout << "Handling client connection (fd: " << fd_ << ")\n";
     try
@@ -247,7 +241,7 @@ ConnectionStatus Connection::handleRequest()
             }
             parser_.parseRequest(in_buffer_, request_);
             if (parser_.status_ == PARSE_INCOMPLETE)
-                return WAIT_FOR_MORE;
+                return ;
             applyConnectionClosePolicy();
             in_buffer_.erase(0, parser_.endOfHeaders_);
         }
@@ -256,16 +250,15 @@ ConnectionStatus Connection::handleRequest()
         parser_.parseRequestBody(in_buffer_, request_, listener_->maxBodySizeLimit_);
         in_buffer_.erase(0, parser_.endOfBody_);
         if (!request_.getIsBodyComplete())
-            return WAIT_FOR_MORE;
+            return ;
         state_ = CONN_READY_TO_ROUTE;
+        request_.printRequest();
     }
     catch(int error)
     {
         closeAfterResponse_ = true;
-        return queueErrorResponse(error, request_.getVersion());
+        queueErrorResponse(error, request_.getVersion());
     }
-    request_.printRequest();
-    return REQUEST_READY;
 }
 
 //TEST WITH CURL!!!
