@@ -3,38 +3,6 @@
 #include "Response.hpp"
 #include <iostream>
 
-//temp function
-ServerConfig setServerConfig()
-{
-    ServerConfig config;
-    config.port_ = DEFAULT_PORT;
-    config.host_ = "localhost";
-    config.serverName_.push_back("DefaultServer");
-    config.maxBodySize_ = 1000000; // 1 MB
-    LocationConfig locationStatic;
-    locationStatic.path_ = "/";
-    locationStatic.root_ = "./www";
-    locationStatic.index_ = "index.html";
-    locationStatic.allowedMethods_.push_back("GET");
-    config.locations_.push_back(locationStatic);
-    LocationConfig locationCgi;
-    locationCgi.path_ = "/cgi-bin";
-    locationCgi.root_ = "./www/cgi-bin";
-    locationCgi.cgiHandlers_[".py"] = "/usr/bin/python3";
-    locationCgi.allowedMethods_.push_back("GET");
-    locationCgi.allowedMethods_.push_back("POST");
-    config.locations_.push_back(locationCgi);
-    LocationConfig locationUpload;
-    locationUpload.path_ = "/upload";
-    locationUpload.root_ = "./www/upload";
-    locationUpload.uploadStore_ = "./www/upload";
-    locationUpload.allowedMethods_.push_back("POST");
-    locationUpload.allowedMethods_.push_back("GET");
-    locationUpload.allowedMethods_.push_back("DELETE");
-    config.locations_.push_back(locationUpload);
-    return config;
-}
-
 void    Server::updatePollEvents(int fd, short events)
 {
     for (size_t i = 0; i < poll_fds_.size(); ++i)

@@ -20,6 +20,7 @@ enum SendResult
 
 enum ConnectionState
 {
+    CONN_NEW,
     CONN_WAITING_FOR_REQUEST,
     CONN_READING_HEADERS,
     CONN_READING_BODY,
@@ -55,11 +56,9 @@ class Connection
         bool            cgiCompletionIsPending() const;
         bool            cgiAbortIsPending() const;
         bool            cgiHasTimedOut() const;
-        bool            cgiIsRunning() const;
         CgiCleanupStatus abortCgi();
         void            closeClientFd();
         void            resetCgiProcess();
-        void            resetRequest();
         void            resetForNewRequest();
         bool            hasPendingResponse() const;
         bool            hasBufferedInput() const;

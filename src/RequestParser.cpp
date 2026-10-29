@@ -3,6 +3,7 @@
 #include "Request.hpp"
 #include <cstdlib>
 #include <climits>
+#include <cctype>
 
 RequestParser::RequestParser() : endOfHeaders_(0), status_(PARSE_INCOMPLETE) {}
 RequestParser::~RequestParser() {}
@@ -64,6 +65,32 @@ std::string RequestParser::parseQuery(std::string &requestTarget)
     return query;
 }
 
+std::string RequestParser::percentDecode(const std::string &target)
+{
+    std::string decoded;
+    size_t i = 0;
+
+    while (i < target.size())
+    {
+        if (target[i] == '%')
+        {
+            char *end;
+            std::string hex = target.substr(i + 1, 2);
+            long value = std::strtol(hex.c_str(), &end, 16);
+            if (value == 0)
+                throw 400;
+            decoded += static_cast<char>(value);
+            i += 3;
+        }
+        else
+        {
+            decoded += target[i];
+            i++;
+        }
+    }
+    return decoded;
+}
+
 void RequestParser::parseRequestLine(Request &request)
 {
     size_t first_space = rawRequestLine_.find(' ');
@@ -84,6 +111,7 @@ void RequestParser::parseRequestLine(Request &request)
     }
     std::string version = rawRequestLine_.substr(second_space + 1);
     std::string query = parseQuery(requestTarget);
+    requestTarget = percentDecode(requestTarget);
     validateRequestLine(method, requestTarget, version);
     request.setMethod(method);
     request.setPath(requestTarget);
@@ -150,6 +178,8 @@ void RequestParser::parseRequest(const std::string &raw_request, Request &reques
         status_ = PARSE_INCOMPLETE;
         return ;
     }
+    if (headersEnd + 4 > MAX_HEADER_SIZE)
+        throw 431;
     size_t requestLineEnd = raw_request.find("\r\n");
     rawRequestLine_ = raw_request.substr(0, requestLineEnd);
 
@@ -217,6 +247,15 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
         return (-1);
     }
     hex = str.substr(0, endline);
+    size_t digits = 0;
+    while (digits < hex.size() && hex[digits] != ';')
+    {
+        if (!std::isxdigit(static_cast<unsigned char>(hex[digits])))
+            throw 400;
+        digits++;
+    }
+    if (digits == 0)
+        throw 400;
     long value = std::strtol(hex.c_str(), &end, 16);
     if (hex.empty() || value < 0 || value == LONG_MAX)
         throw 400;
@@ -225,6 +264,8 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
         throw 400;
     if (bodySize + n > maxBodySize_)
             throw 413;
+    if (n == 0)
+        return (0);
     if (str.size() < endline + 2 + n + 2)
     {
         std::cout << "The expected size is bigger than the actual size, "
@@ -261,10 +302,14 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
         if (getChunkIndex(endline, hex, n, str, end, request.getBody().size()) == -1)
             return (-1);
     }
-    if (str.find("0\r\n\r\n") != 0)
-        throw 400;
-    endOfBody_ += str.find("\r\n\r\n") + 4;
-    str.erase(0, str.find("\r\n\r\n") + 4);
+    size_t trailerEnd = str.find("\r\n\r\n");
+    if (trailerEnd == std::string::npos)
+    {
+        std::cout << "The trailer section is incomplete." << std::endl;
+        return (-1);
+    }
+    endOfBody_ += trailerEnd + 4;
+    str.erase(0, trailerEnd + 4);
     request.setIsBodyComplete(true);
     return (0);
 }
