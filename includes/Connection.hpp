@@ -76,6 +76,7 @@ class Connection
         bool            hasPendingResponse() const;
         bool            hasBufferedInput() const;
         bool            headerDeadlineExpired() const;
+        bool            bodyDeadlineExpired() const;
         bool            clientHasTimedOut() const;
         void            applyConnectionClosePolicy();
 
@@ -98,6 +99,7 @@ class Connection
         bool            serverConfigSelected_;
         std::time_t     lastActivity_;
         std::time_t     headersStart_;
+        std::time_t     bodyStart_;
         ConnectionState state_;
 
         void            refreshActivity();

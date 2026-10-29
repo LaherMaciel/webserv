@@ -14,6 +14,7 @@ Connection::Connection(int fd, const std::string &remoteAddress, Listener *liste
                     , listener_(listener), defaultConfig_(defaultConfig), selectedConfig_(defaultConfig)
                     , serverConfigSelected_(false)
                     , lastActivity_(std::time(NULL)), headersStart_(std::time(NULL))
+                    , bodyStart_(std::time(NULL))
                     , state_(CONN_NEW) {}
 
 Connection::~Connection() { closeClientFd(); }
@@ -75,6 +76,13 @@ bool Connection::headerDeadlineExpired() const
     if (state_ != CONN_NEW && state_ != CONN_READING_HEADERS)
         return false;
     return std::difftime(std::time(NULL), headersStart_) >= CLIENT_HEADER_DEADLINE_SECONDS;
+}
+
+bool Connection::bodyDeadlineExpired() const
+{
+    if (state_ != CONN_READING_BODY)
+        return false;
+    return std::difftime(std::time(NULL), bodyStart_) >= CLIENT_BODY_DEADLINE_SECONDS;
 }
 
 bool Connection::clientHasTimedOut() const
@@ -255,6 +263,7 @@ void Connection::processRequestHeaders()
             return ;
         applyConnectionClosePolicy();
         in_buffer_.erase(0, parser_.endOfHeaders_);
+        bodyStart_ = std::time(NULL);
         state_ = CONN_READING_BODY;
     }
     catch(int error)

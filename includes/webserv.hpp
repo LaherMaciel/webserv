@@ -7,6 +7,7 @@
 #define MAX_PENDING_CONNECTIONS 10
 #define CLIENT_IDLE_TIMEOUT_SECONDS 30
 #define CLIENT_HEADER_DEADLINE_SECONDS 10
+#define CLIENT_BODY_DEADLINE_SECONDS 30
 
 #include <iostream>
 #include <string>

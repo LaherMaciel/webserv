@@ -452,6 +452,11 @@ void Server::checkClientTimeouts()
             std::cout << "Client " << it->first << ": header deadline expired\n";
             timedOutFds.push_back(it->first);
         }
+        else if (it->second->bodyDeadlineExpired())
+        {
+            std::cout << "Client " << it->first << ": body deadline expired\n";
+            timedOutFds.push_back(it->first);
+        }
         else if (it->second->clientHasTimedOut())
         {
             std::cout << "Client " << it->first << ": idle timeout\n";
