@@ -13,6 +13,7 @@ void    Server::updatePollEvents(int fd, short events)
             return;
         }
     }
+    addFdToPoll(fd, events);
 }
 
 Connection *Server::getCgiOwner(int fd)

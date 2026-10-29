@@ -31,6 +31,8 @@ int Connection::getCgiInputFd() const { return cgiProcess_.getInputFd(); }
 
 bool Connection::getCloseAfterResponse() const { return closeAfterResponse_; }
 
+void Connection::closeAfterCurrentResponse() { closeAfterResponse_ = true; }
+
 ConnectionState Connection::getState() const { return state_; }
 
 void Connection::closeClientFd()
@@ -144,19 +146,19 @@ CgiWriteStatus Connection::writeToCGIPipe()
     return status;
 }
 
-int Connection::readFromSocket()
+SocketReadResult Connection::readFromSocket()
 {
     char buffer[IO_CHUNK_SIZE];
     ssize_t bytes_received = recv(fd_, buffer, sizeof(buffer), 0);
     if (bytes_received == 0)
     {
-        std::cout << "Client disconnected (fd: " << fd_ << ")\n";
-        return -1;
+        std::cout << "Client input closed (fd: " << fd_ << ")\n";
+        return SOCKET_EOF;
     }
     else if (bytes_received < 0)
     {
         std::cerr << "Error receiving data from client (fd: " << fd_ << ")\n";
-        return -1;
+        return SOCKET_READ_ERROR;
     }
     else
     {
@@ -165,7 +167,7 @@ int Connection::readFromSocket()
         std::cout.write(buffer, bytes_received) << "\n";
         in_buffer_.append(buffer, bytes_received);
     }
-    return 0;
+    return SOCKET_DATA_READ;
 }
 
 SendResult Connection::sendResponse()

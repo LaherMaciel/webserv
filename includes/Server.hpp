@@ -42,6 +42,7 @@ class Server
         void    handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos);
         void    handleListenerEvent(size_t pollfd_pos, Listener *listener);
         ConnEventResult handleConnectionEvent(size_t pollfd_pos);
+        ConnEventResult handleConnectionWrite(Connection *conn, size_t pollfd_pos);
         void    removeCgiFd(int fd);
         void    removeCgiFds(Connection *cgiOwner);
         void    checkCgiChildren();

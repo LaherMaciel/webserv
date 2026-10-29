@@ -309,6 +309,28 @@ void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
     poll_fds_[pollfd_pos].events = POLLOUT;
 }
 
+ConnEventResult Server::handleConnectionWrite(Connection *conn, size_t pollfd_pos)
+{
+    SendResult status = conn->sendResponse();
+    if (status == SEND_FAILED || (status == SEND_COMPLETE && conn->getState() == CONN_CLOSING))
+        return CLOSE_CONNECTION;
+    if (status == SEND_COMPLETE)
+    {
+        conn->resetForNewRequest();
+        if (!conn->hasBufferedInput())
+        {
+            poll_fds_[pollfd_pos].events = POLLIN;
+            return CONTINUE_CONNECTION;
+        }
+        processBufferedRequest(conn, pollfd_pos);
+        if (conn->getState() == CONN_WAITING_FOR_REQUEST || conn->getState() == CONN_READING_HEADERS || conn->getState() == CONN_READING_BODY)
+            poll_fds_[pollfd_pos].events = POLLIN;
+        else if (conn->getState() == CONN_READY_TO_ROUTE || conn->getState() == CONN_WRITING_RESPONSE)
+            poll_fds_[pollfd_pos].events = POLLOUT;
+    }
+    return CONTINUE_CONNECTION;
+}
+
 ConnEventResult Server::handleConnectionEvent(size_t pollfd_pos)
 {
     int fd = poll_fds_[pollfd_pos].fd;
@@ -316,35 +338,37 @@ ConnEventResult Server::handleConnectionEvent(size_t pollfd_pos)
     Connection *conn = getConnection(fd);
     if (!conn || (revents & (POLLERR | POLLNVAL)))
         return CLOSE_CONNECTION;
+    if ((revents & POLLHUP))
+        conn->closeAfterCurrentResponse();
+    SocketReadResult readResult = SOCKET_NOT_READ;
     if (revents & POLLIN)
     {
-        if (conn->readFromSocket() == -1)
+        readResult = conn->readFromSocket();
+        if (readResult == SOCKET_READ_ERROR)
             return CLOSE_CONNECTION;
-        else if (conn->getState() != CONN_RUNNING_CGI)
+        if (readResult == SOCKET_DATA_READ && conn->getState() != CONN_RUNNING_CGI)
             processBufferedRequest(conn, pollfd_pos);
+        if (readResult == SOCKET_EOF)
+            conn->closeAfterCurrentResponse();
     }
     if (revents & POLLOUT)
+        return handleConnectionWrite(conn, pollfd_pos);
+    if ((revents & POLLHUP) || readResult == SOCKET_EOF)
     {
-        SendResult status = conn->sendResponse();
-        if (status == SEND_FAILED || (status == SEND_COMPLETE && conn->getState() == CONN_CLOSING))
-            return CLOSE_CONNECTION;
-        if (status == SEND_COMPLETE)
+        if (conn->getState() == CONN_RUNNING_CGI)
         {
-            conn->resetForNewRequest();
-            if (!conn->hasBufferedInput())
-            {
-                poll_fds_[pollfd_pos].events = POLLIN;
-                return CONTINUE_CONNECTION;
-            }
-            processBufferedRequest(conn, pollfd_pos);
-            if (conn->getState() == CONN_WAITING_FOR_REQUEST || conn->getState() == CONN_READING_HEADERS || conn->getState() == CONN_READING_BODY)
-                poll_fds_[pollfd_pos].events = POLLIN;
-            else if (conn->getState() == CONN_READY_TO_ROUTE || conn->getState() == CONN_WRITING_RESPONSE)
-                poll_fds_[pollfd_pos].events = POLLOUT;
+            poll_fds_[pollfd_pos].fd = -1;
+            poll_fds_[pollfd_pos].events = 0;
+            return CONTINUE_CONNECTION;
         }
+        if (conn->hasPendingResponse())
+        {
+            poll_fds_[pollfd_pos].events = POLLOUT;
+            return CONTINUE_CONNECTION;
+        }
+        if (readResult != SOCKET_DATA_READ)
+            return CLOSE_CONNECTION;
     }
-    if ((revents & POLLHUP) && !conn->hasPendingResponse())
-        return CLOSE_CONNECTION;
     return CONTINUE_CONNECTION;
 }
 

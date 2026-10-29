@@ -86,6 +86,54 @@ Byte-identical to the control. Note this bug is macOS-specific: on Linux `POLLHU
 hangup and `POLLOUT` keeps being reported, so the original code already worked there. The fix is
 a no-op on Linux and correct on both.
 
+### Post-merge integration update — 2026-10-29
+
+After B1 was merged into `belinore_inprog`, the connection-state refactor exposed a second form of
+the same lifecycle problem. The original fix preserved a response already serialized in
+`out_buffer_`, but `hasPendingResponse()` is still false while asynchronous CGI is running. A
+half-closed CGI request was therefore removed before the CGI process could produce its response.
+
+The merged implementation now distinguishes the outcome of `recv()` explicitly:
+
+```cpp
+enum SocketReadResult
+{
+    SOCKET_NOT_READ,
+    SOCKET_DATA_READ,
+    SOCKET_EOF,
+    SOCKET_READ_ERROR
+};
+```
+
+`POLLHUP` and `SOCKET_EOF` now mean that no further request bytes will arrive; they do not by
+themselves mean that the client is unable to receive a response. The connection is marked to close
+after its current response. Buffered `POLLIN` data is processed first, including requests larger
+than one receive buffer. If CGI is still running, client-socket polling is suspended while the CGI
+pipe FDs remain active. When CGI queues its response, `updatePollEvents()` re-adds the client FD
+with `POLLOUT`. The response is then sent and the connection closes normally.
+
+The `POLLOUT` path was also extracted into `Server::handleConnectionWrite()` without changing its
+send, persistent-connection, or buffered-request behavior.
+
+Post-merge verification:
+
+```
+static request + write-side half-close       HTTP/1.1 200 OK
+6 KB request + write-side half-close         HTTP/1.1 200 OK
+CGI POST + write-side half-close             HTTP/1.1 200 OK
+malformed chunk size                         HTTP/1.1 400 Bad Request
+CGI POST short / 512 KB / two concurrent     all passed
+C++98 rebuild and git diff --check           clean
+```
+
+Lifecycle caveat: the existing `cgi_disconnect_test.sh` kills `curl` and expects the CGI child to
+be aborted immediately. A graceful TCP close produces the same receive-side FIN as
+`shutdown(SHUT_WR)`, so the server cannot reliably distinguish "client has gone away" from
+"client has finished sending and is waiting for the CGI response." Under the new policy, graceful
+FIN is treated as a half-close and CGI is allowed to finish (or hit its timeout). A regression test
+that requires immediate CGI abortion should create a hard disconnect/TCP reset; otherwise its
+expected cleanup point should be CGI completion or timeout.
+
 ---
 
 ## B2 — Silent-client DoS: the Slowloris guard never fires  **[FIXED]**

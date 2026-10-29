@@ -11,6 +11,14 @@
 class Response;
 struct Listener;
 
+enum SocketReadResult
+{
+    SOCKET_NOT_READ,
+    SOCKET_DATA_READ,
+    SOCKET_EOF,
+    SOCKET_READ_ERROR
+};
+
 enum SendResult
 {
     SEND_PENDING,
@@ -36,7 +44,7 @@ class Connection
         Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig);
         ~Connection();
         void            handleRequest();
-        int             readFromSocket();
+        SocketReadResult readFromSocket();
         void            queueResponse(Response &response);
         SendResult sendResponse();
         void            queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
@@ -48,6 +56,7 @@ class Connection
         int             getCgiInputFd() const;
         const Request&  getRequest() const;
         bool            getCloseAfterResponse() const;
+        void            closeAfterCurrentResponse();
         ConnectionState getState() const;
         void startCgi(const CgiInfo &cgiInfo);
         CgiReadStatus   readFromCGIPipe();
