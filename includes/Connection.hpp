@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 #include <ctime>
 #include "RequestParser.hpp"
 #include "Request.hpp"
@@ -61,7 +62,7 @@ class Connection
         bool            getCloseAfterResponse() const;
         void            closeAfterCurrentResponse();
         ConnectionState getState() const;
-        void startCgi(const CgiInfo &cgiInfo);
+        void startCgi(const CgiInfo &cgiInfo, const std::vector<int> &inheritedFds);
         CgiReadStatus   readFromCGIPipe();
         CgiWriteStatus  writeToCGIPipe();
         bool            checkCgiChild();

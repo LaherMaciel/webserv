@@ -46,7 +46,8 @@ class CgiProcess
     public:
         CgiProcess();
         ~CgiProcess();
-        void startCgi(const CgiInfo &cgiInfo, const Request &request, const std::string &remoteAddress);
+        void startCgi(const CgiInfo &cgiInfo, const Request &request,
+                     const std::string &remoteAddress, const std::vector<int> &inheritedFds);
         void finishCgi(Response &response);
         CgiReadStatus readFromPipe();
         bool checkChild();

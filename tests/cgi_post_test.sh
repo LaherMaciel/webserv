@@ -3,8 +3,8 @@
 SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
 cd "$SCRIPT_DIR/.." || exit 1
 
-HOST="127.0.0.1"
-PORT="8080"
+HOST=${HOST:-127.0.0.1}
+PORT=${PORT:-8080}
 CGI_PATH=${1:-"/cgi-bin/post_echo.py"}
 URL="http://${HOST}:${PORT}${CGI_PATH}"
 LONG_SIZE=524288

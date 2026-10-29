@@ -2,6 +2,29 @@
 #include "Server.hpp"
 #include "Response.hpp"
 #include <iostream>
+#include <set>
+
+static void collectConnectionFds(const Connection &conn, std::set<int> &fds)
+{
+    fds.insert(conn.getFd());
+    fds.insert(conn.getCgiInputFd());
+    fds.insert(conn.getCgiOutputFd());
+}
+
+std::vector<int> Server::collectInheritedFds() const
+{
+    // An owned client socket can be temporarily absent from poll during CGI.
+    std::set<int> fds;
+    for (size_t i = 0; i < listeners_.size(); ++i)
+        fds.insert(listeners_[i].fd_);
+    for (std::map<int, Connection *>::const_iterator it = conns_.begin();
+         it != conns_.end(); ++it)
+        collectConnectionFds(*it->second, fds);
+    for (size_t i = 0; i < closingConnections_.size(); ++i)
+        collectConnectionFds(*closingConnections_[i], fds);
+    fds.erase(-1);
+    return std::vector<int>(fds.begin(), fds.end());
+}
 
 void    Server::updatePollEvents(int fd, short events)
 {
@@ -28,7 +51,8 @@ void Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_po
 {
     try
     {
-        conn->startCgi(cgiInfo);
+        const std::vector<int> inheritedFds = collectInheritedFds();
+        conn->startCgi(cgiInfo, inheritedFds);
     }
     catch(const std::exception& e)
     {

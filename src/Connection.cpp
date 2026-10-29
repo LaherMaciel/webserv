@@ -84,10 +84,10 @@ bool Connection::clientHasTimedOut() const
     return std::difftime(std::time(NULL), lastActivity_) >= CLIENT_IDLE_TIMEOUT_SECONDS;
 }
 
-void Connection::startCgi(const CgiInfo &cgiInfo)
+void Connection::startCgi(const CgiInfo &cgiInfo, const std::vector<int> &inheritedFds)
 {
     state_ = CONN_RUNNING_CGI;
-    cgiProcess_.startCgi(cgiInfo, request_, remoteAddress_);
+    cgiProcess_.startCgi(cgiInfo, request_, remoteAddress_, inheritedFds);
 }
 
 void Connection::resetCgiProcess()

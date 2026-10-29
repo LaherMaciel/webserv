@@ -295,7 +295,8 @@ std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const Cgi
     return envp;
 }
 
-void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request, const std::string &remoteAddress)
+void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request,
+                         const std::string &remoteAddress, const std::vector<int> &inheritedFds)
 {
     int outputPipe[2];
     if (pipe(outputPipe) == -1)
@@ -327,6 +328,12 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request, const 
         if (dup2(inputPipe[0], STDIN_FILENO) == -1)//redirect stdin to inputPipe
             _exit(1);
         close(inputPipe[0]); // Close read end after duplicating
+        // These are inherited copies; the parent's descriptors stay open.
+        for (size_t i = 0; i < inheritedFds.size(); ++i)
+        {
+            if (inheritedFds[i] > STDERR_FILENO)
+                close(inheritedFds[i]);
+        }
         if (chdir(cgiInfo.workingDirectory_.c_str()) == -1)
             _exit(1);
         char *argv[] = {const_cast<char *>(cgiInfo.interpreterPath_.c_str()),
