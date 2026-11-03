@@ -35,10 +35,12 @@ This is an educational server and is not intended for production deployment.
 - Request-body and CGI-output size limits.
 - Controlled `SIGINT`/`SIGTERM` shutdown with CGI child cleanup.
 - Protection against path traversal and malformed request framing.
+- Centralized file logging with severity levels and bounded buffering.
 
 ## Architecture
 
-- **Server** owns listeners and connections and runs the `poll()` event loop.
+- **Server** owns listeners, connections, and the logger, and runs the `poll()`
+  event loop.
 - **Connection** owns the state of one client, including input/output buffers,
   the current request parser, and any active CGI process.
 - **RequestParser** incrementally parses request lines, headers, fixed-length
@@ -48,6 +50,8 @@ This is an educational server and is not intended for production deployment.
 - **CgiProcess** manages `fork()`, `execve()`, pipes, environment variables,
   timeouts, termination, and child reaping.
 - **Response** stores status, headers, and body and serializes them into HTTP.
+- **Log** filters and buffers diagnostic messages and writes bounded batches
+  to an append-only log file. Connections and routers borrow the server's logger.
 
 Ownership is explicit: the server owns network connections, each connection
 owns its request and CGI lifecycle, and CGI children close unrelated inherited
@@ -110,6 +114,53 @@ make run
 With `config/default.conf`, the main site is available at
 `http://127.0.0.1:8080/` and a second listener is available on port `8081`.
 Press `Ctrl-C` to request a controlled shutdown.
+
+### Logging
+
+Runtime diagnostics are appended to `webserv.log` in the working directory.
+Watch them while testing in a browser or with `curl`:
+
+```sh
+tail -f webserv.log
+```
+
+The log path and severity threshold are selected explicitly in `src/main.cpp`:
+
+```cpp
+Server server(configs, "webserv.log", Log::INFO);
+```
+
+`INFO` includes `ERROR`, `WARN`, and `INFO` messages. Change it to `Log::DEBUG`
+and rebuild with `make` to include all levels, including connection details,
+received byte counts, and CGI selection details. These settings are constructor
+arguments; they are not configuration-file directives or command-line options.
+
+A normal request produces a summary when its response is queued:
+
+```text
+[INFO] Connection: response_queued fd=5 port=8080 method=GET path=/about.html status=200
+```
+
+This records the request method, path, and response status. It means the
+response is ready to send; it does not confirm delivery. Routine responses,
+including 404 and 405, use `INFO`; 5xx summaries use `ERROR`. Operational failures
+also record their cause, such as a CGI timeout or failed file operation. If a
+connection closes with response bytes still pending, a `WARN` entry records the
+bytes sent and remaining. Request bodies and headers are not dumped to the log.
+
+`Log::record()` queues messages in memory. Each entry is limited to 512 bytes,
+the pending queue is capped at 32 KiB, and each `flush()` attempts one write of
+at most 4 KiB. The event loop flushes after processing events and timeouts.
+When the queue fills, new messages are dropped and a warning summarizes the
+drops once space is available. Shutdown makes one final bounded flush attempt,
+so queued messages may remain unwritten.
+
+File logging avoids runtime writes to full stdout/stderr pipes, although regular
+file writes can still wait on storage. Startup fails if the log destination
+cannot be opened as a regular file. A failed or zero-byte log write disables
+logging for the rest of that server instance. Usage, configuration, and fatal
+errors can still be reported to stderr. The `webserv.log` file in the repository
+root is ignored by Git.
 
 ## Configuration
 
@@ -181,13 +232,14 @@ curl -i --data-binary @/tmp/webserv-example.txt \
 curl -i -X DELETE http://127.0.0.1:8080/upload/example.txt
 ```
 
-Run Python CGI with a query string or POST body:
+Run Python CGI with a query string or POST body, or use the shell CGI demo:
 
 ```sh
 curl -i 'http://127.0.0.1:8080/cgi-bin/hello.py?name=42'
 curl -i -H 'Content-Type: text/plain' \
   --data-binary 'hello from CGI POST' \
   http://127.0.0.1:8080/cgi-bin/post_echo.py
+curl -i 'http://127.0.0.1:8080/cgi-bin/hello.sh?name=42'
 ```
 
 ## Testing
@@ -195,7 +247,8 @@ curl -i -H 'Content-Type: text/plain' \
 The `tests/` directory contains targeted regression scripts for HTTP parsing,
 request bodies, uploads, deletion, CGI environment variables, large and
 concurrent CGI POST bodies, client disconnects, inherited descriptors, and
-controlled shutdown.
+controlled shutdown. Logger tests cover filtering, formatting, queue limits,
+partial writes, output failures, and diagnostic messages during HTTP/CGI errors.
 
 Build the server first:
 
@@ -221,6 +274,18 @@ without another instance bound to the configured ports:
 ./tests/cgi_shutdown_test.sh
 python3 tests/cgi_fd_inheritance_test.py ./webserv
 ```
+
+Run the focused logger unit tests, or the full logger suite with temporary
+server instances on automatically selected ports:
+
+```sh
+python3 tests/log_tests.py --unit-only
+python3 tests/log_tests.py
+```
+
+The full suite also checks that requests complete with stdout/stderr pipes full,
+CGI children close the inherited log descriptor, and interrupted responses are
+reported with their remaining byte count.
 
 Manual testing with a browser, `curl`, `nc` or `telnet`, comparison with NGINX,
 and stress testing are also important because no single client exercises every
