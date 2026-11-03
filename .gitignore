@@ -5,6 +5,7 @@ objects/
 
 # Binary
 webserv
+/webserv.log
 
 # macOS
 .DS_Store

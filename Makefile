@@ -40,6 +40,7 @@ $(NAME): $(OBJECTS_DIRECTORY) $(OBJECTS)
 		echo "[" "$(RED)Error$(RESET)" "] | An error occurred while creating $(NAME)."; \
 		$(MAKE) clean > /dev/null 2>&1; \
 		echo "[" "$(RED)Error$(RESET)" "] | All objects cleaned."; \
+		exit 1; \
 	fi
 
 # Create objects directory structure

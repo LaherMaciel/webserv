@@ -6,7 +6,7 @@
 /*   By: belinore <belinore@student.42lisboa.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/11/03 15:50:41 by belinore         ###   ########.fr       */
+/*   Updated: 2026/11/03 16:11:34 by belinore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
     }
     try
     {
-        Server server(configs, "webserv.log", Log::DEBUG);
+        Server server(configs, "webserv.log", Log::INFO);
         signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
         signal(SIGINT, Server::requestShutdown);
         signal(SIGTERM, Server::requestShutdown);
