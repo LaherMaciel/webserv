@@ -5,6 +5,7 @@
 # include <vector>
 # include <exception>
 # include <csignal>
+# include "Log.hpp"
 # include "Connection.hpp"
 # include "Router.hpp"
 # include "ServerConfig.hpp"
@@ -27,7 +28,8 @@ struct Listener
 class Server
 {
     public:
-        Server(const std::vector<ServerConfig>& config);
+        Server(const std::vector<ServerConfig>& config,
+               const std::string &logPath = "webserv.log", Log::Level level = Log::INFO);
         ~Server();
         static void requestShutdown(int signal);
         void    initSocket(Listener &listener);
@@ -53,6 +55,7 @@ class Server
         ServerConfig *selectServerConfig(Connection *connection);
 
     private:
+        Log log_;
         std::vector<ServerConfig> config_;
         std::vector<Listener> listeners_;
         std::map<int, Connection *>	conns_;

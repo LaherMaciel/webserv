@@ -133,7 +133,7 @@ location /cgi { root %s; cgi_extension .py %s; allowed_methods GET POST; }
     clients = []
     with (root / 'server.log').open('wb') as log:
         process = subprocess.Popen([str(binary), str(config_path)],
-                                   cwd=str(PROJECT), stdout=log, stderr=log)
+                                   cwd=str(root), stdout=log, stderr=log)
         try:
             deadline = time.monotonic() + 3
             while True:
@@ -217,9 +217,10 @@ def main():
             return 1 if run(binary, root) else 0
         except Exception as error:
             print('FAIL  ' + str(error), file=sys.stderr)
-            log = root / 'server.log'
-            if log.exists():
-                print(log.read_text(errors='replace')[-4000:], file=sys.stderr)
+            for name in ('server.log', 'webserv.log'):
+                log = root / name
+                if log.exists():
+                    print(log.read_text(errors='replace')[-4000:], file=sys.stderr)
             return 1
 
 

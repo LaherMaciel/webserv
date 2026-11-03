@@ -4,6 +4,8 @@
 #include "webserv.hpp"
 #include "Server.hpp"
 #include "ServerConfig.hpp"
+#include "Log.hpp"
+#include <algorithm>
 #include <iostream>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -11,7 +13,7 @@
 #include <cerrno>
 #include <dirent.h>
 
-Router::Router(ServerConfig &config) : config_(config) {}
+Router::Router(ServerConfig &config, Log &log) : config_(config), log_(log) {}
 
 Router::~Router() {}
 
@@ -94,19 +96,6 @@ bool Router::isValidMethod(const std::string &method, const LocationConfig *loca
             return true;
     }
     return false;
-}
-
-static void printCgiInfo(const CgiInfo &cgiInfo)
-{
-    std::cout << "CGI Info:\n";
-    std::cout << "Script URL Path: " << cgiInfo.scriptUrlPath_ << "\n";
-    std::cout << "Script Filesystem Path: " << cgiInfo.scriptFilesystemPath_ << "\n";
-    std::cout << "Path Info: " << cgiInfo.pathInfo_ << "\n";
-    std::cout << "Interpreter Path: " << cgiInfo.interpreterPath_ << "\n";
-    std::cout << "Working Directory: " << cgiInfo.workingDirectory_ << "\n";
-    std::cout << "Script Filename: " << cgiInfo.scriptFilename_ << "\n";
-    std::cout << "Server Name: " << cgiInfo.serverName_ << "\n";
-    std::cout << "Server Port: " << cgiInfo.serverPort_ << "\n";
 }
 
 bool Router::splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension)
@@ -195,7 +184,9 @@ void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const Loc
     }
     if (!found)
         throw 404;
-    printCgiInfo(cgiInfo);
+    if (log_.enabled(Log::DEBUG))
+        log_.record(Log::DEBUG, "CGI", "script=" + cgiInfo.scriptUrlPath_.substr(0, 256)
+                    + " interpreter=" + cgiInfo.interpreterPath_.substr(0, 128));
 }
 
 RouteType Router::routeCGI(const Request& request, const LocationConfig *location, CgiInfo &cgiInfo)
@@ -209,11 +200,17 @@ void Router::writeToFile(const std::string &uploadPath, const std::string &body)
 {
     std::ofstream uploadFile(uploadPath.c_str(), std::ios::binary);
     if (!uploadFile.is_open())
+    {
+        log_.record(Log::ERROR, "Router", "Upload open failed file=" + uploadPath.substr(0, 256));
         throw 500;
+    }
     uploadFile << body;
-    if (!uploadFile.good())
-        throw 500;
     uploadFile.close();
+    if (!uploadFile.good())
+    {
+        log_.record(Log::ERROR, "Router", "Upload write failed file=" + uploadPath.substr(0, 256));
+        throw 500;
+    }
 }
 
 std::string Router::mapUploadPath(const LocationConfig *location, const std::string &urlPath)
@@ -239,7 +236,6 @@ curl -i --data-binary @/tmp/webserv-upload.txt http://127.0.0.1:8080/upload/hell
 */
 RouteType Router::routeUpload(const Request& request, const LocationConfig *location, Response& response)
 {
-    std::cout << "Routing POST request for path: " << request.getPath() << "\n";
     std::string uploadPath = mapUploadPath(location, request.getPath());
     writeToFile(uploadPath, request.getBody());
     response = Response(201, request.getVersion(), "POST request received", "text/plain");
@@ -262,12 +258,13 @@ void Router::removeFile(const std::string &filePath)
         throw 403;
     if (error == ENOENT || error == ENOTDIR)
         throw 404;
+    log_.record(Log::ERROR, "Router", "Delete failed file=" + filePath.substr(0, 256)
+                + " errno=" + toString(error));
     throw 500;
 }
 
 RouteType Router::routeDelete(const Request& request, const LocationConfig *location, Response& response)
 {
-    std::cout << "Routing DELETE request for path: " << request.getPath() << "\n";
     std::string filePath;
     if (!location->uploadStore_.empty())
         filePath = mapUploadPath(location, request.getPath());
@@ -285,7 +282,7 @@ RouteType Router::serveFile(const Request& request, const std::string &filePath,
     std::string body;
     if (!readFile(filePath, body))
     {
-        std::cerr << "Error reading " << filePath << "\n";
+        log_.record(Log::ERROR, "Router", "Cannot read " + filePath.substr(0, 256));
         throw 500;
     }
     response = Response(200, request.getVersion(), body, contentType(filePath));
@@ -406,7 +403,6 @@ RouteType Router::routeRedirect(const Request& request, Response& response, int 
 
 RouteType Router::routeGet(const Request& request, const LocationConfig *location, Response& response)
 {
-    std::cout << "Routing GET request for path: " << request.getPath() << "\n";
     std::string filePath = mapRootPath(request.getPath(), location);
     if (filePath.empty())
         throw 404;

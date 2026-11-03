@@ -226,12 +226,12 @@ bool CgiProcess::processHeader(Response &response, const std::string &headerLine
     return true;
 }
 
-void CgiProcess::finishCgi(Response &response)
+CgiFinishStatus CgiProcess::finishCgi(Response &response)
 {
     if (childStatus_ != CHILD_SUCCEEDED)
     {
         response.setBody("Internal Server Error: CGI script failed", "text/plain");
-        return;
+        return CGI_SCRIPT_FAILED;
     }
     size_t headerEnd = buffer_.find("\r\n\r\n");
     size_t separator = 4;
@@ -242,7 +242,7 @@ void CgiProcess::finishCgi(Response &response)
         if (headerEnd == std::string::npos)
         {
             response.setBody("Malformed CGI output", "text/plain");
-            return;
+            return CGI_MALFORMED_OUTPUT;
         }
     }
     std::string cgiHeaders = buffer_.substr(0, headerEnd);
@@ -264,12 +264,13 @@ void CgiProcess::finishCgi(Response &response)
         {
             response.setStatusCode(500);
             response.setBody("Malformed CGI output", "text/plain");
-            return;
+            return CGI_MALFORMED_OUTPUT;
         }
         lineStart = lineEnd + 1;
     }
     response.setHeaders(parsedHeaders);
     response.setBody(cgiBody);
+    return CGI_FINISHED;
 }
 
 std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const CgiInfo &cgiInfo, const std::string &remoteAddress)

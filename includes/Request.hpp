@@ -29,8 +29,6 @@ class Request
         const   std::map<std::string, std::string>& getHeaders() const;
         bool    getIsBodyComplete() const;
 
-        void    printRequest() const; // Test
-
     private:
         std::string method_;
         std::string path_;

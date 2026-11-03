@@ -81,19 +81,16 @@ bool    Response::errorPage()
     std::string contType = contentType(it->second);
     std::string body;
     if (!readFile(it->second, body))
-    {
-        std::cerr << "error_page: cannot read " << quoteValue(it->second) << std::endl;
         return (false);
-    }
     setHeader("Content-Type", contType);
     setBody(body);
     return (true);
 }
 
-void Response::setDefaultErrorBody()
+bool Response::setDefaultErrorBody()
 {
     if (errorPage())
-        return ;
+        return true;
     std::string body;
     body = "<!DOCTYPE html>"
             "<html>"
@@ -117,7 +114,10 @@ void Response::setDefaultErrorBody()
 
     setHeader("Content-Type", "text/html");
     setBody(body);
+    return errorPages_.find(statusCode_) == errorPages_.end();
 }
+
+int Response::getStatusCode() const { return statusCode_; }
 
 std::string Response::serialize() const
 {

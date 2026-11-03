@@ -1,5 +1,4 @@
 #include "Request.hpp"
-#include <iostream>
 
 Request::Request() : method_(""), path_(""), query_(""), version_(""), headers_(), isBodyComplete_(false) {}
 
@@ -37,20 +36,6 @@ void Request::setIsBodyComplete(bool isBodyComplete) { isBodyComplete_ = isBodyC
 void Request::setBody(const std::string& body) { body_ = body; }
 
 void Request::appendToBody(const std::string& body) { body_.append(body); }
-
-void Request::printRequest() const
-{
-    std::cout << "*REQUEST*\n";
-    std::cout << "Method: " << method_ << "\n";
-    std::cout << "Path: " << path_ << "\n";
-    std::cout << "Query: " << query_ << "\n";
-    std::cout << "Version: " << version_ << "\n";
-    std::cout << "Headers:\n";
-    for (std::map<std::string, std::string>::const_iterator it = headers_.begin(); it != headers_.end(); ++it)
-        std::cout << it->first << ": " << it->second << "\n";
-    std::cout << "Body: " << body_ << "\n";
-    std::cout << "*END REQUEST*\n";
-}
 
 const std::string& Request::getMethod() const { return method_; }
 

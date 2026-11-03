@@ -15,6 +15,7 @@ std::vector<int> Server::collectInheritedFds() const
 {
     // An owned client socket can be temporarily absent from poll during CGI.
     std::set<int> fds;
+    fds.insert(log_.getFd());
     for (size_t i = 0; i < listeners_.size(); ++i)
         fds.insert(listeners_[i].fd_);
     for (std::map<int, Connection *>::const_iterator it = conns_.begin();
@@ -56,7 +57,8 @@ void Server::startCgi(Connection *conn, const CgiInfo &cgiInfo, size_t pollfd_po
     }
     catch(const std::exception& e)
     {
-        std::cerr << "Error starting CGI: " << e.what() << std::endl;
+        log_.record(Log::ERROR, "CGI", "Launch failed " + conn->getLogContext()
+                    + " reason=" + e.what());
         conn->queueErrorResponse(500, conn->getRequest().getVersion(),
             "Internal Server Error: Failed to start CGI", "text/plain");
         poll_fds_[pollfd_pos].events = POLLOUT;
@@ -80,6 +82,8 @@ void Server::handleCgiEvent(Connection *cgiOwner, size_t pollfd_pos)
     short revents = cgiPollFd.revents;
     if (revents & (POLLERR | POLLNVAL))
     {
+        log_.record(Log::ERROR, "CGI", "Pipe poll error " + cgiOwner->getLogContext()
+                    + " pipe_fd=" + toString(eventFd));
         cgiOwner->queueErrorResponse(500, cgiOwner->getRequest().getVersion());
         updatePollEvents(cgiOwner->getFd(), POLLOUT);
         removeCgiFd(eventFd);
@@ -173,6 +177,8 @@ void Server::checkCgiChildren()
         }
         if (conn->cgiHasTimedOut())
         {
+            log_.record(Log::ERROR, "CGI", "Timed out " + conn->getLogContext()
+                        + " limit_seconds=" + toString(CGI_TIMEOUT_SECONDS));
             removeCgiFds(conn);
             conn->queueErrorResponse(504, conn->getRequest().getVersion(),
                 "Gateway Timeout: CGI process timed out", "text/plain");

@@ -229,8 +229,6 @@ int RequestParser::copyByLength(std::map<std::string, std::string> header, Reque
         }
         else
         {
-            std::cout << "I don't know what we do here yet, because "
-                "that's just weird behaviour. But I think we should throw." << std::endl;
             return (-1);
         }
     }
@@ -249,7 +247,6 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
     endline = str.find("\r\n");
     if (endline == std::string::npos)
     {
-        std::cout << "There's no \\r\\n yet." << std::endl;
         return (-1);
     }
     hex = str.substr(0, endline);
@@ -274,8 +271,6 @@ int RequestParser::getChunkIndex(size_t &endline, std::string &hex, size_t &n, s
         return (0);
     if (str.size() < endline + 2 + n + 2)
     {
-        std::cout << "The expected size is bigger than the actual size, "
-            "which means the message is incomplete." << std::endl;
         return (-1);
     }
     if (str.compare(endline + 2 + n, 2, "\r\n") != 0)
@@ -295,7 +290,6 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
     size_t endline;
     std::string hex;
     size_t n;
-    std::cout << it->first << ": " << it->second << std::endl;
     if (getChunkIndex(endline, hex, n, str, end, request.getBody().size()) == -1)
         return (-1);
     while (n != 0)
@@ -311,7 +305,6 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
     size_t trailerEnd = str.find("\r\n\r\n");
     if (trailerEnd == std::string::npos)
     {
-        std::cout << "The trailer section is incomplete." << std::endl;
         return (-1);
     }
     endOfBody_ += trailerEnd + 4;

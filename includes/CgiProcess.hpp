@@ -41,6 +41,13 @@ enum CgiCleanupStatus
     CGI_CLEANUP_DONE
 };
 
+enum CgiFinishStatus
+{
+    CGI_FINISHED,
+    CGI_SCRIPT_FAILED,
+    CGI_MALFORMED_OUTPUT
+};
+
 class CgiProcess
 {
     public:
@@ -48,7 +55,7 @@ class CgiProcess
         ~CgiProcess();
         void startCgi(const CgiInfo &cgiInfo, const Request &request,
                      const std::string &remoteAddress, const std::vector<int> &inheritedFds);
-        void finishCgi(Response &response);
+        CgiFinishStatus finishCgi(Response &response);
         CgiReadStatus readFromPipe();
         bool checkChild();
         bool completionIsPending() const;

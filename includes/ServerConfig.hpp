@@ -51,7 +51,6 @@ struct Directive
 void                        stripComments(std::string &configFile);
 void                        applyServerDirective(ServerConfig &server, const Directive &directive);
 void                        applyLocationDirective(LocationConfig &location, const Directive &directive);
-void                        printConfig(const std::vector<ServerConfig> &configs);
 size_t                      findBlockEnd(const std::string &text, size_t open);
 std::vector<std::string>    splitServerBlocks(const std::string &text);
 std::vector<LocationBlock>  extractLocations(std::string &serverBody);

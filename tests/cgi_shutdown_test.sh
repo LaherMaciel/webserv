@@ -1,8 +1,10 @@
 #!/bin/bash
 
-HOST=127.0.0.1
-PORT=8080
-BIN=./webserv
+HOST=${HOST:-127.0.0.1}
+PORT=${PORT:-8080}
+BIN=${BIN:-./webserv}
+CONFIG=${1:-config/default.conf}
+SERVER_LOG_FILE=${SERVER_LOG_FILE:-webserv.log}
 TOKEN=$$
 PID_FILE="/tmp/webserv-cgi-disconnect-${TOKEN}.pid"
 LOG_FILE="/tmp/webserv-cgi-shutdown-${TOKEN}.log"
@@ -28,7 +30,12 @@ cleanup()
 
 trap cleanup EXIT
 
-$BIN config/default.conf > "$LOG_FILE" 2>&1 &
+LOG_START=0
+if [ -f "$SERVER_LOG_FILE" ]; then
+    LOG_START=$(wc -c < "$SERVER_LOG_FILE")
+fi
+
+"$BIN" "$CONFIG" > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
 for i in $(seq 1 50); do
@@ -73,7 +80,7 @@ if kill -0 "$CGI_PID" 2>/dev/null; then
 fi
 CGI_PID=""
 
-if ! grep -q "Server shutdown requested" "$LOG_FILE"; then
+if ! tail -c +$((LOG_START + 1)) "$SERVER_LOG_FILE" | grep -q "Server shutdown requested"; then
     echo "FAIL server did not leave the event loop cleanly"
     exit 1
 fi

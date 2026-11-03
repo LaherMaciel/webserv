@@ -19,7 +19,9 @@ class Response
         void setHeaders(const std::map<std::string, std::string>& headers);
         void setStatusCode(int statusCode);
         void setStatusCode(int statusCode, const std::string& reasonPhrase);
-        void setDefaultErrorBody();
+        // False means a configured custom page failed and the built-in was used.
+        bool setDefaultErrorBody();
+        int getStatusCode() const;
         void setErrorPage(const std::map<int, std::string>&  errorPages);
         bool errorPage();
         std::string serialize() const;

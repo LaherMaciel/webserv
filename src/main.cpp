@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: lahermaciel <lahermaciel@student.42.fr>    +#+  +:+       +#+        */
+/*   By: belinore <belinore@student.42lisboa.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/08/24 20:16:12 by lahermaciel       #+#    #+#             */
-/*   Updated: 2026/10/19 15:38:28 by lahermaciel      ###   ########.fr       */
+/*   Updated: 2026/11/03 15:50:41 by belinore         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -47,11 +47,9 @@ int main(int argc, char **argv)
         std::cerr << e.what() << std::endl;
         return (1);
     }
-    printConfig(configs);
-
-    Server  server(configs);
     try
     {
+        Server server(configs, "webserv.log", Log::DEBUG);
         signal(SIGPIPE, SIG_IGN);//ignore SIGPIPE to prevent server from crashing when sending to a closed socket
         signal(SIGINT, Server::requestShutdown);
         signal(SIGTERM, Server::requestShutdown);
@@ -64,6 +62,5 @@ int main(int argc, char **argv)
         std::cerr << "Server stopped due to an error\n";
         return (-1);
     }
-    
     return (0);
 }

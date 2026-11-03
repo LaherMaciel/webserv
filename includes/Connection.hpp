@@ -10,6 +10,7 @@
 #include "CgiProcess.hpp"
 
 class Response;
+class Log;
 struct Listener;
 
 enum SocketReadResult
@@ -42,7 +43,8 @@ enum ConnectionState
 class Connection
 {
     public:
-        Connection(int fd, const std::string &remoteAddress, Listener *listener, ServerConfig *defaultConfig);
+        Connection(int fd, const std::string &remoteAddress, Listener *listener,
+                   ServerConfig *defaultConfig, Log &log);
         ~Connection();
         void            processRequestHeaders();
         void            processRequestBody();
@@ -50,19 +52,20 @@ class Connection
         bool            serverConfigSelected() const;
         SocketReadResult readFromSocket();
         void            queueResponse(Response &response);
-        SendResult sendResponse();
+        SendResult      sendResponse();
         void            queueErrorResponse(int code, std::string version = "HTTP/1.1", std::string body = "", std::string contentType = "text/plain");
         int             getFd() const;
-        Listener *getListener() const;
+        Listener        *getListener() const;
         void            setSelectedConfig(ServerConfig *config);
-        ServerConfig *getSelectedConfig() const;
+        ServerConfig    *getSelectedConfig() const;
         int             getCgiOutputFd() const;
         int             getCgiInputFd() const;
         const Request&  getRequest() const;
+        std::string     getLogContext() const;
         bool            getCloseAfterResponse() const;
         void            closeAfterCurrentResponse();
         ConnectionState getState() const;
-        void startCgi(const CgiInfo &cgiInfo, const std::vector<int> &inheritedFds);
+        void            startCgi(const CgiInfo &cgiInfo, const std::vector<int> &inheritedFds);
         CgiReadStatus   readFromCGIPipe();
         CgiWriteStatus  writeToCGIPipe();
         bool            checkCgiChild();
@@ -82,6 +85,7 @@ class Connection
 
 
     private:
+        Log &log_;
         int             fd_;
         std::string	    in_buffer_;
         std::string     out_buffer_;

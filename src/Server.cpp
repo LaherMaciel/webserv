@@ -25,9 +25,11 @@ Listener::Listener(ServerConfig *config)
     configs_.push_back(config);
 }
 
-Server::Server(const std::vector<ServerConfig>& config): config_(config)
+Server::Server(const std::vector<ServerConfig>& config, const std::string &logPath, Log::Level level)
+    : log_(logPath, level), config_(config)
 {
     shutdownRequested_ = 0;
+    log_.record(Log::INFO, "Server", "Loaded " + toString(config_.size()) + " server blocks");
 }
 
 Server::~Server()
@@ -48,6 +50,7 @@ Server::~Server()
     closingConnections_.clear();
     cgiOwners_.clear();
     poll_fds_.clear();
+    log_.flush();
 }
 
 void Server::requestShutdown(int signal)
@@ -56,7 +59,7 @@ void Server::requestShutdown(int signal)
     shutdownRequested_ = 1;
 }
 
-void Server::addFdToPoll(int fd, short events)//used for both the server socket and the client sockets
+void Server::addFdToPoll(int fd, short events)
 {
     struct pollfd entry;
     entry.fd = fd;
@@ -75,12 +78,12 @@ int    Server::acceptConnection(std::string &remoteAddress, size_t pollfd_pos)
 
     if (clientfd < 0)
     {
-        std::cerr << "Error accepting new connection\n";
+        log_.record(Log::ERROR, "Server", "Failed to accept a connection");
         return (-1);
     }
     if (set_non_blocking(clientfd) < 0)
     {
-        std::cerr << "Error setting client socket to non-blocking\n";
+        log_.record(Log::ERROR, "Server", "Failed to make a client socket non-blocking");
         close(clientfd);
         return (-1);
     }
@@ -135,9 +138,10 @@ void Server::cleanDeadFds(std::vector<int> &deadfds)
     }
 }
 
+//AF_INET = IPv4, SOCK_STREAM = TCP, 0 = default protocol (TCP for SOCK_STREAM)
 void Server::initSocket(Listener &listener)
 {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);//AF_INET = IPv4, SOCK_STREAM = TCP, 0 = default protocol (TCP for SOCK_STREAM)
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0)
     {
         throw std::runtime_error("Failed to create socket");
@@ -148,7 +152,7 @@ void Server::initSocket(Listener &listener)
         throw std::runtime_error("Failed to set socket to non-blocking");
     }
     int opt_active = 1;
-    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt_active, sizeof(opt_active)) < 0)//allow quick reuse of port, bypassing TIME_WAIT limitations
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt_active, sizeof(opt_active)) < 0)
     {
         throw std::runtime_error("Failed to set socket options");
     }
@@ -168,7 +172,7 @@ void Server::bindSocket(Listener &listener)
     int status = getaddrinfo(listener.host_.c_str(), port.c_str(), &hints, &result);
     if (status != 0)
         throw std::runtime_error(gai_strerror(status));
-    int bindResult = bind(listener.fd_, result->ai_addr, result->ai_addrlen); //bind socket with address/port
+    int bindResult = bind(listener.fd_, result->ai_addr, result->ai_addrlen);//bind socket with address/port
     freeaddrinfo(result);
     if (bindResult < 0)
         throw std::runtime_error("Failed to bind socket");
@@ -184,14 +188,8 @@ bool Server::addToExistingListener(ServerConfig *config)
             config->host_ == listeners_[i].host_)
         {
             listeners_[i].configs_.push_back(config);
-            std::cout << "Virtual host ";
-            for (size_t j = 0; j < config->serverName_.size(); j++)
-            {
-                std::cout << config->serverName_[j] << " ";
-            }
-            std::cout << "added to Listener " << listeners_[i].fd_
-                      << ", host: " << config->host_
-                      << ", port: " << config->port_ << "\n";
+            log_.record(Log::DEBUG, "Config", "Shared listener " + config->host_
+                        + ":" + toString(config->port_));
             return (true);
         }
     }
@@ -203,6 +201,16 @@ void Server::startServer()
     for (size_t i = 0; i < config_.size(); i++)
     {
         ServerConfig *config = &config_[i];
+        if (log_.enabled(Log::DEBUG))
+        {
+            for (size_t j = 0; j < config->locations_.size(); ++j)
+            {
+                const LocationConfig &location = config->locations_[j];
+                log_.record(Log::DEBUG, "Config", "port=" + toString(config->port_)
+                            + " location=" + location.path_.substr(0, 256)
+                            + " body_limit=" + toString(location.maxBodySize_));
+            }
+        }
         if (!addToExistingListener(config))
         {
             Listener newListener(config);
@@ -210,10 +218,8 @@ void Server::startServer()
             bindSocket(newListener);
             addFdToPoll(newListener.fd_);
             listeners_.push_back(newListener);
-            std::string name = config->serverName_.empty() ? "[not named]" : config->serverName_[0];
-            std::cout << "Server " << name << " added Listener fd "
-                      << newListener.fd_ << ", host: " << newListener.host_
-                      << ", port: " << newListener.port_ << "\n";
+            log_.record(Log::INFO, "Server", "Listening on " + newListener.host_
+                        + ":" + toString(newListener.port_));
         }
     }  
     
@@ -268,7 +274,7 @@ void Server::routeConnectionRequest(Connection *conn, size_t pollfd_pos)
 {
     Response response;
     CgiInfo cgiInfo;
-    Router router(*conn->getSelectedConfig());
+    Router router(*conn->getSelectedConfig(), log_);
     RouteType result;
     try
     {
@@ -278,7 +284,11 @@ void Server::routeConnectionRequest(Connection *conn, size_t pollfd_pos)
     {
         response = Response(errorCode, conn->getRequest().getVersion());
         response.setErrorPage(conn->getSelectedConfig()->errorPages_);
-        response.setDefaultErrorBody();
+        if (!response.setDefaultErrorBody())
+            log_.record(Log::WARN, "Response", "Custom error page unavailable for status="
+                        + toString(errorCode) + " file="
+                        + conn->getSelectedConfig()->errorPages_.find(errorCode)->second.substr(0, 256)
+                        + " " + conn->getLogContext());
         result = ROUTE_ERROR;
     }
     if (result == ROUTE_CGI)
@@ -295,7 +305,7 @@ void Server::processBufferedRequest(Connection *conn, size_t pollfd_pos)
     if (conn->getState() == CONN_READING_BODY && !conn->serverConfigSelected())
     {
         conn->setSelectedConfig(selectServerConfig(conn));
-        Router router(*conn->getSelectedConfig());
+        Router router(*conn->getSelectedConfig(), log_);
         const LocationConfig *location = router.findLocation(conn->getRequest().getPath());
         if (!location)
         {
@@ -389,24 +399,25 @@ void    Server::handleListenerEvent(size_t pollfd_pos, Listener *listener)
         return;
     if (conns_.size() >= MAX_CONNECTIONS + MAX_OVERLOAD_CONNECTIONS)
     {
-        std::cerr << "Connection hard limit reached; closing client "
-                  << clientFd << " without a response\n";
+        log_.record(Log::WARN, "Server", "Connection hard limit reached; closing fd="
+                    + toString(clientFd));
         close(clientFd);
         return;
     }
     Connection *new_client = new Connection(clientFd, clientIp, listener,
-                                            listener->configs_[0]);
+                                            listener->configs_[0], log_);
     conns_[clientFd] = new_client;
     if (conns_.size() > MAX_CONNECTIONS)
     {
-        std::cerr << "Connection soft limit reached; sending 503 to client "
-                  << clientFd << "\n";
+        log_.record(Log::WARN, "Server", "Connection soft limit reached; sending 503 to fd="
+                    + toString(clientFd));
         new_client->queueErrorResponse(503);
         addFdToPoll(clientFd, POLLOUT);
         return;
     }
     addFdToPoll(clientFd, POLLIN);
-    std::cout << "Client " << clientFd << ": Connected\n";
+    log_.record(Log::DEBUG, "Server", "Connected fd=" + toString(clientFd)
+                + " remote=" + clientIp);
 }
 
 void	Server::processEvents()
@@ -442,17 +453,20 @@ void Server::checkClientTimeouts()
     {
         if (it->second->headerDeadlineExpired())
         {
-            std::cout << "Client " << it->first << ": header deadline expired\n";
+            log_.record(Log::WARN, "Connection", "fd=" + toString(it->first)
+                        + " header deadline expired");
             timedOutFds.push_back(it->first);
         }
         else if (it->second->bodyDeadlineExpired())
         {
-            std::cout << "Client " << it->first << ": body deadline expired\n";
+            log_.record(Log::WARN, "Connection", "fd=" + toString(it->first)
+                        + " body deadline expired");
             timedOutFds.push_back(it->first);
         }
         else if (it->second->clientHasTimedOut())
         {
-            std::cout << "Client " << it->first << ": idle timeout\n";
+            log_.record(Log::DEBUG, "Connection", "fd=" + toString(it->first)
+                        + " idle timeout");
             timedOutFds.push_back(it->first);
         }
     }
@@ -461,15 +475,25 @@ void Server::checkClientTimeouts()
 
 void Server::runServer()
 {
-    while (!shutdownRequested_)
+    try
     {
-        int ready = poll(&poll_fds_[0], poll_fds_.size(), POLL_TIMEOUT_MS);
-        if (ready < 0)
-            continue ;
-        if (ready > 0)
-            processEvents();
-        checkCgiChildren();
-        checkClientTimeouts();
+        while (!shutdownRequested_)
+        {
+            int ready = poll(&poll_fds_[0], poll_fds_.size(), POLL_TIMEOUT_MS);
+            if (ready < 0)
+                continue ;
+            if (ready > 0)
+                processEvents();
+            checkCgiChildren();
+            checkClientTimeouts();
+            log_.flush();
+        }
     }
-    std::cout << "Server shutdown requested\n";
+    catch (const std::exception &error)
+    {
+        log_.record(Log::ERROR, "Server", std::string("Fatal runtime error: ") + error.what());
+        log_.flush();
+        throw;
+    }
+    log_.record(Log::INFO, "Server", "Server shutdown requested");
 }

@@ -2,9 +2,11 @@
 # define ROUTER_HPP
 # include <string>
 # include <map>
+# include <vector>
 
 class Response;
 class Request;
+class Log;
 struct ServerConfig;
 struct LocationConfig;
 
@@ -33,7 +35,7 @@ struct CgiInfo
 class Router
 {
     public:
-        Router(ServerConfig &config);
+        Router(ServerConfig &config, Log &log);
         ~Router();
         RouteType routeRequest(const Request& request, Response& response, CgiInfo &cgiInfo);
         LocationConfig *findLocation(const std::string &path);
@@ -63,6 +65,7 @@ class Router
         std::vector<std::string> listDirectoryEntries(const std::string &directoryPath);
         RouteType routeRedirect(const Request& request, Response& response, int returnCode, const std::string &target);
         ServerConfig &config_;
+        Log &log_;
 };
 
 
