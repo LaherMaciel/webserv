@@ -6,6 +6,7 @@ objects/
 # Binary
 webserv
 /webserv.log
+/www/upload/webserv-upload-test-*.bin
 
 # macOS
 .DS_Store
