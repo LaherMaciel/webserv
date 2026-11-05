@@ -47,7 +47,8 @@ class RequestParser
         int     copyByLength(std::map<std::string, std::string> header, Request &request);
         int     copyByChunks(std::map<std::string, std::string> header, Request &request);
         void    parseRequestLine(Request &request);
-        void    validateRequestLine(const std::string &method, const std::string &path, const std::string &version);
+        void    validateMethod(const std::string &method);
+        void    validateVersion(const std::string &version);
         void    parseHeaderLine(const std::string &line, std::map<std::string, std::string> &headers);
 };
 

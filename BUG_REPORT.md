@@ -29,7 +29,7 @@ from reading the code.
 | N1 | Unbounded `in_buffer_` on the chunked framing path — `client_max_body_size` bypassed | High | **FIXED** |
 | N2 | Startup warning claims multiple ports are not wired up, but they are | Cosmetic | **FIXED** |
 | D1 | DELETE could remove any file under `root` when a location had no `upload_store` | High | **FIXED** |
-| BR1 | Unsupported methods return 400 instead of 501 (`curl -I` → 400) | Medium | **OPEN** |
+| BR1 | Unsupported methods return 400 instead of 501 (`curl -I` → 400) | Medium | **FIXED** |
 | BR2 | Autoindex links are HTML-escaped but not percent-encoded | Medium | **OPEN** |
 | BR3 | No `Date` header on responses (RFC 9110 requires it on 2xx) | Low | **OPEN** |
 | BR4 | Every duplicate header is rejected with 400 | Deliberate | **OPEN** |
@@ -923,7 +923,7 @@ block accepted; `If-Modified-Since`, `If-None-Match`, `Range`, `Cookie` and `Ref
 (ignored, which is legal — we advertise no `Accept-Ranges` and no validators); `/favicon.ico` 404s
 cleanly; `Content-Length` and `Content-Type` always present.
 
-### BR1 — Unsupported methods return 400, should be 501
+### BR1 — Unsupported methods return 400, should be 501  **[FIXED]**
 
 ```
 HEAD -> 400    OPTIONS -> 400    PUT -> 400    PATCH -> 400
@@ -937,8 +937,13 @@ request was malformed, which `HEAD / HTTP/1.1` is not.
 Why it matters beyond conformance: **`curl -I` sends `HEAD`**, and a grader will type `curl -I`
 early. Getting 400 reads as "the parser is broken" rather than "HEAD is out of scope".
 
-The distinction to preserve when fixing: a syntactically invalid method token (lowercase `get`, a
-token with control characters) stays 400; a well-formed method we do not implement becomes 501.
+**Fix applied:** method-token syntax is validated separately from server support. A malformed token
+such as `GE(T` returns 400; valid but unsupported tokens such as `HEAD`, `PATCH`, lowercase `get`,
+and `FROBNICATE` return 501. Supported methods rejected by a location still return 405.
+
+HTTP-version syntax and support are now separated in the same way: malformed versions return 400,
+while syntactically valid unsupported versions such as `HTTP/2.0` return 505. Verified that an
+unsupported method sent using HTTP/1.0 receives an HTTP/1.0 501 response.
 
 ### BR2 — Autoindex links are HTML-escaped but not percent-encoded
 

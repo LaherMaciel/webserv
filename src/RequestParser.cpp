@@ -28,20 +28,31 @@ void RequestParser::reset()
     rawHeaders_.clear();
 }
 
-void RequestParser::validateRequestLine(const std::string &method, const std::string &path, const std::string &version)
+void RequestParser::validateMethod(const std::string &method)
 {
+    const std::string tokenSymbols = "!#$%&'*+-.^_`|~";
+
+    if (method.empty())
+        throw 400;
+    for (size_t i = 0; i < method.size(); ++i)
+    {
+        unsigned char c = static_cast<unsigned char>(method[i]);
+        if (!std::isalnum(c) && tokenSymbols.find(method[i]) == std::string::npos)
+            throw 400;
+    }
     if (method != "GET" && method != "POST" && method != "DELETE")// add all the methods allowed by HTTP/1.1
-    {
+        throw 501;
+}
+
+void RequestParser::validateVersion(const std::string &version)
+{
+    if (version.size() != 8 || version.compare(0, 5, "HTTP/") != 0
+        || !std::isdigit(static_cast<unsigned char>(version[5]))
+        || version[6] != '.'
+        || !std::isdigit(static_cast<unsigned char>(version[7])))
         throw 400;
-    }
-    if (path.empty() || path[0] != '/')
-    {
-        throw 400;
-    }
     if (version != "HTTP/1.1" && version != "HTTP/1.0")
-    {
-        throw 400;
-    }
+        throw 505;
 }
 
 bool RequestParser::validateRequestTarget(const std::string &target)
@@ -116,18 +127,21 @@ void RequestParser::parseRequestLine(Request &request)
         throw 400;
     }
     std::string requestTarget = rawRequestLine_.substr(first_space + 1, second_space - (first_space + 1));
+    std::string version = rawRequestLine_.substr(second_space + 1);
+    validateVersion(version);
+    request.setVersion(version);
     if (!validateRequestTarget(requestTarget))
     {
         throw 400;
     }
-    std::string version = rawRequestLine_.substr(second_space + 1);
     std::string query = parseQuery(requestTarget);
     requestTarget = percentDecode(requestTarget);
-    validateRequestLine(method, requestTarget, version);
+    validateMethod(method);
+    if (requestTarget.empty() || requestTarget[0] != '/')
+        throw 400;
     request.setMethod(method);
     request.setPath(requestTarget);
     request.setQuery(query);
-    request.setVersion(version);
 }
 
 void RequestParser::parseHeaderLine(const std::string &line, std::map<std::string, std::string> &headers)
