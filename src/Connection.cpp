@@ -314,7 +314,12 @@ void Connection::processRequestBody()
         parser_.parseRequestBody(in_buffer_, request_);
         in_buffer_.erase(0, parser_.endOfBody_);
         if (!request_.getIsBodyComplete())
+        {
+            if (parser_.getMaxBodySize() != 0
+                && in_buffer_.size() > parser_.getMaxBodySize() + MAX_HEADER_SIZE)
+                throw 413;
             return ;
+        }
         state_ = CONN_READY_TO_ROUTE;
     }
     catch(int error)

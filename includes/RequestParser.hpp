@@ -29,6 +29,7 @@ class RequestParser
         void    parseRequest(const std::string &raw_request, Request &request);
         void    parseHeader(Request &request);
         void    setMaxBodySize(size_t maxBodySize);
+        size_t  getMaxBodySize() const;
         void    reset();
 
     private:

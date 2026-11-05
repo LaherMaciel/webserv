@@ -14,6 +14,11 @@ void RequestParser::setMaxBodySize(size_t maxBodySize)
     maxBodySize_ = maxBodySize;
 }
 
+size_t RequestParser::getMaxBodySize() const
+{
+    return maxBodySize_;
+}
+
 void RequestParser::reset()
 {
     endOfHeaders_ = 0;
@@ -325,13 +330,13 @@ int RequestParser::parseRequestBody(const std::string &raw_request, Request &req
     rawRequestLine_ = raw_request;
     std::map<std::string, std::string> header = request.getHeaders();
     std::map<std::string, std::string>::iterator chunked = header.find("transfer-encoding");
-    std::map<std::string, std::string>::iterator lenght = header.find("content-length");
+    std::map<std::string, std::string>::iterator length = header.find("content-length");
 
-    if (chunked != header.end() && lenght != header.end())
+    if (chunked != header.end() && length != header.end())
         throw 400;
     if (chunked != header.end())
         return (copyByChunks(header, request));
-    if (lenght != header.end())
+    if (length != header.end())
         return (copyByLength(header, request));
     request.setIsBodyComplete(true);
     return (0);

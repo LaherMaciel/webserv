@@ -265,15 +265,13 @@ void Router::removeFile(const std::string &filePath)
 
 RouteType Router::routeDelete(const Request& request, const LocationConfig *location, Response& response)
 {
-    std::string filePath;
-    if (!location->uploadStore_.empty())
-        filePath = mapUploadPath(location, request.getPath());
-    else
-        filePath = mapRootPath(request.getPath(), location);
+    if (location->uploadStore_.empty())
+        throw 403;
+    std::string filePath = mapUploadPath(location, request.getPath());
     if (filePath.empty())
         throw 403;
     removeFile(filePath);
-    response = Response(200, request.getVersion(), "DELETE request received", "text/plain");
+    response = Response(200, request.getVersion(), "File deleted\n", "text/plain");
     return ROUTE_DELETE;
 }
 
