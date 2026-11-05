@@ -256,7 +256,11 @@ ConnectionStatus Connection::handleRequest()
         parser_.parseRequestBody(in_buffer_, request_, listener_->maxBodySizeLimit_);
         in_buffer_.erase(0, parser_.endOfBody_);
         if (!request_.getIsBodyComplete())
+        {
+            if (in_buffer_.size() > listener_->maxBodySizeLimit_ + MAX_HEADER_SIZE)
+                throw 413;
             return WAIT_FOR_MORE;
+        }
         state_ = CONN_READY_TO_ROUTE;
     }
     catch(int error)

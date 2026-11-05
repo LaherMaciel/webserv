@@ -26,8 +26,13 @@ from reading the code.
 | B8 | Dead declarations left by the merge | Cosmetic | **FIXED** |
 | B9 | `www/private/` missing, so config advertises an untestable case | Cosmetic | **FIXED** |
 | B10 | Autoindex fixtures exist only on `main` | Housekeeping | **FIXED** |
-| N1 | Unbounded `in_buffer_` on the chunked framing path — `client_max_body_size` bypassed | **High** | **OPEN** |
-| N2 | Startup warning claims multiple ports are not wired up, but they are | Cosmetic | **OPEN** |
+| N1 | Unbounded `in_buffer_` on the chunked framing path — `client_max_body_size` bypassed | High | **FIXED** |
+| N2 | Startup warning claims multiple ports are not wired up, but they are | Cosmetic | **FIXED** |
+| D1 | DELETE could remove any file under `root` when a location had no `upload_store` | High | **FIXED** |
+| BR1 | Unsupported methods return 400 instead of 501 (`curl -I` → 400) | Medium | **OPEN** |
+| BR2 | Autoindex links are HTML-escaped but not percent-encoded | Medium | **OPEN** |
+| BR3 | No `Date` header on responses (RFC 9110 requires it on 2xx) | Low | **OPEN** |
+| BR4 | Every duplicate header is rejected with 400 | Deliberate | **OPEN** |
 
 ---
 
@@ -584,9 +589,9 @@ the test data for B3, since their filenames are exactly the ones that need perce
 
 ---
 
-## N1 — Unbounded `in_buffer_` on the chunked framing path
+## N1 — Unbounded `in_buffer_` on the chunked framing path  **[FIXED]**
 
-**Severity: High — OPEN.** One connection drives RSS to over 1 GB. Found by NEMESIS in the new
+**Severity: High.** One connection drives RSS to over 1 GB. Found by NEMESIS in the new
 B4/B5 code, reproduced independently here.
 
 ### Reproduction
@@ -661,14 +666,132 @@ parser takes its `return (-1)` before any limit check executes, so a check added
 mistake made during the original chunked 413 work: a correct check placed after an early return
 never runs.
 
-Suggested shape: once the body is incomplete and `in_buffer_.size()` exceeds
-`listener_->maxBodySizeLimit_` plus a small framing allowance, reject with 413 and close.
+### Fix applied
+
+`src/Connection.cpp:258`, inside the existing `try` so the `throw` becomes a response:
+
+```cpp
+        if (!request_.getIsBodyComplete())
+        {
+            if (in_buffer_.size() > listener_->maxBodySizeLimit_ + MAX_HEADER_SIZE)
+                throw 413;
+            return WAIT_FOR_MORE;
+        }
+```
+
+Three deliberate choices:
+
+- **In `handleRequest()`, not `readFromSocket()`.** The appending happens in `readFromSocket`, but
+  it returns `int` and has no `try` — a throw there escapes to `main`. `handleRequest()` runs after
+  every read and already has the `catch(int error)` that turns `413` into a response. It is also
+  *after* `in_buffer_.erase(0, parser_.endOfBody_)`, so the measurement counts only genuinely
+  unparsed bytes.
+- **Only while the body is incomplete.** A complete request is about to be routed and drained;
+  capping it would be wrong. The attack is defined by the buffer growing while the body never
+  completes, so that is the condition tested.
+- **`+ MAX_HEADER_SIZE` as the framing allowance.** `in_buffer_` legitimately holds an entire
+  announced chunk before `getChunkIndex` accepts it, so on `/upload` it honestly reaches 5,000,000
+  bytes. The allowance covers the chunk-size line, extensions and the trailer section on top.
+  Trailers *are* headers, so reusing the 8192 header budget is consistent rather than a new magic
+  number.
+
+### Verification
+
+Both attack variants, 20 MB offered:
+
+| Variant | Port | Bytes accepted | Peak RSS | Response |
+|---|---|---|---|---|
+| Unterminated chunk-size line | 8081 (limit 100) | 0.06 MB | **1.9 MB** | 413 |
+| Never-terminating trailer | 8081 (limit 100) | 0.06 MB | **1.9 MB** | 413 |
+| Unterminated chunk-size line | 8080 (limit 5 MB) | 4.81 MB | 280.5 MB | 413 |
+| Never-terminating trailer | 8080 (limit 5 MB) | 4.84 MB | 287.3 MB | 413 |
+
+Was 1141.6 MB and still climbing; now bounded and refused. On the 100-byte server the attack is
+dead on arrival — 60 KB absorbed instead of 20 MB.
+
+**Regression — legitimate chunked uploads still work:**
+
+```
+one chunk of    1 024 bytes -> 201 Created
+one chunk of 4 194 304 bytes -> 201 Created
+one chunk of 4 900 000 bytes -> 201 Created   (just under the 5 MB limit)
+one chunk of 6 291 456 bytes -> 413           (over it, as intended)
+```
+
+Full suite re-run: **51/51**.
+
+### Residual, stated honestly
+
+On the 5 MB listener the peak RSS is still ~280 MB for a single attacker, because `std::string`
+reallocation copies while growing toward the 5 MB cap and the allocator does not return freed
+blocks immediately. This is **bounded and stable**, not a leak — three rounds of 20 concurrent
+attackers each offering 8 MB gave peaks of 516, 481 and 413 MB with no upward trend, the server
+kept answering 200 throughout, and fds stayed at 9.
+
+So the amplification is proportional to the configured limit rather than to what the attacker
+sends, which is the property that matters.
+
+**Independently re-verified, and my first reading corrected.** A second pass pushed past my
+20-attacker ceiling and ran six consecutive rounds of 100 attackers with no pause:
+
+```
+x20  peak 518 MB   fds  28   live 200
+x60  peak 747 MB   fds  68   live 200
+x128 peak 822 MB   fds 136   live 503   <- the connection cap is the real ceiling
+6 rounds x100, no pause: 983, 921, 804, 782, 912, 841 MB  -> no upward trend
+```
+
+The apparent upward trend in my own three-round sample was **noise**; it does not continue over six
+rounds, which oscillate around ~870 MB. `leaks` reported 0 leaks / 0 bytes at the end. The bound
+holds: total memory is capped by `MAX_CONNECTIONS x client_max_body_size` plus allocator overhead,
+and the connection cap caps the attacker count — at 128 the server answers 503 rather than growing.
+
+**One nuance to be ready for at the defence.** Settled RSS does *not* return to baseline after an
+attack — 100-445 MB was observed with zero attackers still connected — because the process allocator
+retains freed pages rather than returning them to the OS. `leaks` 0 bytes and fds back to 8 confirm
+retention and fragmentation, not a leak. A grader watching `top` may see webserv sitting at a few
+hundred MB afterwards and ask about it. The answer is "freed, not leaked — the allocator has not
+returned the pages to the OS", and `leaks` is the evidence.
+
+**Pushed further, since 20 attackers is not proof.** Shipped config (`/upload` limit 5 MB), each
+attacker offering 8 MB of unterminated chunk-size line:
+
+| Concurrent attackers | Peak RSS | Settled after | Server still serving? |
+|---|---|---|---|
+| 20 | 514.5 MB | 368.7 MB | yes, 200 |
+| 60 | 749.6 MB | 310.5 MB | yes, 200 |
+| 128 (the connection cap) | **1327.3 MB** | 221.1 MB | yes, 200 |
+
+fds stayed at 9 throughout. So it does grow with attacker count — sub-linearly, because the
+connection cap serialises it and the allocator reuses freed blocks — and tops out around 1.3 GB at
+the 128-connection ceiling. Survivable and bounded by design: the worst case is
+`MAX_CONNECTIONS x client_max_body_size` of buffer, roughly 640 MB here, with realloc overhead
+taking the peak to about 2x that.
+
+**The limit is therefore a per-connection memory budget, not just a request-size rule.** Tested
+explicitly with `client_max_body_size 100000000` on `/upload`: a single attacker offering 12 MB is
+simply *accepted and buffered*, with no 413 at all, because 12 MB is under the configured 100 MB —
+peak RSS 754 MB for one connection, 1068 MB for 20. That is the config asking for it, not a bug,
+but it is the reason not to set a large limit casually.
+
+### Optional hardening (not applied)
+
+The cap charges *framing* bytes against the *body* budget, so the effective framing allowance is
+the whole body limit rather than `MAX_HEADER_SIZE`. A tighter version would have `RequestParser`
+record how many bytes it is actually still waiting for — the remainder of an announced chunk, or
+zero when it is waiting for a chunk-size line or trailer — and `Connection` would cap at
+`pendingBytes_ + MAX_HEADER_SIZE`.
+
+Under that scheme the unterminated-size-line attack dies at 8 KB instead of 5 MB, while a
+legitimate 5 MB chunk mid-arrival is unaffected, because the parser declares what it needs. It
+costs one parser member and two assignments. Worth doing if the 1.3 GB figure above is considered
+too high; the current fix already closes the unbounded hole, which was the actual bug.
 
 ---
 
-## N2 — Startup warning claims multiple ports are not wired up, when they are
+## N2 — Startup warning claims multiple ports are not wired up, when they are  **[FIXED]**
 
-**Severity: Cosmetic — OPEN.** But it misrepresents the project to anyone reading the terminal.
+**Severity: Cosmetic.** But it misrepresents the project to anyone reading the terminal.
 
 `src/main.cpp:52-56` prints, for any config with more than one server block:
 
@@ -688,9 +811,166 @@ server 3   :8081  POST 200 bytes         413   (its own client_max_body_size 100
 listening sockets: 127.0.0.1:8080, 127.0.0.1:8081
 ```
 
-Nothing is ignored. The warning should be deleted — it invites exactly the wrong conclusion at
-defence, and it already misled NEMESIS, which recorded "only configs[0] is served" as a known gap
-on the strength of this message alone.
+Nothing is ignored. It invites exactly the wrong conclusion at defence, and it already misled the
+adversarial agent, which recorded "only configs[0] is served" as a known project gap on the
+strength of this message alone.
+
+### Fix applied
+
+The whole block removed from `src/main.cpp:52-56`:
+
+```cpp
+    if (configs.size() > 1)
+        std::cerr << "warning: " << configs.size() - 1
+            << " server block(s) ignored, multiple ports not wired up yet"
+            << std::endl;
+```
+
+### Verification
+
+```
+startup output mentioning "ignored":  0 occurrences
+
+server 1   :8080  Host: localhost        200
+server 2   :8080  Host: other.local      404   (own root)
+server 3   :8081  GET /                  200
+server 3   :8081  POST 200 bytes         413   (own client_max_body_size 100)
+```
+
+Full suite re-run after the removal: **51/51**.
+
+---
+
+## D1 — DELETE scope: any file under `root` was deletable  **[FIXED]**
+
+**Severity: High.** Latent in the shipped config, one config word away from real.
+
+`DELETE` fell back to `mapRootPath()` whenever a location had no `upload_store`, giving it the same
+reach as `GET` — anywhere under `root`, at any depth. Built commit `cfca097` in a separate worktree
+to measure it rather than assume it, against a config with `location /` set to
+`allowed_methods GET DELETE` and no `upload_store`:
+
+| Binary | `DELETE /index.html` | `DELETE /config.bak` | Files after |
+|---|---|---|---|
+| Before (`cfca097`) | **200 OK** | **200 OK** | **both destroyed** |
+| After | **403 Forbidden** | **403 Forbidden** | both intact, `GET` still 200 |
+
+**Fix:** `src/Router.cpp:270` — the `mapRootPath` fallback removed; `DELETE` now requires
+`upload_store` and goes through `mapUploadPath()`, which confines it to one flat filename inside
+that directory. Policy in one sentence: *you may delete only what you could have uploaded.*
+
+18/18 targeted tests, full suite 51/51. **Full write-up — what, why, how, where, trade-offs — in
+`DELETE_SCOPE.md`.**
+
+---
+
+## Browser-realistic testing
+
+Run with the complete Chrome 131 header set (14 headers), socket reuse, and the request patterns a
+real browser produces. Three real findings, plus two of my own harness errors worth recording so
+nobody re-chases them.
+
+**What held:** five resources fetched over **one** kept-alive connection; the full Chrome header
+block accepted; `If-Modified-Since`, `If-None-Match`, `Range`, `Cookie` and `Referer` all tolerated
+(ignored, which is legal — we advertise no `Accept-Ranges` and no validators); `/favicon.ico` 404s
+cleanly; `Content-Length` and `Content-Type` always present.
+
+### BR1 — Unsupported methods return 400, should be 501
+
+```
+HEAD -> 400    OPTIONS -> 400    PUT -> 400    PATCH -> 400
+TRACE -> 400   CONNECT -> 400    FROBNICATE -> 400
+```
+
+`src/RequestParser.cpp:21` rejects anything outside `GET`/`POST`/`DELETE` with 400.
+RFC 9110 §15.6.2: a method the server does not support is **501 Not Implemented**. 400 means the
+request was malformed, which `HEAD / HTTP/1.1` is not.
+
+Why it matters beyond conformance: **`curl -I` sends `HEAD`**, and a grader will type `curl -I`
+early. Getting 400 reads as "the parser is broken" rather than "HEAD is out of scope".
+
+The distinction to preserve when fixing: a syntactically invalid method token (lowercase `get`, a
+token with control characters) stays 400; a well-formed method we do not implement becomes 501.
+
+### BR2 — Autoindex links are HTML-escaped but not percent-encoded
+
+Escaping is correct for HTML (`&lt;script&gt;`, `a &amp; b`, `quote&quot;test`) — the XSS defence
+holds. But the `href` is never **percent**-encoded, so any filename containing a character that is
+structural in a URL produces a broken link:
+
+```
+file "hash#tag.txt"   href emitted as hash#tag.txt    browser splits at '#' -> 400
+file "query?x.txt"    href emitted as query?x.txt     browser splits at '?' -> 404
+same two, percent-encoded as hash%23tag.txt / query%3Fx.txt            -> 200, 200
+```
+
+The server can serve both files perfectly; only the generated link is wrong. nginx percent-encodes
+hrefs and HTML-escapes the link text separately, which is the correct split: `%23` in the attribute,
+`#` in what the user reads.
+
+### BR3 — No `Date` header (and no `Server`, no `Connection`)
+
+A plain 200 carries exactly:
+
+```
+HTTP/1.1 200 OK
+Content-Length: 326
+Content-Type: text/html
+```
+
+RFC 9110 §6.6.1: an origin server **MUST** send `Date` on 2xx responses unless it has no clock.
+`Server` is optional. `Connection` is optional for a persistent HTTP/1.1 response (persistence is
+the default), and `Connection: close` *is* already sent where it matters, such as on 413 — so only
+`Date` is an actual requirement.
+
+### BR4 — Every duplicate header is rejected with 400
+
+```
+duplicate Accept-Encoding -> 400
+duplicate X-Forwarded-For -> 400   (proxies legitimately append these)
+duplicate Cookie          -> 400   (HTTP/2 -> HTTP/1.1 downgrade splits cookies)
+```
+
+`src/RequestParser.cpp:116` rejects any repeated field name. For `Host` and `Content-Length` this is
+exactly right and is a request-smuggling defence worth keeping. For list-valued fields RFC 9110
+§5.3 permits repetition with comma-concatenation, so this is stricter than the spec.
+
+**Listed as deliberate rather than broken.** Being stricter is the safe direction, and no browser
+sends duplicates directly to an origin server. It only bites behind a proxy, which is out of scope
+here. Worth being able to say out loud that it is a choice, not an oversight.
+
+### Two harness errors of mine, recorded so they are not re-chased
+
+1. **"3 autoindex links return 404/400."** False. I fed the HTML-escaped text straight back as a URL.
+   Following the links the way a browser does — decode entities, then percent-encode — all six
+   resolve:
+
+```
+href="&lt;script&gt;.txt"    -> requests %3Cscript%3E.txt     -> 200
+href="a &amp; b.txt"         -> requests a%20%26%20b.txt      -> 200
+href="quote&quot;test.txt"   -> requests quote%22test.txt     -> 200
+href="alpha.txt" / "zeta.txt" / "subdir/"                     -> 200
+```
+
+2. **"`Accept-Encoding: gzip` returns 400."** False. My harness appended it to a header set that
+   already contained `Accept-Encoding`, so BR4 fired. A single `Accept-Encoding` is fine.
+
+### NGINX comparison — blocked, not done
+
+`nginx` is not installed on this machine (`nginx not found`, nothing in `/opt/homebrew/bin` or
+`/usr/local/bin`), so the side-by-side binary comparison the subject asks for has **not** been run.
+Installing it is a change to the machine and needs your say-so:
+
+```
+brew install nginx
+```
+
+What the comparison should cover once it is installed, in priority order: the `Date`/`Server`/
+`Connection` header set (BR3), autoindex href encoding (BR2), the status code for an unsupported
+method (BR1), `%2f` in a path (we decode it to a separator, nginx rejects it by default), a trailing
+root dot in `Host` (we fall to default, nginx matches), and the chunked-trailer and duplicate-header
+handling. The behaviours above were each checked against the RFC text instead, which is weaker
+evidence than two servers answering the same request.
 
 ---
 
@@ -804,7 +1084,7 @@ this is correct, but it is the kind of thing worth being able to explain rather 
 
 ---
 
-## Fix report — all 10 closed
+## Fix report — all 12 closed
 
 | ID | Severity | Files touched | Verified by |
 |----|----------|---------------|-------------|
@@ -818,6 +1098,8 @@ this is correct, but it is the kind of thing worth being able to explain rather 
 | B8 | Cosmetic | `includes/Connection.hpp` | rebuilds clean |
 | B9 | Cosmetic | `www/private/secret.txt` (new) | `/private/` now 403, was 404 |
 | B10 | Housekeeping | branch state | `ce8a96b..a23336a` fast-forward; escaping test runnable |
+| N1 | High | `src/Connection.cpp:258` | both attacks 413; 20 MB offered absorbs 0.06 MB on the 100-byte server; legit 1 KB/4 MB/4.9 MB uploads still 201 |
+| N2 | Cosmetic | `src/main.cpp:52-56` | warning gone; all three server blocks proven live |
 
 ### Full regression run after all fixes
 
@@ -881,6 +1163,22 @@ latency. Time to first byte is 4.55s against a `CGI_TIMEOUT_SECONDS` of 5. Recor
 retraction is the useful part — a timeout measured from the wrong side of the socket looks like a
 server fault.
 
+**Vhost selection under hostile Host headers — tested, sound.** This was the open question left by
+the N2 premise. With `localhost` → 200 (391 bytes) and `other.local` → 404 (550 bytes), the two
+vhosts are distinguishable, so selection is observable:
+
+| `Host:` | Selected |
+|---|---|
+| `other%2elocal`, `other%2Elocal` | server 1 (default) — correctly **not** percent-decoded |
+| `OTHER.LOCAL` | server 2 — case-insensitive match works |
+| `other.local:8080` | server 2 — port correctly stripped |
+| `other.local `, ` other.local` | server 2 — surrounding whitespace trimmed per RFC 9112 |
+| `other.local%00`, `other.local\0` (literal NUL), `localhost%00other.local` | server 1 (default) — no crash, no truncation match |
+| `other.local\tx`, `evil.com` | server 1 (default) |
+
+**Nothing selected the wrong vhost.** One harmless deviation: `other.local.` (trailing root dot)
+falls to the default server where nginx would match it. Browsers do not send it.
+
 **One caveat that resolved itself.** The Host-header decoding tests came with the honest note that
 both cases land on the default server anyway, "so it can't demonstrate vhost confusion until
 multiple ports are wired up". That premise came from the stale warning in N2. Multiple ports *are*
@@ -888,9 +1186,14 @@ wired up, so the vhost path is real and `other.local` does resolve to its own ro
 specific question of whether an encoded Host could be made to select the *wrong* vhost is still
 untested, and now testable.
 
-**Mode 2 (the knowledge interrogation for defence prep) is blocked while N1 is open.** When N1 is
-fixed, only the two N1 reproductions plus the Content-Length contrast need re-running, not the full
-suite.
+**Mode 2 has been run.** The adversarial agent hit its session limit immediately after N1 was fixed;
+after it resumed, it re-verified both fixes independently, failed to falsify the memory bound over
+six rounds of 100 attackers, and confirmed the vhost findings exactly. Its Mode 2 output is a
+five-question interrogation covering percent-decode ordering, the single-decode-pass safety of
+`%252e`, why the N1 cap lives in `Connection` rather than the parser, why `CONN_NEW` had to be a
+separate state, and `client_max_body_size` as a per-connection memory budget. **The questions, why
+each matters live, and the answers are in `DEFENCE_PREP.md`** — questions first, answers in a
+separate half so they can be used as a self-test.
 
 ---
 
@@ -927,4 +1230,4 @@ your assets, not generated files, so deleting them is your call, not a cleanup d
 - **CGI output cap**: 2 MB of CGI output returns 500 (`CGI_OUTPUT_TOO_LARGE`). Bounded and safe,
   but large CGI output fails rather than streaming. Worth a deliberate decision on the cap value
   rather than leaving it as an accident.
-- N1 and N2 above are open.
+- Mode 2 (defence-prep interrogation) has not been run.
