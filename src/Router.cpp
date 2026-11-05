@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fstream>
+#include <cstdio>
 #include <cerrno>
 #include <dirent.h>
 
@@ -251,7 +252,11 @@ EROFS: the filesystem is read-only.
  */
 void Router::removeFile(const std::string &filePath)
 {
-    if (unlink(filePath.c_str()) == 0)
+    struct stat fileInfo;
+    getPathInfo(filePath, fileInfo, 404);
+    if (!S_ISREG(fileInfo.st_mode))
+        throw 403;
+    if (std::remove(filePath.c_str()) == 0)
         return ;
     int error = errno;
     if (error == EACCES || error == EPERM || error == EROFS || error == EISDIR)

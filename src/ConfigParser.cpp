@@ -246,6 +246,48 @@ static void checkDuplicates(const std::vector<Directive> &directives)
     }
 }
 
+static void checkVirtualHostConflicts(const std::vector<ServerConfig> &configs)
+{
+    for (size_t i = 0; i < configs.size(); ++i)
+    {
+        for (size_t first = 0; first < configs[i].serverName_.size(); ++first)
+        {
+            for (size_t second = first + 1;
+                 second < configs[i].serverName_.size(); ++second)
+            {
+                if (toLower(configs[i].serverName_[first])
+                    == toLower(configs[i].serverName_[second]))
+                    throw std::runtime_error("config: server_name "
+                        + quoteValue(configs[i].serverName_[second])
+                        + " appears more than once in server block on "
+                        + configs[i].host_ + ":" + toString(configs[i].port_));
+            }
+        }
+        for (size_t j = i + 1; j < configs.size(); ++j)
+        {
+            if (configs[i].host_ != configs[j].host_
+                || configs[i].port_ != configs[j].port_)
+                continue ;
+            if (configs[i].serverName_.empty() && configs[j].serverName_.empty())
+                throw std::runtime_error("config: multiple unnamed server blocks on "
+                    + configs[i].host_ + ":" + toString(configs[i].port_));
+            for (size_t first = 0;
+                 first < configs[i].serverName_.size(); ++first)
+            {
+                for (size_t second = 0;
+                     second < configs[j].serverName_.size(); ++second)
+                {
+                    if (toLower(configs[i].serverName_[first])
+                        == toLower(configs[j].serverName_[second]))
+                        throw std::runtime_error("config: duplicate virtual host "
+                            + quoteValue(configs[j].serverName_[second]) + " on "
+                            + configs[i].host_ + ":" + toString(configs[i].port_));
+                }
+            }
+        }
+    }
+}
+
 std::vector<ServerConfig> parseConfig(const std::string &path)
 {
     std::vector<ServerConfig>   configs;
@@ -292,5 +334,6 @@ std::vector<ServerConfig> parseConfig(const std::string &path)
                 + toString(server.port_) + " has no 'location'");
         configs.push_back(server);
     }
+    checkVirtualHostConflicts(configs);
     return (configs);
 }
