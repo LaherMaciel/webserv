@@ -1,5 +1,18 @@
 #include "Response.hpp"
 #include "webserv.hpp"
+#include <ctime>
+
+static std::string currentHttpDate()
+{
+    std::time_t now = std::time(NULL);
+    std::tm *utc = std::gmtime(&now);
+    char buffer[30];
+
+    if (!utc || std::strftime(buffer, sizeof(buffer),
+                              "%a, %d %b %Y %H:%M:%S GMT", utc) == 0)
+        return "";
+    return buffer;
+}
 
 Response::Response() : statusCode_(500), version_("HTTP/1.1"), body_("")
 {
@@ -124,8 +137,19 @@ std::string Response::serialize() const
     //1) HTTP-Version SP Status-Code SP Reason-Phrase \r\n
     std::string response = version_ + " " + toString(statusCode_) + " " + reasonPhrase_ + "\r\n";
     //2) Headers
+    bool hasDate = false;
     for (std::map<std::string, std::string>::const_iterator it = headers_.begin(); it != headers_.end(); ++it)
+    {
+        if (toLower(it->first) == "date")
+            hasDate = true;
         response += it->first + ": " + it->second + "\r\n";
+    }
+    if (!hasDate)
+    {
+        std::string date = currentHttpDate();
+        if (!date.empty())
+            response += "Date: " + date + "\r\n";
+    }
     //3) Blank line
     response += "\r\n";
     //4) Body (if any)

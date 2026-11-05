@@ -336,6 +336,34 @@ static std::string htmlEscape(const std::string &value)
     return result;
 }
 
+static bool isUrlUnreserved(unsigned char c)
+{
+    return (c >= 'A' && c <= 'Z')
+        || (c >= 'a' && c <= 'z')
+        || (c >= '0' && c <= '9')
+        || c == '-' || c == '.' || c == '_' || c == '~';
+}
+
+static std::string urlEncodePathSegment(const std::string &value)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    std::string encoded;
+
+    for (size_t i = 0; i < value.size(); ++i)
+    {
+        unsigned char c = static_cast<unsigned char>(value[i]);
+        if (isUrlUnreserved(c))
+            encoded += static_cast<char>(c);
+        else
+        {
+            encoded += '%';
+            encoded += hex[c >> 4];
+            encoded += hex[c & 0x0F];
+        }
+    }
+    return encoded;
+}
+
 void Router::generateAutoindex(const std::string &directoryPath, Response& response, const Request& request)
 {
     std::vector<std::string> entries = listDirectoryEntries(directoryPath);
@@ -354,10 +382,11 @@ void Router::generateAutoindex(const std::string &directoryPath, Response& respo
         if (stat(fullPath.c_str(), &fileInfo) == -1)
             continue;
         std::string escapedEntry = htmlEscape(entries[i]);
+        std::string encodedEntry = urlEncodePathSegment(entries[i]);
         if (S_ISDIR(fileInfo.st_mode))
-            body += "<li><a href=\"" + escapedEntry + "/\">" + escapedEntry + "/</a></li>";
+            body += "<li><a href=\"" + encodedEntry + "/\">" + escapedEntry + "/</a></li>";
         else
-            body += "<li><a href=\"" + escapedEntry + "\">" + escapedEntry + "</a></li>";
+            body += "<li><a href=\"" + encodedEntry + "\">" + escapedEntry + "</a></li>";
     }
     body += "</ul></body></html>";
     response = Response(200, request.getVersion(), body, "text/html");
