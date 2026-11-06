@@ -132,7 +132,7 @@ bool Response::setDefaultErrorBody()
 
 int Response::getStatusCode() const { return statusCode_; }
 
-std::string Response::serialize() const
+std::string Response::serialize(bool includeBody) const
 {
     //1) HTTP-Version SP Status-Code SP Reason-Phrase \r\n
     std::string response = version_ + " " + toString(statusCode_) + " " + reasonPhrase_ + "\r\n";
@@ -153,6 +153,7 @@ std::string Response::serialize() const
     //3) Blank line
     response += "\r\n";
     //4) Body (if any)
-    response += body_;
+    if (includeBody)
+        response += body_;
     return response;
 }

@@ -239,7 +239,8 @@ void Connection::queueResponse(Response &response)
                     + " status=" + toString(status));
     if (closeAfterResponse_)
         response.setHeader("Connection", "close");
-    out_buffer_ += response.serialize();
+    bool includeBody = request_.getMethod() != "HEAD";
+    out_buffer_ += response.serialize(includeBody);
 }
 
 void Connection::queueErrorResponse(int code, std::string version, std::string body, std::string contentType)

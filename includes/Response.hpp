@@ -24,7 +24,7 @@ class Response
         int getStatusCode() const;
         void setErrorPage(const std::map<int, std::string>&  errorPages);
         bool errorPage();
-        std::string serialize() const;
+        std::string serialize(bool includeBody) const;
 
     private:
         int statusCode_;
