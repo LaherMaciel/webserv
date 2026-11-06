@@ -118,19 +118,8 @@ bool Router::splitCgiPath(CgiInfo &info, const std::string &path, const std::str
     return false;
 }
 
-RouteType Router::routeCgi(const std::string &scriptPath)
+RouteType Router::routeCgi()
 {
-    struct stat fileInfo;
-    if (stat(scriptPath.c_str(), &fileInfo) == -1)
-    {
-        if (errno == EACCES)
-            throw 403;
-        throw 404;
-    }
-    if (!S_ISREG(fileInfo.st_mode))
-        throw 404;
-    if (access(scriptPath.c_str(), R_OK) == -1)
-        throw 403;
     return ROUTE_CGI;
 }
 
@@ -465,7 +454,7 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
     if (!isValidMethod(request.getMethod(), location))
         throw 405;
     if (!location->cgiHandlers_.empty() && buildCgiInfo(cgiInfo, request, location))
-        return routeCgi(cgiInfo.scriptFilesystemPath_);
+        return routeCgi();
     if (request.getMethod() == "POST")
         return routePost(request, location, response);
     if (request.getMethod() == "DELETE")

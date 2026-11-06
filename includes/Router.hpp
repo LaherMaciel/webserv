@@ -43,7 +43,7 @@ class Router
         bool isValidMethod(const std::string &method, const LocationConfig *location);
         bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
         bool buildCgiInfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
-        RouteType routeCgi(const std::string &scriptPath);
+        RouteType routeCgi();
         RouteType routePost(const Request& request, const LocationConfig *location, Response& response);
         RouteType routeUpload(const Request& request, const LocationConfig *location, Response& response);
         void writeToFile(const std::string &uploadPath, const std::string &body);
