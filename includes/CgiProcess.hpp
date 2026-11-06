@@ -10,7 +10,7 @@
 #include <ctime>
 
 #define CGI_MAX_OUTPUT (128 * 1024 * 1024)
-#define CGI_TIMEOUT_SECONDS 30
+#define CGI_TIMEOUT_SECONDS 10
 
 enum CgiReadStatus
 {

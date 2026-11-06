@@ -237,10 +237,7 @@ int RequestParser::copyByLength(std::map<std::string, std::string> header, Reque
     size_t missing = n - request.getBody().size();
     std::string newBody = rawRequestLine_.substr(0, missing);
     request.appendToBody(newBody);
-    /* size_t bodyEnd = rawRequestLine_.find("\r\n\r\n");
-    if (bodyEnd == std::string::npos)
-        return (-1); */
-    std::string body = request.getBody();
+    const std::string &body = request.getBody();
     endOfBody_ = newBody.size();
     if (body.size() != n)
     {
