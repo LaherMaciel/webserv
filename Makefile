@@ -81,7 +81,12 @@ run: $(NAME)
 	./$(NAME) $(ARG)
 
 val: $(NAME)
-	valgrind ./$(NAME) $(ARG)
+	valgrind --leak-check=full \
+  	--show-leak-kinds=all \
+  	--track-origins=yes \
+  	--track-fds=yes \
+  	--trace-children=yes \
+  	./$(NAME) $(ARG)
 
 macleaks: $(NAME)
 	leaks --atExit -- ./$(NAME) $(ARG)
