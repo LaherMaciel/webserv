@@ -415,7 +415,7 @@ RouteType Router::routeDirectory(const Request& request, const std::string &dire
             throw e;
     }
     if (!location->autoindex_)
-        throw 403;
+        throw 404;
     generateAutoindex(directoryPath, response, request);
     return ROUTE_STATIC;
 }
