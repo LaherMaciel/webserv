@@ -282,7 +282,8 @@ std::vector<std::string> CgiProcess::buildEnvp(const Request &request, const Cgi
     envp.push_back("GATEWAY_INTERFACE=CGI/1.1");
     envp.push_back("SCRIPT_NAME=" + cgiInfo.scriptUrlPath_);
     envp.push_back("SCRIPT_FILENAME=" + cgiInfo.scriptFilename_);
-    envp.push_back("PATH_INFO=" + cgiInfo.pathInfo_);
+    envp.push_back("PATH_INFO=" + request.getPath());
+    envp.push_back("REQUEST_URI=" + request.getPath());
     envp.push_back("CONTENT_LENGTH=" + toString(request.getBody().size()));
     envp.push_back("SERVER_SOFTWARE=webserv/1.0");
     envp.push_back("SERVER_NAME=" + cgiInfo.serverName_);
