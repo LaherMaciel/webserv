@@ -15,6 +15,7 @@ enum RouteType
     ROUTE_STATIC,
     ROUTE_REDIRECT,
     ROUTE_UPLOAD,
+    ROUTE_POST,
     ROUTE_DELETE,
     ROUTE_CGI,
     ROUTE_ERROR
@@ -41,9 +42,9 @@ class Router
         LocationConfig *findLocation(const std::string &path);
         bool isValidMethod(const std::string &method, const LocationConfig *location);
         bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
-        void completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
-        void validateCgiScript(const std::string &scriptPath);
-        RouteType routeCGI(const Request& request, const LocationConfig *location, CgiInfo &cgiInfo);
+        bool buildCgiInfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
+        RouteType routeCgi(const std::string &scriptPath);
+        RouteType routePost(const Request& request, const LocationConfig *location, Response& response);
         RouteType routeUpload(const Request& request, const LocationConfig *location, Response& response);
         void writeToFile(const std::string &uploadPath, const std::string &body);
         std::string mapUploadPath(const LocationConfig *location, const std::string &urlPath);

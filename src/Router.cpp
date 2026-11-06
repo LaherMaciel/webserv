@@ -118,7 +118,7 @@ bool Router::splitCgiPath(CgiInfo &info, const std::string &path, const std::str
     return false;
 }
 
-void Router::validateCgiScript(const std::string &scriptPath)
+RouteType Router::routeCgi(const std::string &scriptPath)
 {
     struct stat fileInfo;
     if (stat(scriptPath.c_str(), &fileInfo) == -1)
@@ -131,6 +131,7 @@ void Router::validateCgiScript(const std::string &scriptPath)
         throw 404;
     if (access(scriptPath.c_str(), R_OK) == -1)
         throw 403;
+    return ROUTE_CGI;
 }
 
 //for cgi environment vars
@@ -153,7 +154,7 @@ std::string Router::getPrimaryServerName(const std::map<std::string, std::string
     return serverName;
 }
 
-void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
+bool Router::buildCgiInfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
 {
     const std::map<std::string, std::string> &handlers = location->cgiHandlers_;
     bool found = false;
@@ -184,17 +185,11 @@ void Router::completeCGIinfo(CgiInfo &cgiInfo, const Request &request, const Loc
         }
     }
     if (!found)
-        throw 404;
+        return false;
     if (log_.enabled(Log::DEBUG))
         log_.record(Log::DEBUG, "CGI", "script=" + cgiInfo.scriptUrlPath_.substr(0, 256)
                     + " interpreter=" + cgiInfo.interpreterPath_.substr(0, 128));
-}
-
-RouteType Router::routeCGI(const Request& request, const LocationConfig *location, CgiInfo &cgiInfo)
-{
-    completeCGIinfo(cgiInfo, request, location);
-    validateCgiScript(cgiInfo.scriptFilesystemPath_);
-    return ROUTE_CGI;
+    return true;
 }
 
 void Router::writeToFile(const std::string &uploadPath, const std::string &body)
@@ -242,6 +237,14 @@ RouteType Router::routeUpload(const Request& request, const LocationConfig *loca
     response = Response(201, request.getVersion(), "POST request received", "text/plain");
     response.setHeader("Location", request.getPath());
     return ROUTE_UPLOAD;
+}
+
+RouteType Router::routePost(const Request& request, const LocationConfig *location, Response& response)
+{
+    if (!location->uploadStore_.empty())
+        return routeUpload(request, location, response);
+    response = Response(200, request.getVersion(), "POST request received\n", "text/plain");
+    return ROUTE_POST;
 }
  /*
 ENOENT: the file or a path component does not exist.
@@ -459,10 +462,10 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
         return routeRedirect(request, response, location->returnCode_, location->returnTarget_);
     if (!isValidMethod(request.getMethod(), location))
         throw 405;
-    if (!location->cgiHandlers_.empty())
-        return routeCGI(request, location, cgiInfo);
+    if (!location->cgiHandlers_.empty() && buildCgiInfo(cgiInfo, request, location))
+        return routeCgi(cgiInfo.scriptFilesystemPath_);
     if (request.getMethod() == "POST")
-        return routeUpload(request, location, response);
+        return routePost(request, location, response);
     if (request.getMethod() == "DELETE")
         return routeDelete(request, location, response);
     if (request.getMethod() == "GET")
