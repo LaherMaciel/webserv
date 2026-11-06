@@ -156,6 +156,8 @@ std::string Router::getPrimaryServerName(const std::map<std::string, std::string
 
 bool Router::buildCgiInfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location)
 {
+    if (request.getMethod() != "GET" && request.getMethod() != "POST")
+        return false;
     const std::map<std::string, std::string> &handlers = location->cgiHandlers_;
     bool found = false;
     size_t BestExtLength = 0;
