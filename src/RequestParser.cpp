@@ -40,8 +40,11 @@ void RequestParser::validateMethod(const std::string &method)
         if (!std::isalnum(c) && tokenSymbols.find(method[i]) == std::string::npos)
             throw 400;
     }
-    if (method != "GET" && method != "POST" && method != "DELETE")// add all the methods allowed by HTTP/1.1
-        throw 501;
+    if (method == "GET" || method == "HEAD" || method == "POST"
+        || method == "PUT" || method == "DELETE" || method == "CONNECT"
+        || method == "OPTIONS" || method == "TRACE" || method == "PATCH")
+        return;
+    throw 501;
 }
 
 void RequestParser::validateVersion(const std::string &version)
