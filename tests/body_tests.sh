@@ -8,6 +8,8 @@
 #
 # POST_PATH: a side-effect-free route that accepts and echoes POST bodies.
 
+pkill -x webserv 2>/dev/null
+
 HOST=127.0.0.1
 PORT=8080
 BIN=./webserv

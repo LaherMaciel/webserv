@@ -1,5 +1,7 @@
 #!/bin/bash
 
+pkill -x webserv 2>/dev/null
+
 HOST=${HOST:-127.0.0.1}
 PORT=${PORT:-8080}
 BIN=${BIN:-./webserv}
