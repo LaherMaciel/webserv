@@ -256,22 +256,48 @@ Build the server first:
 make
 ```
 
+The CGI tests require the running server's configuration to define a
+`location /cgi-bin` that exposes the included scripts in `www/cgi-bin`.
+The chunked buffer-limit test also expects the two listeners and body limits
+defined by `config/default.conf` on ports 8080 and 8081.
+
 With the server running, examples include:
 
 ```sh
 ./tests/basic_http_tests.sh
 ./tests/cgi_post_test.sh
 ./tests/cgi_env_test.sh
+./tests/cgi_disconnect_test.sh
+./tests/body_tests.sh
+python3 tests/chunked_buffer_limit_test.py
+python3 tests/smoke_test.py
 ./tests/upload_test.sh
 ./tests/delete_test.sh example.txt
 ```
 
-The following lifecycle suites start and stop their own server, so run them
-without another instance bound to the configured ports:
+The smoke test checks both listeners, virtual-host selection,
+static routing, autoindex and redirects, custom errors, status-code precision,
+persistent connections, close policy, and bounded concurrency.
+
+Timeout testing is intentionally separate because it takes approximately 30
+seconds:
 
 ```sh
-./tests/body_tests.sh
+python3 tests/timeout_test.py
+```
+
+The shutdown test also uses the running server, but deliberately sends it
+`SIGTERM`. Run it last:
+
+```sh
 ./tests/cgi_shutdown_test.sh
+```
+
+The descriptor-inheritance suite creates a temporary CGI fixture and
+configuration, so it starts and stops its own server on automatically selected
+ports:
+
+```sh
 python3 tests/cgi_fd_inheritance_test.py ./webserv
 ```
 

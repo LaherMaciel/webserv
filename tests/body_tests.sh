@@ -1,6 +1,6 @@
 #!/bin/bash
 # webserv body / framing tests
-# usage: ./tests/body_tests.sh        (run from the project root)
+# usage: ./tests/body_tests.sh        (requires a running server)
 #
 # These encode the TARGET behaviour, so some will fail until the body parser
 # is done. Each test prints what it expects so a failure tells you which rule
@@ -8,12 +8,9 @@
 #
 # POST_PATH: a side-effect-free route that accepts and echoes POST bodies.
 
-pkill -x webserv 2>/dev/null
-
-HOST=127.0.0.1
-PORT=8080
-BIN=./webserv
-POST_PATH=/cgi-bin/post_echo.py
+HOST=${HOST:-127.0.0.1}
+PORT=${PORT:-8080}
+POST_PATH=${POST_PATH:-/cgi-bin/post_echo.py}
 
 PASS=0
 FAIL=0
@@ -61,16 +58,11 @@ expect_silence() {
     else fail "$1" "no response (server should wait)" "$(echo "$2" | head -1 | tr -d '\r')"; fi
 }
 
-start_server() {
-    pkill -f "$BIN\$" 2>/dev/null; sleep 0.3
-    $BIN > /tmp/webserv_body.log 2>&1 &
-    sleep 1
-    nc -z $HOST $PORT 2>/dev/null || { echo "server not listening on $PORT"; exit 1; }
-}
-stop_server() { pkill -f "$BIN\$" 2>/dev/null; }
-
-start_server
-trap stop_server EXIT
+if ! nc -z "$HOST" "$PORT" 2>/dev/null; then
+    echo "FAIL no server is listening on ${HOST}:${PORT}"
+    echo "Start webserv with a configuration exposing ${POST_PATH}, then rerun this test."
+    exit 1
+fi
 
 GET_ROOT='GET / HTTP/1.1\r\nHost: x\r\n\r\n'
 

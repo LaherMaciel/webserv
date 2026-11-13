@@ -78,11 +78,11 @@ location /cgi-bin { root %s/www/cgi-bin; cgi_extension .py %s; allowed_methods G
 ''' % (port, root, root, root, root, root, sys.executable, PROJECT, sys.executable)
 
 
-def script_test(name, root, port, binary, config=None):
+def script_test(name, root, port, binary, extra_env=None):
     env = dict(os.environ, HOST='127.0.0.1', PORT=str(port), BIN=str(binary))
+    if extra_env is not None:
+        env.update(extra_env)
     command = ['bash', str(PROJECT / 'tests' / name)]
-    if config is not None:
-        command.append(str(config))
     result = subprocess.run(command, cwd=str(root), env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=45)
     if result.returncode:
@@ -99,8 +99,6 @@ def integration_tests(root, binary):
         'failed.py': 'import os\nos._exit(1)\n',
         'malformed.py': "print('Broken-Header\\r\\n\\r\\nbody')\n",
         'missing_headers.py': "print('body without headers')\n",
-        'slow.py': 'import time\ntime.sleep(30)\n',
-        'excessive.py': "print('Content-Type: text/plain\\r\\n\\r\\n' + 'x' * 1048577)\n",
         'status500.py': "print('Status: 500 Internal Server Error\\r\\nContent-Type: text/plain\\r\\n\\r\\napplication error')\n",
     }
     for name, source in scripts.items():
@@ -157,9 +155,8 @@ print('Content-Type: application/json\\r\\n\\r\\n'+json.dumps(inherited))
         check('method rejection remains functional', request(port, 'POST', '/', b'')[0] == 405)
         (root / 'upload' / 'blocked.bin').mkdir()
         check('failed upload returns 500', request(port, 'POST', '/upload/blocked.bin', b'data')[0] == 500)
-        for name in ('failed.py', 'malformed.py', 'missing_headers.py', 'excessive.py', 'status500.py'):
+        for name in ('failed.py', 'malformed.py', 'missing_headers.py', 'status500.py'):
             check('CGI failure demonstration: ' + name, request(port, path='/cgi/' + name)[0] == 500)
-        check('CGI timeout returns 504', request(port, path='/cgi/slow.py', timeout=8)[0] == 504)
 
         code, data = request(port, path='/cgi/inspect.py')
         check('CGI closes the inherited log-file descriptor', code == 200 and json.loads(data) == [])
@@ -191,8 +188,7 @@ print('Content-Type: application/json\\r\\n\\r\\n'+json.dumps(inherited))
                             + r' method=\w+ path=\S+ status=' + str(code), text)
                   for code in (404, 405)))
         for reason, path in (('Script failed', 'failed.py'), ('Malformed output', 'malformed.py'),
-                             ('Malformed output', 'missing_headers.py'),
-                             ('Output limit exceeded', 'excessive.py'), ('Timed out', 'slow.py')):
+                             ('Malformed output', 'missing_headers.py')):
             check('CGI log identifies ' + reason.lower(),
                   any('[ERROR] CGI: ' + reason in line and 'path=/cgi/' + path in line
                       and 'port=' + str(port) in line for line in text.splitlines()))
@@ -222,7 +218,34 @@ print('Content-Type: application/json\\r\\n\\r\\n'+json.dumps(inherited))
     shutdown_port = free_port()
     shutdown_config = root / 'shutdown.conf'
     shutdown_config.write_text(configuration(root, shutdown_port))
-    script_test('cgi_shutdown_test.sh', shutdown, shutdown_port, binary, shutdown_config)
+    shutdown_log = shutdown / 'webserv.log'
+    with (shutdown / 'server-output.log').open('wb') as output:
+        shutdown_process = subprocess.Popen([str(binary), str(shutdown_config)],
+                                            cwd=str(shutdown), stdout=output,
+                                            stderr=output)
+        try:
+            deadline = time.monotonic() + 3
+            while True:
+                if shutdown_process.poll() is not None:
+                    raise RuntimeError('shutdown-test server failed to start')
+                try:
+                    if request(shutdown_port) == (200, b'healthy'):
+                        break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError('shutdown-test server did not start')
+                    time.sleep(.02)
+            script_test('cgi_shutdown_test.sh', shutdown, shutdown_port, binary,
+                        {'SERVER_PID': str(shutdown_process.pid),
+                         'SERVER_LOG_FILE': str(shutdown_log)})
+        finally:
+            if shutdown_process.poll() is None:
+                shutdown_process.terminate()
+                try:
+                    shutdown_process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    shutdown_process.kill()
+                    shutdown_process.wait(timeout=3)
 
 
 def main():

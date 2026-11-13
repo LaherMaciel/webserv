@@ -1,31 +1,17 @@
 #!/usr/bin/env python3
 
+import os
 import socket
-import subprocess
 import sys
-import time
-from pathlib import Path
 
 
-HOST = "127.0.0.1"
-MAIN_PORT = 8080
-SMALL_LIMIT_PORT = 8081
+HOST = os.environ.get("HOST", "127.0.0.1")
+MAIN_PORT = int(os.environ.get("MAIN_PORT", "8080"))
+SMALL_LIMIT_PORT = int(os.environ.get("SMALL_LIMIT_PORT", "8081"))
 
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
 RESET = "\033[0m"
-
-
-def wait_until_listening(port, timeout=3.0):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            connection = socket.create_connection((HOST, port), timeout=0.2)
-            connection.close()
-            return True
-        except OSError:
-            time.sleep(0.05)
-    return False
 
 
 def port_is_in_use(port):
@@ -124,46 +110,20 @@ def run_tests():
 
 
 def main():
-    project_root = Path(__file__).resolve().parent.parent
-    binary = project_root / "webserv"
-    config = project_root / "config" / "default.conf"
-
-    if not binary.is_file():
-        print("webserv binary not found; run make first", file=sys.stderr)
+    if not port_is_in_use(MAIN_PORT) or not port_is_in_use(SMALL_LIMIT_PORT):
+        print("start webserv with listeners on %s:%d and %s:%d before running this test" %
+              (HOST, MAIN_PORT, HOST, SMALL_LIMIT_PORT), file=sys.stderr)
         return 1
 
-    if port_is_in_use(MAIN_PORT) or port_is_in_use(SMALL_LIMIT_PORT):
-        print("ports 8080 or 8081 are already in use; stop the running server first",
-              file=sys.stderr)
-        return 1
-
-    server = subprocess.Popen(
-        [str(binary), str(config)],
-        cwd=str(project_root),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    try:
-        if not wait_until_listening(MAIN_PORT) or not wait_until_listening(SMALL_LIMIT_PORT):
-            print("webserv did not start on ports 8080 and 8081", file=sys.stderr)
-            return 1
-
-        print("Chunked buffer-limit regression tests\n")
-        failures = run_tests()
-        print()
-        if failures == 0:
-            print("%sAll chunked buffer-limit tests passed%s" % (GREEN, RESET))
-            return 0
-        print("%sChunked buffer-limit tests failed: %d%s" %
-              (RED, failures, RESET))
-        return 1
-    finally:
-        server.terminate()
-        try:
-            server.wait(timeout=2.0)
-        except subprocess.TimeoutExpired:
-            server.kill()
-            server.wait()
+    print("Chunked buffer-limit regression tests\n")
+    failures = run_tests()
+    print()
+    if failures == 0:
+        print("%sAll chunked buffer-limit tests passed%s" % (GREEN, RESET))
+        return 0
+    print("%sChunked buffer-limit tests failed: %d%s" %
+          (RED, failures, RESET))
+    return 1
 
 
 if __name__ == "__main__":
