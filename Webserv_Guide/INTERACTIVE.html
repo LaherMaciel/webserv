@@ -332,7 +332,7 @@
   </div>
   <div class="eyebrow" style="margin-top:2.2rem">Where would you like to go?</div>
   <div class="paths" id="paths"></div>
-  <p class="runit">Run it: <code>make &amp;&amp; ./webserv config/default.conf</code>, then open <code>http://127.0.0.1:8080/Webserv_Guide/INTERACTIVE.html</code>. Keys <kbd>1</kbd>–<kbd>7</kbd> switch tabs. Print the page for a PDF handout.</p>
+  <p class="runit">Run it: <code>make &amp;&amp; ./webserv config/default.conf</code>, then open <code>http://127.0.0.1:8082/INTERACTIVE.html</code>. Keys <kbd>1</kbd>–<kbd>7</kbd> switch tabs. Print the page for a PDF handout.</p>
 </section>
 
 <!-- ============================================================ DESIGN -->
@@ -1478,7 +1478,7 @@
     { l: 'GET /upload/webserv-demo.txt', m: 'GET', u: '/upload/webserv-demo.txt', n: 'Get it back → 200' },
     { l: 'DELETE /upload/webserv-demo.txt', m: 'DELETE', u: '/upload/webserv-demo.txt', n: 'Delete it → 200; again → 404' }
   ];
-  if (!LIVE_OK) $('#livebanner').innerHTML = '<div class="banner">This page was opened as a file, so the browser cannot reach the server. Start webserv and open it from there: <code>http://127.0.0.1:8080/Webserv_Guide/INTERACTIVE.html</code></div>';
+  if (!LIVE_OK) $('#livebanner').innerHTML = '<div class="banner">This page was opened as a file, so the browser cannot reach the server. Start webserv and open it from there: <code>http://127.0.0.1:8082/INTERACTIVE.html</code></div>';
   TESTS.forEach(function (t) {
     var row = mk('div', 'trow', '<div><code>' + esc(t.l) + '</code><small>' + esc(t.n) + '</small></div>');
     var b = mk('button', 'btn', 'Send'); b.type = 'button'; b.disabled = !LIVE_OK;
