@@ -23,6 +23,7 @@ enum RouteType
 
 struct CgiInfo
 {
+    std::string extension_;//configured extension that selected this CGI handler
     std::string scriptFilename_;//file name e.g. search.py
     std::string scriptUrlPath_;//URL path e.g. /cgi-bin/search.py
     std::string scriptFilesystemPath_;//disk location e.g. ./www/cgi-bin/search.py
@@ -43,7 +44,8 @@ class Router
         bool isValidMethod(const std::string &method, const LocationConfig *location);
         bool splitCgiPath(CgiInfo &info, const std::string &path, const std::string &extension);
         bool buildCgiInfo(CgiInfo &cgiInfo, const Request &request, const LocationConfig *location);
-        RouteType routeCgi();
+        void validateCgiScript(const std::string &scriptPath);
+        RouteType routeCgi(const CgiInfo &cgiInfo);
         RouteType routePost(const Request& request, const LocationConfig *location, Response& response);
         RouteType routeUpload(const Request& request, const LocationConfig *location, Response& response);
         void writeToFile(const std::string &uploadPath, const std::string &body);

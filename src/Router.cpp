@@ -118,8 +118,25 @@ bool Router::splitCgiPath(CgiInfo &info, const std::string &path, const std::str
     return false;
 }
 
-RouteType Router::routeCgi()
+void Router::validateCgiScript(const std::string &scriptPath)
 {
+    struct stat fileInfo;
+    if (stat(scriptPath.c_str(), &fileInfo) == -1)
+    {
+        if (errno == EACCES)
+            throw 403;
+        throw 404;
+    }
+    if (!S_ISREG(fileInfo.st_mode))
+        throw 404;
+    if (access(scriptPath.c_str(), R_OK) == -1)
+        throw 403;
+}
+
+RouteType Router::routeCgi(const CgiInfo &cgiInfo)
+{
+    if (cgiInfo.extension_ == ".py" || cgiInfo.extension_ == ".sh")
+        validateCgiScript(cgiInfo.scriptFilesystemPath_);
     return ROUTE_CGI;
 }
 
@@ -164,6 +181,7 @@ bool Router::buildCgiInfo(CgiInfo &cgiInfo, const Request &request, const Locati
                 found = true;
                 BestExtLength = extLength;
                 BestScriptEnd = scriptEnd;
+                info.extension_ = extension;
                 info.interpreterPath_ = it->second;
                 info.scriptFilesystemPath_ = mapRootPath(info.scriptUrlPath_, location);
                 size_t slash = info.scriptFilesystemPath_.rfind('/');
@@ -454,7 +472,7 @@ RouteType Router::routeRequest(const Request& request, Response& response, CgiIn
     if (!isValidMethod(request.getMethod(), location))
         throw 405;
     if (!location->cgiHandlers_.empty() && buildCgiInfo(cgiInfo, request, location))
-        return routeCgi();
+        return routeCgi(cgiInfo);
     if (request.getMethod() == "POST")
         return routePost(request, location, response);
     if (request.getMethod() == "DELETE")
