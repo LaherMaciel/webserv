@@ -91,8 +91,6 @@
   .mdi small { display: block; font-family: var(--mono); font-size: 0.64rem; color: var(--ink-faint); margin-top: 0.15rem; }
   .mdi:hover { background: var(--sunk); color: var(--ink); }
   .mdi[aria-current="true"] { background: var(--raised); border-color: var(--accent); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 3px var(--accent-bg); }
-  .mdi.g0 .mdn { color: var(--alarm); }
-  .mdgrp { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); padding: 0.7rem 0.8rem 0.2rem; }
   .pane { padding: 2rem 2.25rem 2.25rem; min-height: 32rem; }
   .pane.swap { animation: rise 0.22s ease both; }
   .pane .pk { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
@@ -119,7 +117,6 @@
   .cmd pre { background: var(--sunk); border-radius: 8px; padding: 0.7rem 4rem 0.7rem 0.9rem; font-size: 0.8rem; line-height: 1.5; overflow-x: auto; white-space: pre; }
   .copy { position: absolute; top: 0.45rem; right: 0.45rem; font-family: var(--mono); font-size: 0.66rem; border: 1px solid var(--rule); background: var(--raised); color: var(--ink-soft); border-radius: 5px; padding: 0.15rem 0.5rem; }
   .copy:hover { color: var(--ink); border-color: var(--ink-faint); }
-  .g0tag { display: inline-block; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--alarm); border: 1px solid var(--alarm); border-radius: 4px; padding: 0.05rem 0.4rem; margin-left: 0.6rem; vertical-align: middle; }
   .mdnav { display: flex; justify-content: space-between; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
 
   /* ---------- journey ---------- */
@@ -261,21 +258,10 @@
     .pf .cell.arr::before, .pf .cell.back::before { content: none; } .pf .full { grid-column: 2; }
   }
 
-  /* ---------- merged: evaluation tests ---------- */
-  .tt-head, .tt { display: grid; grid-template-columns: minmax(0, 1.5fr) 7rem minmax(0, 1fr); gap: 0.9rem; align-items: start; }
-  .tt-head { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); padding: 1rem 0 0.4rem; border-bottom: 2px solid var(--ink); }
-  .tt { padding: 0.9rem 0; border-bottom: 1px solid var(--rule); }
-  .tt .cmd { margin: 0; max-width: none; }
-  .tt .cmd pre, .res .cmd pre { white-space: pre-wrap; word-break: break-all; }
-  .tt .code { font-family: var(--mono); font-size: 0.8rem; font-weight: 700; text-align: center; border-radius: 6px; padding: 0.3rem 0.25rem; background: var(--signal-bg); color: var(--signal); }
-  .tt .code.c3 { background: var(--accent-bg); color: var(--accent); } .tt .code.c4 { background: var(--alarm-bg); color: var(--alarm); }
-  .tt .code.cx { background: var(--sunk); color: var(--ink-soft); font-weight: 400; font-size: 0.72rem; }
-  .tt .why { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; }
-  @media (max-width: 760px) { .tt-head { display: none; } .tt { grid-template-columns: minmax(0, 1fr) 6rem; } .tt .why { grid-column: 1 / -1; } }
-
   /* ---------- merged: live request panel ---------- */
   .res { position: static; }
   .res .cmd { margin: 0.3rem 0 0.6rem; max-width: none; }
+  .res .cmd pre { white-space: pre-wrap; word-break: break-all; }
   .res .cmd pre { max-height: none; margin-top: 0; font-size: 0.74rem; padding-right: 4rem; }
   .res pre.buf { max-height: 9rem; margin-top: 0.3rem; }
   .res .sep { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
@@ -285,7 +271,7 @@
   @media (max-width: 960px) {
     .md, .stage, .live { grid-template-columns: minmax(0, 1fr); }
     .mdlist { position: static; flex-direction: row; flex-wrap: wrap; }
-    .mdi { padding: 0.4rem 0.7rem; } .mdi small, .mdgrp { display: none; }
+    .mdi { padding: 0.4rem 0.7rem; } .mdi small { display: none; }
     .pane { padding: 1.4rem 1.25rem; min-height: 0; }
     .map { grid-template-columns: 1fr 1fr; }
     .n-client, .n-server, .n-conn, .n-parser, .n-router, .n-response, .n-cgi, .n-script { grid-column: auto; grid-row: auto; }
@@ -394,19 +380,6 @@
     <div class="card tlist" id="tlist"></div>
     <div class="card res" id="res"><div class="hint">Press a Send button to see the response here.</div></div>
   </div>
-</section>
-
-<!-- ============================================================ EVALUATION -->
-<section class="view" id="v-eval" role="tabpanel">
-  <div class="vh"><div class="eyebrow">Evaluation</div><h2>The evaluation sheet, in order</h2><p class="lede">Every check on the sheet as a copy-paste command with the status code to expect. The status codes were observed on this build with <code>config/default.conf</code>; expectations for siege and the leak tools come from the sheet itself. Pick a section on the left.</p></div>
-  <div class="md"><div class="mdlist" id="eval-list"></div><div class="card pane" id="eval-pane"></div></div>
-</section>
-
-<!-- ============================================================ Q&A -->
-<section class="view" id="v-qa" role="tabpanel">
-  <div class="vh"><div class="eyebrow">Defence Q&amp;A</div><h2>Questions the evaluation will ask</h2><p class="lede">Each answer starts with the short version, then explains, and ends with a command you can run to show it. The first three are grade-zero rules on the evaluation sheet.</p></div>
-  <div class="md"><div class="mdlist" id="qa-list"></div><div class="card pane" id="qa-pane"></div></div>
-  <p class="fine">Every command from the evaluation sheet, with the status code to expect: <a href="#eval">Evaluation tab</a>. POLLIN and POLLOUT step by step: <a href="#design/3">Design tab</a>.</p>
 </section>
 
 <div class="foot">webserv · line numbers refer to the repository when this page was written; re-check with <code>grep -n "functionName" src/*.cpp</code> if the code has moved.</div>
@@ -625,9 +598,7 @@
     { id: 'design',  label: 'Design' },
     { id: 'journey', label: 'Request journey' },
     { id: 'routing', label: 'Routing' },
-    { id: 'live',    label: 'Live' },
-    { id: 'eval',    label: 'Evaluation' },
-    { id: 'qa',      label: 'Q&A' }
+    { id: 'live',    label: 'Live' }
   ];
   var active = 'start';
   var tabsEl = $('#tabs');
@@ -647,8 +618,6 @@
       $('#tab-' + v.id).setAttribute('aria-selected', v.id === id ? 'true' : 'false');
     });
     if (id === 'design') DESIGN.select(sub != null ? sub : DESIGN.cur);
-    if (id === 'qa') QA.select(sub != null ? sub : QA.cur);
-    if (id === 'eval') EVAL.select(sub != null ? sub : EVAL.cur);
     if (id === 'journey') {
       if (sub) { var p = /^(\d+)-(\d+)$/.exec(sub); if (p && SCENARIOS[+p[1] - 1]) { cur = +p[1] - 1; idx = Math.max(0, Math.min(SCENARIOS[cur].steps.length - 1, +p[2] - 1)); } }
       renderJourney();
@@ -664,10 +633,8 @@
   function masterDetail(name, listEl, paneEl, items, buildPane) {
     var obj = { cur: 0 };
     var buttons = [];
-    var lastGroup = null;
     items.forEach(function (it, i) {
-      if (it.group && it.group !== lastGroup) { listEl.appendChild(mk('div', 'mdgrp', esc(it.group))); lastGroup = it.group; }
-      var b = mk('button', 'mdi' + (it.g0 ? ' g0' : ''), '<span class="mdn">' + (i + 1) + '</span><span>' + esc(it.t) + (it.tag ? '<small>' + esc(it.tag) + '</small>' : '') + '</span>');
+      var b = mk('button', 'mdi', '<span class="mdn">' + (i + 1) + '</span><span>' + esc(it.t) + (it.tag ? '<small>' + esc(it.tag) + '</small>' : '') + '</span>');
       b.type = 'button';
       b.addEventListener('click', function () { obj.select(i); });
       listEl.appendChild(b); buttons.push(b);
@@ -688,28 +655,14 @@
 
   function codeBlock(c) { return '<figure class="code"><figcaption>' + esc(c.cap) + '</figcaption><pre>' + esc(c.text) + '</pre></figure>'; }
   function cmdBlock(text) { return '<div class="cmd"><pre>' + esc(text) + '</pre><button class="copy" type="button">copy</button></div>'; }
-  function codeClass(e) {
-    var bad = /[45]\d\d/.test(e), good = /[2]\d\d/.test(e), redir = /3\d\d/.test(e);
-    if (bad && (good || redir)) return 'c3';
-    if (bad) return 'c4';
-    if (redir) return 'c3';
-    if (good) return '';
-    return 'cx';
-  }
-  function testsHtml(ts) {
-    return '<div class="tt-head"><span>Command</span><span>Expect</span><span>What it shows</span></div>' + ts.map(function (t) {
-      return '<div class="tt"><div class="cmd"><pre>' + esc(t.c) + '</pre><button class="copy" type="button">copy</button></div><div class="code ' + codeClass(t.e) + '">' + esc(t.e) + '</div><div class="why">' + t.w + '</div></div>';
-    }).join('');
-  }
   function navRow(i, n) {
     return '<div class="mdnav"><button class="btn" type="button" data-step="-1"' + (i === 0 ? ' disabled' : '') + '>← Previous topic</button><button class="btn" type="button" data-step="1"' + (i === n - 1 ? ' disabled' : '') + '>Next topic →</button></div>';
   }
   function paneHtml(it, i, n) {
-    var h = '<div class="pk">' + esc(it.k) + (it.g0 ? '<span class="g0tag">GRADE 0 IF WRONG</span>' : '') + '</div><h3>' + esc(it.t) + '</h3><p class="lead">' + it.lead + '</p>';
+    var h = '<div class="pk">' + esc(it.k) + '</div><h3>' + esc(it.t) + '</h3><p class="lead">' + it.lead + '</p>';
     (it.body || []).forEach(function (p) { h += p.charAt(0) === '<' ? p : '<p>' + p + '</p>'; });
     if (it.html) h += it.html;
     if (it.tpl) h += $('#' + it.tpl).innerHTML;
-    if (it.tests) h += testsHtml(it.tests);
     (it.code || []).forEach(function (c) { h += codeBlock(c); });
     if (it.show) { h += '<h4>Show it</h4>' + cmdBlock(it.show); }
     if (it.tr) h += '<div class="tr"><b>Trade-off</b>' + it.tr + '</div>';
@@ -725,9 +678,7 @@
     ['design',  '01', 'How is it built?', 'Architecture and the engineering decisions behind it: one thread, a state machine per connection, bounded everything. One topic at a time.'],
     ['journey', '02', 'Follow a request', 'Seven situations step by step: a page, an upload, a CGI, a 404, a split request, pipelining, a silent client. With the server’s memory shown.'],
     ['routing', '03', 'Change the config, see the route', 'Type a port, host, method and path and watch the router’s checks run in order.'],
-    ['live',    '04', 'Try it on the real server', 'Upload a file, read it back, delete it, run a CGI, trigger a 404 and a 405, all from this page.'],
-    ['eval',    '05', 'Prepare for the evaluation', 'Every check on the evaluation sheet as a copy-paste command with the status code to expect: configuration, basic checks, browser, ports, siege, bonus.'],
-    ['qa',      '06', 'Defence questions', 'The questions the evaluation sheet makes you answer, with a short answer, an explanation and a command to prove it.']
+    ['live',    '04', 'Try it on the real server', 'Upload a file, read it back, delete it, run a CGI, trigger a 404 and a 405, all from this page.']
   ];
   PATHS.forEach(function (p) {
     var b = mk('button', 'path', '<span class="pn">' + p[1] + '</span><h3>' + p[2] + '</h3><p>' + p[3] + '</p><span class="go">Open →</span>');
@@ -835,160 +786,17 @@
       where: 'ConfigSplitter.cpp · ConfigParser.cpp · Server.cpp:246 selectServerConfig() · Router.cpp:76 findLocation()' },
 
     { t: 'How it is tested', tag: 'tests/ and manual checks', k: 'Topic 8 · evidence',
-      lead: 'Twelve scripts cover the parts that are hardest to get right, and the manual checks from the evaluation sheet cover the rest.',
+      lead: 'Twelve scripts cover the parts that are hardest to get right, supported by manual browser and protocol checks.',
       body: [
         '<h4>Automated, in tests/</h4><ul><li><code>basic_http_tests.sh</code>: basic request validation over raw sockets.</li><li><code>body_tests.sh</code>: Content-Length, chunked bodies, limits and framing edge cases.</li><li><code>upload_test.sh</code> and <code>delete_test.sh</code>: upload, read back, delete.</li><li><code>cgi_env_test.sh</code>: the environment a script sees.</li><li><code>cgi_post_test.sh</code>: large and concurrent POST bodies through a CGI.</li><li><code>cgi_disconnect_test.sh</code>: the client leaves while the script runs.</li><li><code>cgi_fd_inheritance_test.py</code>: the child closes inherited descriptors.</li><li><code>cgi_shutdown_test.sh</code>: Ctrl-C while CGI children are running.</li><li><code>chunked_buffer_limit_test.py</code>: the input buffer stays bounded on chunked requests.</li><li><code>log_tests.cpp</code> and <code>log_tests.py</code>: the logger’s limits and failure modes.</li></ul>',
-        '<h4>Manual</h4><p>Browser, <code>curl</code>, <code>nc</code> and <code>telnet</code> against <code>config/default.conf</code>, as listed on the evaluation sheet. The <a href="#eval">Evaluation</a> tab has every command with the status code to expect, and the <b>Live</b> tab sends the same requests from the browser.</p>',
+        '<h4>Manual</h4><p>Browser, <code>curl</code>, <code>nc</code> and <code>telnet</code> checks run against <code>config/default.conf</code>. The <b>Live</b> tab sends representative requests directly from the browser.</p>',
         '<h4>Memory and descriptors</h4><p>The Makefile has <code>make val</code> (valgrind with fd tracking) and <code>make macleaks</code> (<code>leaks --atExit</code>).</p>'],
       show: './tests/basic_http_tests.sh   # needs the server running\n./tests/body_tests.sh           # starts and stops its own server',
-      box: ['Not implemented', 'Cookies and sessions, a bonus item on the evaluation sheet. There are no tests for them because there is nothing to test.'],
+      box: ['Not implemented', 'Cookies and sessions are outside the current feature set.'],
       where: 'tests/ · Makefile (val, macleaks)' }
   ];
   DESIGN_ITEMS.forEach(function (it, i) { it.k = 'Topic ' + (i + 1) + ' · ' + it.k.replace(/^Topic \d+ · /, ''); });
   var DESIGN = masterDetail('design', $('#design-list'), $('#design-pane'), DESIGN_ITEMS, paneHtml);
-
-  /* ===================================================================
-     Q&A
-     =================================================================== */
-  var QA_ITEMS = [
-    { g0: true, group: 'Grade-zero rules', t: 'Which function multiplexes I/O, and how?', k: 'Question 1',
-      lead: '<code>poll()</code>: one call that sleeps until any watched descriptor is ready, and tells us which.',
-      body: ['We keep one array of <code>pollfd</code> (<code>poll_fds_</code>) with every listening socket, client socket and CGI pipe. Each entry says what we want to know, readable or writable. <code>poll()</code> fills in <code>revents</code> and we touch only the descriptors it marked, so no read or write can block. It wakes at least every 100 ms even when nothing is ready, which is how timeouts and CGI reaping happen.'],
-      show: 'grep -n "poll(" src/*.cpp', where: 'Server.cpp:476 runServer() · :482 poll()' },
-    { g0: true, t: 'One poll? Read and write checked together?', k: 'Question 2',
-      lead: 'Yes: a single <code>poll()</code> in the main loop, with read and write interest in the same array.',
-      body: ['A client is on <code>POLLIN</code> while we wait for its request and is switched to <code>POLLOUT</code> once a response is queued. A CGI’s stdout pipe is in the same list on <code>POLLIN</code>, and its stdin pipe on <code>POLLOUT</code> when the request has a body. The Request journey tab shows the exact moments the interest changes, and the Design tab (POLLIN and POLLOUT, step by step) has them as a table.'],
-      show: 'grep -n "POLLIN\\|POLLOUT" src/Server.cpp src/ServerCgi.cpp', where: 'Server.cpp:323, :336, :415, :418 · ServerCgi.cpp:64, :75' },
-    { g0: true, t: 'Is errno checked after read / recv / write / send?', k: 'Question 3',
-      lead: 'No. The four I/O sites decide only from the return value.',
-      body: ['<code>errno</code> appears in the code only after <code>waitpid</code>, <code>stat</code>, <code>remove</code>, <code>opendir</code> and <code>strtol</code>, never after socket or pipe I/O. A failing CGI pipe is decided by the return value alone: a negative result is simply an error and the pipe is closed.'],
-      show: 'grep -n errno src/*.cpp', where: 'Connection.cpp:188, :218 · CgiProcess.cpp:136, :158' },
-    { group: 'Reading and writing', t: 'One read or one write per client per poll?', k: 'Question 4',
-      lead: 'Yes. A client has one interest at a time, and each handler does a single <code>recv()</code> or a single <code>send()</code>.',
-      body: ['<code>handleConnectionEvent()</code> calls <code>readFromSocket()</code> once on <code>POLLIN</code>, or <code>handleConnectionWrite()</code> once on <code>POLLOUT</code>. If <code>send()</code> takes only part of the reply, the offset (<code>bytes_sent_</code>) is saved and the rest goes out on a later turn.'],
-      show: 'sed -n 348,388p src/Server.cpp', where: 'Server.cpp:348 → Connection.cpp:185 / :210' },
-    { t: 'What if recv or send returns 0 or -1?', k: 'Question 5',
-      lead: 'Both are checked, and each one removes or closes the client.',
-      body: ['<code>recv &lt; 0</code> is an error and the client is removed. <code>recv == 0</code> means the client closed its side: we finish any reply already queued, then close. <code>send &lt;= 0</code> is a failure and the client is removed. In every case the descriptor is cleaned up in the same loop turn by <code>cleanDeadFds()</code>: removed from poll, closed, CGI aborted, object deleted.'],
-      show: 'sed -n 185,207p src/Connection.cpp', where: 'Connection.cpp:185 · :210 · Server.cpp:110 cleanDeadFds()' },
-    { t: 'Is any fd read or written without poll?', k: 'Question 6',
-      lead: 'Sockets and CGI pipes: never. Regular disk files are the exception, and the subject allows it.',
-      body: ['Static files, uploads and the log are read and written directly because disk files are exempt from readiness polling. Everything that can block on a peer (clients and CGI pipes) goes through <code>poll()</code> first.'],
-      show: 'grep -n "recv(\\|send(\\|read(\\|write(" src/*.cpp', where: 'Router.cpp:277 serveFile() · :186 writeToFile() · Log.cpp:97 flush()' },
-    { t: 'Why is everything non-blocking?', k: 'Question 7',
-      lead: 'One thread serves everyone, so a read on a descriptor with no data would freeze every other client.',
-      body: ['Listening sockets, client sockets and CGI pipes are set non-blocking with <code>fcntl</code> and are only touched when poll says they are ready. On macOS the subject allows only <code>F_SETFL</code> with <code>O_NONBLOCK</code>, which is what <code>set_non_blocking()</code> uses.'],
-      show: 'grep -n "set_non_blocking" src/*.cpp', where: 'utils.cpp:17 set_non_blocking()' },
-    { group: 'Build', t: 'Does it compile without relinking?', k: 'Question', lead: 'Yes: run <code>make</code> twice and the second run has nothing to do.',
-      body: ['The Makefile tracks the object files, so an unchanged tree is neither recompiled nor relinked. The flags are <code>-Wall -Wextra -Werror -std=c++98</code>, and <code>make re</code> forces a clean rebuild.'],
-      show: 'make\nmake', where: 'Makefile' },
-    { group: 'Robustness', t: 'A CGI never ends, or the client leaves mid-script', k: 'Question 8',
-      lead: 'After 30 s the script is killed and the client gets a 504. If the client leaves first, the child is killed and reaped.',
-      body: ['Every loop turn <code>checkCgiChildren()</code> looks at each running script. On timeout it sends <code>SIGKILL</code> and queues a 504. On a disconnect the pipes are removed from poll, the child is killed, and the Connection is deleted only after <code>waitpid(WNOHANG)</code> has reaped it. <code>waitpid</code> is never called in blocking mode inside the loop.'],
-      show: './tests/cgi_disconnect_test.sh\n./tests/cgi_shutdown_test.sh', where: 'ServerCgi.cpp:157 checkCgiChildren() · CgiProcess.cpp:91 abort()' },
-    { t: 'Slow, silent or too many clients?', k: 'Question 9',
-      lead: 'Every wait has a deadline and every client slot is limited.',
-      body: ['10 s to finish the headers (the Slowloris guard), 60 s for a body, 30 s idle. Up to 512 connections are served; the next ones get a 503 and past 520 the socket is closed at once. Request bodies are capped by <code>client_max_body_size</code> and answered with 413.'],
-      show: 'grep -n "TIMEOUT\\|DEADLINE\\|MAX_CONN" includes/*.hpp', where: 'webserv.hpp:5–10 · Server.cpp:389, :449' },
-    { t: 'The same port twice in the config?', k: 'Question 10',
-      lead: 'Two blocks may share a port only if their <code>server_name</code> differs. Two unnamed ones are refused at startup.',
-      body: ['That is how virtual hosts work: the default config has two blocks on 8080, told apart by <code>webserv_host</code> and <code>other.local</code>. Starting a second process on a port that is already taken fails in <code>bind()</code> and exits, while the first keeps serving.'],
-      show: 'printf \'server {\\n listen 8090;\\n host 127.0.0.1;\\n location / { root ./www; allowed_methods GET; }\\n}\\nserver {\\n listen 8090;\\n host 127.0.0.1;\\n location / { root ./www/other; allowed_methods GET; }\\n}\\n\' > /tmp/dup.conf\n./webserv /tmp/dup.conf',
-      where: 'ConfigParser.cpp · Server.cpp:161 bindSocket()' },
-    { t: 'How do you know where a request ends?', k: 'Question 11',
-      lead: 'Three cases: no body, a Content-Length, or chunked.',
-      body: ['No body: the blank line ends the request. <code>Content-Length: N</code>: read exactly N bytes. <code>Transfer-Encoding: chunked</code>: read hex-sized chunks until a zero-sized one. Chunked bodies are un-chunked before a CGI sees them. If the bytes have not all arrived, the state stays and the next <code>POLLIN</code> continues where it stopped.'],
-      show: './tests/body_tests.sh', where: 'RequestParser.cpp:225 copyByLength() · :303 copyByChunks() · :344 parseRequestBody()' }
-  ];
-  QA_ITEMS.forEach(function (it, i) { it.k = 'Question ' + (i + 1); });
-  var QA = masterDetail('qa', $('#qa-list'), $('#qa-pane'), QA_ITEMS, paneHtml);
-
-  /* ===================================================================
-     EVALUATION  (from the evaluation sheet)
-     =================================================================== */
-  var EVAL_ITEMS = [
-    { t: 'Before you start', tag: 'build and launch', k: 'Section',
-      lead: 'Three things the sheet checks first: it compiles, it does not relink, and it starts.',
-      body: ['The sheet also says you should never have to edit a file except the configuration file, and that memory can be checked with <code>leaks</code>, <code>valgrind</code> or <code>e_fence</code>. This project has <code>make val</code> and <code>make macleaks</code> for that.'],
-      tests: [
-        { c: 'make\nmake', e: 'Nothing to be done', w: 'No relink: the second run has nothing to rebuild. Flags: <code>-Wall -Wextra -Werror -std=c++98</code>.' },
-        { c: './webserv config/default.conf', e: 'listening', w: 'Listens on <code>127.0.0.1:8080</code> (two virtual hosts) and <code>:8081</code>. Ctrl-C stops it cleanly.' },
-        { c: 'tail -f webserv.log', e: 'log lines', w: 'Keep it open: every response appears as <code>response_queued … status=</code>.' },
-        { c: 'brew install siege', e: 'installed', w: 'The sheet asks for siege to be installed with Homebrew before the stress test.' }] },
-
-    { t: 'Configuration', tag: 'ports, hosts, errors, limits', k: 'Section',
-      lead: 'Each check from the sheet’s Configuration block, run against the shipped <code>config/default.conf</code>.',
-      body: ['Look the status codes up while you test: a wrong status code means the related point is not given.'],
-      tests: [
-        { c: 'curl -i http://127.0.0.1:8080/\ncurl -i http://127.0.0.1:8081/', e: '200 / 200', w: '<b>Multiple servers, different ports.</b> Two listeners from one config file.' },
-        { c: 'curl -i --resolve other.local:8080:127.0.0.1 http://other.local:8080/\ncurl -i --resolve webserv_host:8080:127.0.0.1 http://webserv_host:8080/', e: '200 / 200', w: '<b>Different hostnames, same port.</b> The first serves <code>www/other/index.html</code>, the second the main site. An unknown Host falls back to the first block.' },
-        { c: 'curl -i http://127.0.0.1:8080/nope\ncurl -i http://127.0.0.1:8081/nope -o /dev/null -D -', e: '404 / 404', w: '<b>Custom error page.</b> 8080 returns <code>errors/404.html</code>; 8081 returns a GIF (<code>Content-Type: image/gif</code>). Edit the <code>error_page 404</code> line and restart to change it.' },
-        { c: 'curl -i -X POST -H "Content-Type: plain/text" --data "short" http://127.0.0.1:8081/', e: '200', w: '<b>Body under the limit.</b> Server 3 has <code>client_max_body_size 100</code>.' },
-        { c: 'curl -i -X POST -H "Content-Type: plain/text" --data "$(printf \'x%.0s\' $(seq 1 200))" http://127.0.0.1:8081/', e: '413', w: '<b>Body over the limit.</b> 200 bytes against a 100-byte limit.' },
-        { c: 'curl -i http://127.0.0.1:8080/about.html\ncurl -i http://127.0.0.1:8080/static/a.txt\ncurl -i http://127.0.0.1:8080/Webserv_Guide/', e: '200 ×3', w: '<b>Routes to different directories.</b> <code>/</code> maps to <code>./www</code>, <code>/static</code> to <code>./www/static</code>, <code>/Webserv_Guide</code> to <code>./Webserv_Guide</code>.' },
-        { c: 'curl -i http://127.0.0.1:8080/', e: '200', w: '<b>Default file for a directory.</b> <code>index index.html</code> is served for <code>/</code>.' },
-        { c: 'curl -i -X DELETE http://127.0.0.1:8080/about.html\ncurl -i -X POST --data "x" http://127.0.0.1:8080/', e: '405 / 405', w: '<b>Methods per route, without permission.</b> <code>location /</code> allows GET only. The allowed case is the upload and delete pair in Basic checks.' }] },
-
-    { t: 'Basic checks', tag: 'GET, POST, DELETE, unknown', k: 'Section',
-      lead: 'Using telnet, curl or prepared files: every feature works, every status code is right, and nothing crashes.',
-      tests: [
-        { c: 'curl -i http://127.0.0.1:8080/', e: '200', w: '<b>GET.</b>' },
-        { c: 'printf \'hello from webserv\\n\' > /tmp/webserv-example.txt\ncurl -i --data-binary @/tmp/webserv-example.txt http://127.0.0.1:8080/upload/example.txt', e: '201', w: '<b>POST and upload.</b> The file lands in <code>www/upload/</code>; the response has a <code>Location</code> header.' },
-        { c: 'curl -i http://127.0.0.1:8080/upload/example.txt', e: '200', w: '<b>Get it back.</b> The body is <code>hello from webserv</code>.' },
-        { c: 'curl -i -X DELETE http://127.0.0.1:8080/upload/example.txt\ncurl -i -X DELETE http://127.0.0.1:8080/upload/example.txt', e: '200 / 404', w: '<b>DELETE with permission.</b> The second call finds nothing left to delete.' },
-        { c: 'curl -i -X FOO http://127.0.0.1:8080/\ncurl -i -X PATCH http://127.0.0.1:8080/', e: '501 / 405', w: '<b>Unknown method, no crash.</b> A method we do not know is 501; a real method we do not allow is 405.' },
-        { c: String.raw`(printf 'GARBAGE\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080`, e: '400', w: '<b>Not HTTP at all.</b> The server answers and keeps running.' },
-        { c: String.raw`(printf 'GET / HTTP/1.1\r\nHost: x\r\n\r\nGET /about.html HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080 | grep -a '^HTTP'`, e: '200 / 200', w: '<b>Keep-alive and pipelining.</b> Two requests on one connection, two answers.' },
-        { c: 'curl -i -H "Transfer-Encoding: chunked" --data-binary "chunked body" http://127.0.0.1:8080/cgi-bin/post_echo.py', e: '200', w: '<b>Chunked request body</b>, un-chunked before the CGI reads it.' },
-        { c: 'curl -i --path-as-is http://127.0.0.1:8080/../Makefile\ncurl -i http://127.0.0.1:8080/%2e%2e/Makefile', e: '400 / 400', w: '<b>Path traversal</b> is refused, plain or percent-encoded.' }] },
-
-    { t: 'Check with a browser', tag: 'network panel, static site', k: 'Section',
-      lead: 'Open the browser’s network panel first, then click through. Read the request and response headers of each entry.',
-      body: ['These links open in a new tab and only work when this page was served by webserv on port 8080.'],
-      html: '<table class="lim"><thead><tr><th>Open</th><th>What you should see</th><th>Status</th></tr></thead><tbody>' +
-        '<tr><td><a href="/" target="_blank" rel="noopener">/</a></td><td>The static site: HTML with <code>Content-Type: text/html</code>, <code>Content-Length</code> and <code>Date</code>. <a href="/dog.jpeg" target="_blank" rel="noopener">/dog.jpeg</a> is served as an image.</td><td>200</td></tr>' +
-        '<tr><td><a href="/does-not-exist" target="_blank" rel="noopener">/does-not-exist</a></td><td>A wrong URL: the custom 404 page.</td><td>404</td></tr>' +
-        '<tr><td><a href="/static/" target="_blank" rel="noopener">/static/</a></td><td>A directory listing (<code>autoindex on</code>). <a href="/static/autoindex-test/" target="_blank" rel="noopener">/static/autoindex-test/</a> has names with <code>&lt;</code>, <code>&amp;</code> and quotes, escaped in the page and encoded in the links.</td><td>200</td></tr>' +
-        '<tr><td><a href="/old-page" target="_blank" rel="noopener">/old-page</a></td><td>A redirected URL: <code>Location: /</code>, then the home page.</td><td>301 → 200</td></tr>' +
-        '<tr><td><a href="/static" target="_blank" rel="noopener">/static</a></td><td>A directory without the trailing slash is redirected to <code>/static/</code>.</td><td>301 → 200</td></tr>' +
-        '<tr><td><a href="/private/" target="_blank" rel="noopener">/private/</a></td><td>A directory with no index and autoindex off: nothing is listed.</td><td>404</td></tr>' +
-        '<tr><td><a href="/cgi-bin/hello.py?name=42" target="_blank" rel="noopener">/cgi-bin/hello.py?name=42</a></td><td>CGI output: <code>HELLO FROM CGI</code> and the query string.</td><td>200</td></tr></tbody></table>' },
-
-    { t: 'Port issues', tag: 'several ports, same port twice', k: 'Section',
-      lead: 'Several ports with different sites work, the same port twice does not, and a second instance does not break the first.',
-      tests: [
-        { c: 'open http://127.0.0.1:8080/   # main site\nopen http://127.0.0.1:8081/   # second server: its own error pages and body limit', e: '200 / 200', w: '<b>Multiple ports, different sites.</b> For a visibly different site use the virtual host: <code>curl -H "Host: other.local" http://127.0.0.1:8080/</code>.' },
-        { c: String.raw`printf 'server {\n listen 8090;\n host 127.0.0.1;\n location / { root ./www; index index.html; allowed_methods GET; }\n}\nserver {\n listen 8090;\n host 127.0.0.1;\n location / { root ./www/other; index index.html; allowed_methods GET; }\n}\n' > /tmp/dup.conf
-./webserv /tmp/dup.conf`, e: 'refuses to start', w: '<b>Same port twice.</b> Prints <code>config: multiple unnamed server blocks on 127.0.0.1:8090</code> and exits. Two blocks may share a port only when <code>server_name</code> tells them apart, which is what the default config does on 8080.' },
-        { c: '# terminal 1\n./webserv config/default.conf\n# terminal 2\n./webserv config/default.conf', e: '2nd exits', w: '<b>Two instances, common ports.</b> The second prints <code>Failed to bind socket</code> and stops; the first keeps serving. The whole instance stops instead of running with part of its config, so a typo never leaves a site silently down.' }] },
-
-    { t: 'Siege and stress', tag: 'availability, memory, hanging connections', k: 'Section',
-      lead: 'Three terminals: the server, siege, and a watcher for memory and open descriptors.',
-      body: ['The expectations below come from the sheet; run the commands during the evaluation to produce the numbers.'],
-      tests: [
-        { c: 'siege -b -t 60S http://127.0.0.1:8080/', e: '> 99.5 %', w: '<b>Availability</b> in siege’s summary. Run it again without restarting the server.' },
-        { c: 'while true; do ps -o rss= -p $(pgrep -x webserv); sleep 1; done', e: 'flat', w: '<b>No leak.</b> Resident memory (KB) settles and stops climbing while siege runs.' },
-        { c: 'lsof -a -p $(pgrep -x webserv) -i -P', e: '2 LISTEN lines', w: '<b>No hanging connection.</b> Once siege stops and the idle timeout (30 s) passes, only the two listening sockets remain.' },
-        { c: 'make macleaks      # macOS: leaks --atExit, then Ctrl-C the server\nmake val           # Linux: valgrind with fd tracking', e: '0 leaks', w: '<b>Heap freed at exit.</b> Ctrl-C triggers the controlled shutdown, which deletes every connection and closes every listener.' }],
-      box: ['Why it should hold', 'Nothing blocks (every socket and pipe is non-blocking and polled), everything is bounded (512 connections, body limits, CGI output cap) and everything times out (10 s headers, 60 s body, 30 s idle, 30 s CGI), so descriptors always come back.'] },
-
-    { t: 'Bonus', tag: 'two CGI types; no cookies', k: 'Section',
-      lead: 'The sheet has two bonus items. This project implements one of them: more than one CGI system. Cookies and sessions are <b>not implemented</b>.',
-      tests: [
-        { c: 'curl -i "http://127.0.0.1:8080/cgi-bin/hello.py?name=42"\ncurl -i "http://127.0.0.1:8080/cgi-bin/hello.sh?name=42"', e: '200 / 200', w: '<b>More than one CGI.</b> <code>.py</code> runs under <code>/usr/bin/python3</code>, <code>.sh</code> under <code>/bin/sh</code>, chosen by extension in the config.' },
-        { c: 'curl -i -H "Content-Type: text/plain" --data-binary "hello from CGI POST" http://127.0.0.1:8080/cgi-bin/post_echo.py', e: '200', w: '<b>CGI with a POST body</b> delivered on the script’s stdin.' }],
-      box: ['Not implemented', 'Cookies and sessions. There is no session or cookie handling in the code, so this bonus item should be marked “No”.'] },
-
-    { t: 'The project’s own tests', tag: 'tests/', k: 'Section',
-      lead: 'Twelve scripts in <code>tests/</code>. Some need the server running; the lifecycle suites start and stop their own, so stop yours first.',
-      body: ['What each one covers is listed in the <b>Design</b> tab, topic “How it is tested”.'],
-      tests: [
-        { c: './tests/basic_http_tests.sh\n./tests/upload_test.sh\n./tests/delete_test.sh example.txt\n./tests/cgi_post_test.sh\n./tests/cgi_env_test.sh', e: 'pass / fail', w: '<b>With the server running.</b>' },
-        { c: './tests/body_tests.sh\n./tests/cgi_shutdown_test.sh\npython3 tests/cgi_fd_inheritance_test.py ./webserv', e: 'pass / fail', w: '<b>They start their own server</b>, so run them without another instance bound to the configured ports.' },
-        { c: 'python3 tests/log_tests.py --unit-only\npython3 tests/log_tests.py', e: 'pass / fail', w: '<b>Logger tests:</b> the unit tests alone, then the full suite with temporary servers on automatic ports.' }] }
-  ];
-  EVAL_ITEMS.forEach(function (it, i) { it.k = 'Section ' + (i + 1) + ' · ' + it.tag; });
-  var EVAL = masterDetail('eval', $('#eval-list'), $('#eval-pane'), EVAL_ITEMS, paneHtml);
 
   /* ===================================================================
      REQUEST JOURNEY
@@ -1316,8 +1124,6 @@
     e.preventDefault();
     if (active === 'journey') { stop(); if (dir > 0) jNext(); else jPrev(); }
     else if (active === 'design') DESIGN.select(DESIGN.cur + dir);
-    else if (active === 'qa') QA.select(QA.cur + dir);
-    else if (active === 'eval') EVAL.select(EVAL.cur + dir);
   });
 
   /* ===================================================================
