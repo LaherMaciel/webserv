@@ -22,7 +22,7 @@
 #include <poll.h>//for poll()
 #include <csignal>//for signal()
 #include <fcntl.h>//for fcntl()
-#include <map> // well, to add map
+#include <map>
 #include <vector>
 #include <stdexcept> // to use std::runtime_error
 

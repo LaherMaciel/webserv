@@ -235,10 +235,6 @@ std::string Router::mapUploadPath(const LocationConfig *location, const std::str
     return uploadPath;
 }
 
-/*
-printf 'hello from upload\nsecond line\n' > /tmp/webserv-upload.txt
-curl -i --data-binary @/tmp/webserv-upload.txt http://127.0.0.1:8080/upload/hello.txt
-*/
 RouteType Router::routeUpload(const Request& request, const LocationConfig *location, Response& response)
 {
     std::string uploadPath = mapUploadPath(location, request.getPath());

@@ -13,19 +13,6 @@
 #include <set>
 #include <algorithm>//for std::transform and std::replace
 
-/*
-curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py'
-curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=lf'
-curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=duplicate'
-curl -i 'http://127.0.0.1:8080/cgi-bin/test_headers.py?mode=malformed'
-CRLF is \r\n
-LF is \n
-
-CGI POST test:
-NC: (printf 'POST /cgi-bin/post_echo.py HTTP/1.1\r\nHost: 127.0.0.1:8080\r\nContent-Type: text/plain\r\nContent-Length: 19\r\nConnection: close\r\n\r\nhello from CGI POST'; sleep 1) | nc 127.0.0.1 8080
-Curl: curl -i -H 'Content-Type: text/plain' --data-binary 'hello from CGI POST' http://127.0.0.1:8080/cgi-bin/post_echo.py
-*/
-
 CgiProcess::CgiProcess()
     : pid_(-1), cgiOutputFd_(-1), cgiInputFd_(-1), inputOffset_(0),
       childStatus_(CHILD_NOT_STARTED), outputEof_(false), killSent_(false) {}
@@ -365,12 +352,11 @@ void CgiProcess::startCgi(const CgiInfo &cgiInfo, const Request &request,
             close(inputPipe[1]); // Close write end in parent if no body to send
         else
             cgiInputFd_ = inputPipe[1];
-        close(outputPipe[1]); // Close read end in parent
+        close(outputPipe[1]); // Close write end in parent
         cgiOutputFd_ = outputPipe[0];
         childStatus_ = CHILD_RUNNING;
         outputEof_ = false;
         killSent_ = false;
-        //apply non-block:
         if (set_non_blocking(cgiOutputFd_) < 0 || (cgiInputFd_ != -1 && set_non_blocking(cgiInputFd_) < 0))
         {
             closeFd(cgiOutputFd_);

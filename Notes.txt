@@ -1,3 +1,0 @@
-config file parse
-cgi
-the other Allowed Methods

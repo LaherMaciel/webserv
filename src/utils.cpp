@@ -6,9 +6,9 @@
 #include <sys/stat.h>//for stat(), S_ISREG
 #include <fcntl.h>//for fcntl()
 
-//Note: commented out version superior but not allowed by project subject 
 int set_non_blocking(int fd)
 {
+    // Typical flag-preserving form; F_GETFL is not allowed by the project subject.
     // int flags = fcntl(fd, F_GETFL, 0);
     // if (flags == -1)
     //     return -1;
@@ -104,18 +104,6 @@ void removeSpaceAfter(std::string &str)
         str.erase(last + 1);
 }
 
-/*
-418 I'm a teapot
-
-    The server refuses the attempt to brew coffee with a teapot.
-    429 Too Many Requests
-
-    The user has sent too many requests in a given amount of time (rate limiting).
-502 Bad Gateway
-
-    This error response means that the server, while working as a gateway to get a response needed to handle the request, got an invalid response.
-
-*/
 std::string httpReasonPhrase(int code)
 {
     switch (code)

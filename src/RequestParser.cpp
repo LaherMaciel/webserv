@@ -237,9 +237,6 @@ int RequestParser::copyByLength(std::map<std::string, std::string> header, Reque
     size_t missing = n - request.getBody().size();
     std::string newBody = rawRequestLine_.substr(0, missing);
     request.appendToBody(newBody);
-    /* size_t bodyEnd = rawRequestLine_.find("\r\n\r\n");
-    if (bodyEnd == std::string::npos)
-        return (-1); */
     std::string body = request.getBody();
     endOfBody_ = newBody.size();
     if (body.size() != n)
@@ -335,12 +332,6 @@ int RequestParser::copyByChunks(std::map<std::string, std::string> header, Reque
     return (0);
 }
 
-/**
- * TODO: Hello World body test
- * * content-length -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nContent-Length: 11\r\n\r\nhello world'; sleep 1) | nc 127.0.0.1 8080
- * * transfer-encoding -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nTransfer-encoding: chunked\r\n\r\n6\r\nhello \r\n5\r\nworld\r\n0\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
- * * content-length + transfer-encoding -> (printf 'POST /upload HTTP/1.1\r\nHost: x\r\nContent-Length: 11\r\nTransfer-encoding: chunked\r\n\r\n6\r\nhello \r\n6\r\nworld\r\n0\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080
- */
 int RequestParser::parseRequestBody(const std::string &raw_request, Request &request)
 {
     endOfBody_ = 0;
