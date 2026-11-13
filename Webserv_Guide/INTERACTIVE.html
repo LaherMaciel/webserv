@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>webserv — explained</title>
+<style>
+  :root {
+    --paper: #F5F6F8; --raised: #FFFFFF; --sunk: #ECEEF2;
+    --ink: #12161C; --ink-soft: #4A5361; --ink-faint: #6E7787; --rule: #D9DDE4;
+    --accent: #A8501B; --accent-bg: #F4E7DC;
+    --signal: #0F6E6A; --signal-bg: #DCEDEB;
+    --alarm: #9B1C2E; --alarm-bg: #F6E2E5;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10131A; --raised: #171B24; --sunk: #0A0D13;
+      --ink: #E8EBF0; --ink-soft: #9BA5B4; --ink-faint: #78828F; --rule: #2A3040;
+      --accent: #E08A4E; --accent-bg: #2B1D13;
+      --signal: #3FB5AE; --signal-bg: #0E2422;
+      --alarm: #E8607A; --alarm-bg: #2B1219;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #10131A; --raised: #171B24; --sunk: #0A0D13;
+    --ink: #E8EBF0; --ink-soft: #9BA5B4; --ink-faint: #78828F; --rule: #2A3040;
+    --accent: #E08A4E; --accent-bg: #2B1D13;
+    --signal: #3FB5AE; --signal-bg: #0E2422;
+    --alarm: #E8607A; --alarm-bg: #2B1219;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  main { width: min(1180px, calc(100% - 2.5rem)); margin-inline: auto; padding: 2.25rem 0 4rem; min-height: calc(100vh - 3.5rem); }
+  code, pre, kbd { font-family: var(--mono); }
+  code { font-size: 0.86em; background: var(--sunk); padding: 0.1em 0.35em; border-radius: 4px; }
+  a { color: var(--accent); }
+  button, select, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  /* ---------- top bar ---------- */
+  .bar { position: sticky; top: 0; z-index: 10; background: var(--paper); border-bottom: 1px solid var(--rule); }
+  .barin { width: min(1180px, calc(100% - 2.5rem)); margin-inline: auto; display: flex; align-items: center; gap: 1.25rem; height: 3.5rem; }
+  .brand { font-family: var(--mono); font-weight: 700; font-size: 0.95rem; white-space: nowrap; letter-spacing: -0.01em; }
+  .brand span { color: var(--accent); }
+  .tabs { display: flex; gap: 0.15rem; flex: 1; overflow-x: auto; height: 100%; }
+  .tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 0 0.85rem; font-size: 0.9rem; color: var(--ink-soft); white-space: nowrap; display: flex; align-items: center; gap: 0.45rem; }
+  .tabs button i { font-style: normal; font-family: var(--mono); font-size: 0.65rem; color: var(--ink-faint); border: 1px solid var(--rule); border-radius: 4px; padding: 0 0.3rem; }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+  .theme { border: 1px solid var(--rule); background: var(--raised); border-radius: 6px; padding: 0.25rem 0.6rem; font-family: var(--mono); font-size: 0.7rem; color: var(--ink-soft); }
+
+  /* ---------- views ---------- */
+  .view { display: none; }
+  .view.on { display: block; animation: rise 0.28s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .vh { margin-bottom: 1.6rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.5rem; }
+  h1 { font-size: clamp(2.3rem, 6vw, 3.8rem); line-height: 1.03; letter-spacing: -0.03em; }
+  h2 { font-size: clamp(1.7rem, 3.4vw, 2.2rem); line-height: 1.12; letter-spacing: -0.02em; }
+  .lede { color: var(--ink-soft); max-width: 70ch; margin-top: 0.6rem; font-size: 1.04rem; }
+  .card { background: var(--raised); border: 1px solid var(--rule); border-radius: 12px; }
+
+  /* ---------- start ---------- */
+  .hero { padding: 1.5rem 0 2rem; }
+  .hero p.sub { color: var(--ink-soft); max-width: 62ch; margin-top: 1.1rem; font-size: 1.15rem; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin: 2rem 0; }
+  .stat { border-top: 2px solid var(--ink); padding-top: 0.55rem; }
+  .stat b { display: block; font-size: 2.1rem; letter-spacing: -0.02em; line-height: 1.1; }
+  .stat span { font-size: 0.84rem; color: var(--ink-soft); display: block; margin-top: 0.15rem; }
+  .paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 1rem; }
+  .path { text-align: left; padding: 1.4rem 1.5rem; display: block; width: 100%; background: var(--raised); border: 1px solid var(--rule); border-radius: 12px; transition: border-color 0.2s, transform 0.2s; }
+  .path:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .path .pn { font-family: var(--mono); font-size: 0.7rem; color: var(--accent); letter-spacing: 0.12em; }
+  .path h3 { font-size: 1.25rem; margin: 0.3rem 0 0.4rem; letter-spacing: -0.01em; }
+  .path p { color: var(--ink-soft); font-size: 0.93rem; }
+  .path .go { display: block; margin-top: 0.8rem; font-family: var(--mono); font-size: 0.78rem; color: var(--accent); }
+  .runit { margin-top: 1.5rem; font-size: 0.88rem; color: var(--ink-soft); }
+  .stack { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 1.3rem; }
+  .chip { font-family: var(--mono); font-size: 0.72rem; border: 1px solid var(--rule); background: var(--raised); border-radius: 999px; padding: 0.22rem 0.7rem; color: var(--ink-soft); }
+
+  /* ---------- master / detail ---------- */
+  .md { display: grid; grid-template-columns: 17.5rem minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+  .mdlist { display: flex; flex-direction: column; gap: 0.3rem; position: sticky; top: 4.75rem; }
+  .mdi { display: flex; gap: 0.7rem; align-items: baseline; text-align: left; border: 1px solid transparent; background: none; border-radius: 10px; padding: 0.6rem 0.8rem; color: var(--ink-soft); font-size: 0.92rem; line-height: 1.3; }
+  .mdi .mdn { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-faint); width: 1.2rem; flex: none; }
+  .mdi small { display: block; font-family: var(--mono); font-size: 0.64rem; color: var(--ink-faint); margin-top: 0.15rem; }
+  .mdi:hover { background: var(--sunk); color: var(--ink); }
+  .mdi[aria-current="true"] { background: var(--raised); border-color: var(--accent); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 3px var(--accent-bg); }
+  .mdi.g0 .mdn { color: var(--alarm); }
+  .mdgrp { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); padding: 0.7rem 0.8rem 0.2rem; }
+  .pane { padding: 2rem 2.25rem 2.25rem; min-height: 32rem; }
+  .pane.swap { animation: rise 0.22s ease both; }
+  .pane .pk { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+  .pane h3 { font-size: 1.75rem; letter-spacing: -0.02em; line-height: 1.15; margin: 0.35rem 0 0.9rem; }
+  .pane .lead { font-size: 1.15rem; color: var(--ink); line-height: 1.5; max-width: 62ch; margin-bottom: 1.1rem; }
+  .pane p { color: var(--ink-soft); max-width: 72ch; margin-bottom: 0.85rem; }
+  .pane ul, .pane ol { color: var(--ink-soft); max-width: 72ch; margin: 0 0 0.9rem 1.2rem; }
+  .pane li { margin-bottom: 0.3rem; }
+  .pane h4 { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin: 1.5rem 0 0.5rem; }
+  figure.code { margin: 0.4rem 0 1rem; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+  figure.code figcaption { font-family: var(--mono); font-size: 0.68rem; color: var(--ink-faint); background: var(--sunk); padding: 0.35rem 0.8rem; border-bottom: 1px solid var(--rule); }
+  figure.code pre { font-size: 0.78rem; line-height: 1.6; padding: 0.8rem 1rem; overflow-x: auto; background: var(--paper); }
+  .tr { margin-top: 1.1rem; border-left: 4px solid var(--accent); background: var(--accent-bg); border-radius: 0 10px 10px 0; padding: 0.75rem 1rem; font-size: 0.93rem; color: var(--ink-soft); max-width: 72ch; }
+  .tr b { display: block; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.15rem; }
+  .where { margin-top: 1rem; font-family: var(--mono); font-size: 0.74rem; color: var(--accent); }
+  .tree { font-family: var(--mono); font-size: 0.82rem; line-height: 1.8; background: var(--sunk); border-radius: 10px; padding: 1rem 1.2rem; overflow-x: auto; white-space: pre; margin-bottom: 1rem; }
+  .tree i { color: var(--ink-faint); font-style: normal; } .tree b { color: var(--accent); }
+  table.lim { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin-bottom: 1rem; }
+  table.lim th { text-align: left; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); padding: 0.4rem 0.7rem; border-bottom: 2px solid var(--ink); }
+  table.lim td { padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--rule); vertical-align: top; color: var(--ink-soft); }
+  table.lim td:first-child { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  table.lim td:last-child { font-family: var(--mono); font-size: 0.74rem; color: var(--ink-faint); }
+  .cmd { position: relative; margin: 0.3rem 0 1rem; max-width: 72ch; }
+  .cmd pre { background: var(--sunk); border-radius: 8px; padding: 0.7rem 4rem 0.7rem 0.9rem; font-size: 0.8rem; line-height: 1.5; overflow-x: auto; white-space: pre; }
+  .copy { position: absolute; top: 0.45rem; right: 0.45rem; font-family: var(--mono); font-size: 0.66rem; border: 1px solid var(--rule); background: var(--raised); color: var(--ink-soft); border-radius: 5px; padding: 0.15rem 0.5rem; }
+  .copy:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .g0tag { display: inline-block; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; color: var(--alarm); border: 1px solid var(--alarm); border-radius: 4px; padding: 0.05rem 0.4rem; margin-left: 0.6rem; vertical-align: middle; }
+  .mdnav { display: flex; justify-content: space-between; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+
+  /* ---------- journey ---------- */
+  .scen { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .scen button { border: 1px solid var(--rule); background: var(--raised); border-radius: 10px; padding: 0.5rem 0.9rem; font-size: 0.9rem; color: var(--ink-soft); text-align: left; }
+  .scen button small { display: block; font-family: var(--mono); font-size: 0.66rem; color: var(--ink-faint); }
+  .scen button:hover { border-color: var(--ink-faint); }
+  .scen button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); color: var(--ink); }
+  .map { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); gap: 0.7rem 1.6rem; padding: 1.2rem; }
+  .node { border: 1.5px solid var(--rule); background: var(--paper); border-radius: 10px; padding: 0.65rem 0.85rem; transition: background 0.25s, border-color 0.25s, box-shadow 0.25s, opacity 0.25s; }
+  .node b { display: block; font-family: var(--mono); font-size: 0.88rem; }
+  .node span { display: block; font-size: 0.8rem; color: var(--ink-faint); line-height: 1.3; margin-top: 0.15rem; }
+  .node.on { border-color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 3px var(--accent-bg); }
+  .node.from { border-color: var(--signal); background: var(--signal-bg); }
+  .node.idle { opacity: 0.5; } .node.on, .node.from { opacity: 1; }
+  .n-client { grid-column: 1; grid-row: 1 / span 3; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  .n-server { grid-column: 2; grid-row: 1 / span 3; display: flex; flex-direction: column; justify-content: center; }
+  .n-conn { grid-column: 3; grid-row: 1; } .n-parser { grid-column: 4; grid-row: 1; }
+  .n-router { grid-column: 3; grid-row: 2; } .n-response { grid-column: 4; grid-row: 2; }
+  .n-cgi { grid-column: 3; grid-row: 3; } .n-script { grid-column: 4; grid-row: 3; }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 0.68rem; background: var(--sunk); border-radius: 4px; padding: 0.1rem 0.45rem; margin-top: 0.4rem; color: var(--ink-soft); }
+  .node.on .pill { background: var(--raised); }
+  .stage { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 1rem; margin-top: 1rem; }
+  .narr { padding: 1.5rem 1.6rem; min-height: 21rem; }
+  .stepno { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+  .narr h3 { font-size: 1.45rem; line-height: 1.2; margin: 0.3rem 0 0.7rem; letter-spacing: -0.015em; }
+  .narr p { color: var(--ink-soft); font-size: 1.02rem; }
+  .ref { display: block; font-family: var(--mono); font-size: 0.74rem; color: var(--accent); margin-top: 0.9rem; }
+  .evalnote { margin-top: 0.9rem; font-size: 0.88rem; border-left: 3px solid var(--signal); background: var(--signal-bg); padding: 0.5rem 0.75rem; border-radius: 0 6px 6px 0; }
+  .evalnote b { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--signal); margin-right: 0.4rem; }
+  .logline { margin-top: 0.9rem; font-family: var(--mono); font-size: 0.74rem; background: var(--sunk); border-radius: 6px; padding: 0.5rem 0.7rem; overflow-x: auto; white-space: pre; }
+  .mem { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 1rem; }
+  .lbl { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 0.3rem; }
+  .states { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .st { font-family: var(--mono); font-size: 0.66rem; border: 1px solid var(--rule); border-radius: 4px; padding: 0.14rem 0.45rem; color: var(--ink-faint); }
+  .st.cur { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .tbl td { padding: 0.3rem 0.45rem; border-bottom: 1px solid var(--rule); font-family: var(--mono); }
+  .tbl tr.rdy td { background: var(--accent-bg); }
+  .tbl tr.rdy td:first-child::before { content: "● "; color: var(--accent); }
+  .ev-in { color: var(--signal); font-weight: 700; } .ev-out { color: var(--accent); font-weight: 700; }
+  pre.buf { font-size: 0.74rem; line-height: 1.5; background: var(--sunk); border-radius: 6px; padding: 0.5rem 0.65rem; min-height: 2.4rem; max-height: 8.5rem; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  pre.buf:empty::before { content: "(empty)"; color: var(--ink-faint); }
+  .crlf { color: var(--ink-faint); opacity: 0.8; }
+  .wire { border-left: 3px solid var(--rule); } .wire.has { border-left-color: var(--accent); }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+  .ctl { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+  .btn { border: 1px solid var(--rule); background: var(--raised); border-radius: 8px; padding: 0.5rem 1rem; font-size: 0.9rem; }
+  .btn:hover:not(:disabled) { border-color: var(--ink-faint); }
+  .btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .dots { display: flex; gap: 0.3rem; flex: 1; min-width: 12rem; flex-wrap: wrap; padding-left: 0.5rem; }
+  .dot { width: 0.9rem; height: 0.9rem; border-radius: 50%; border: 1.5px solid var(--rule); background: var(--paper); padding: 0; }
+  .dot.done { background: var(--ink-faint); border-color: var(--ink-faint); }
+  .dot.cur { background: var(--accent); border-color: var(--accent); transform: scale(1.25); }
+  .hint { font-size: 0.8rem; color: var(--ink-faint); }
+  kbd { font-size: 0.68rem; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 0.3rem; background: var(--raised); }
+
+  /* ---------- routing ---------- */
+  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.8rem; padding: 1.25rem; }
+  .form label { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); display: block; }
+  .form input, .form select { width: 100%; margin-top: 0.25rem; border: 1px solid var(--rule); background: var(--paper); border-radius: 6px; padding: 0.5rem 0.6rem; font-family: var(--mono); font-size: 0.86rem; }
+  .form .wide { grid-column: span 2; }
+  .presets { display: flex; gap: 0.4rem; flex-wrap: wrap; padding: 0 1.25rem 1.25rem; }
+  .presets button { font-family: var(--mono); font-size: 0.72rem; border: 1px solid var(--rule); background: var(--paper); border-radius: 999px; padding: 0.25rem 0.75rem; color: var(--ink-soft); }
+  .presets button:hover { border-color: var(--accent); color: var(--ink); }
+  .stages { margin-top: 1rem; padding: 0.6rem 1.25rem; }
+  .stg { display: grid; grid-template-columns: 1.6rem 10.5rem minmax(0, 1fr) auto; gap: 0.8rem; align-items: start; padding: 0.8rem 0; border-bottom: 1px solid var(--rule); }
+  .stg:last-child { border-bottom: 0; }
+  .stg .ic { font-family: var(--mono); font-weight: 700; text-align: center; }
+  .stg.ok .ic { color: var(--signal); } .stg.stop .ic { color: var(--alarm); } .stg.skip { opacity: 0.4; }
+  .stg .nm { font-family: var(--mono); font-size: 0.84rem; font-weight: 700; }
+  .stg .dt { font-size: 0.92rem; color: var(--ink-soft); }
+  .stg .rf { font-family: var(--mono); font-size: 0.68rem; color: var(--ink-faint); white-space: nowrap; }
+  .outcome { margin-top: 1rem; padding: 1.2rem 1.4rem; border-left: 5px solid var(--signal); }
+  .outcome.err { border-left-color: var(--alarm); }
+  .outcome .big { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; }
+  .outcome p { color: var(--ink-soft); font-size: 0.98rem; margin-top: 0.3rem; max-width: 80ch; }
+  .fine { font-size: 0.8rem; color: var(--ink-faint); margin-top: 0.8rem; }
+
+  /* ---------- live ---------- */
+  .banner { padding: 0.8rem 1.1rem; border-left: 4px solid var(--accent); background: var(--accent-bg); border-radius: 0 8px 8px 0; font-size: 0.92rem; margin-bottom: 1rem; }
+  .live { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 1rem; align-items: start; }
+  .tlist { padding: 0.4rem 1.1rem; }
+  .trow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.8rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--rule); }
+  .trow:last-child { border-bottom: 0; }
+  .trow code { font-size: 0.78rem; }
+  .trow div small { display: block; font-size: 0.82rem; color: var(--ink-faint); margin-top: 0.1rem; }
+  .res { padding: 1.4rem; min-height: 22rem; position: sticky; top: 4.75rem; }
+  .res .status { font-family: var(--mono); font-size: 1.9rem; font-weight: 700; }
+  .res .status.ok { color: var(--signal); } .res .status.warn { color: var(--accent); } .res .status.bad { color: var(--alarm); }
+  .res .meta { font-family: var(--mono); font-size: 0.74rem; color: var(--ink-faint); margin: 0.2rem 0 0.8rem; }
+  .res pre { font-size: 0.74rem; line-height: 1.5; background: var(--sunk); border-radius: 6px; padding: 0.6rem 0.75rem; max-height: 12rem; overflow: auto; white-space: pre-wrap; word-break: break-all; margin-top: 0.4rem; }
+
+  /* ---------- merged: POLL_FLOW diagrams ---------- */
+  .pfnav { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.3rem 0 1rem; }
+  .pfnav button { border: 1px solid var(--rule); background: var(--paper); border-radius: 999px; padding: 0.3rem 0.85rem; font-size: 0.82rem; color: var(--ink-soft); }
+  .pfnav button:hover { border-color: var(--ink-faint); }
+  .pfnav button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-bg); color: var(--ink); }
+  .pfp { display: none; } .pfp.on { display: block; }
+  .pf .legend { display: flex; gap: 1.1rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--ink-soft); margin: 0.2rem 0 1rem; }
+  .pf .legend i { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; vertical-align: -0.1rem; margin-right: 0.35rem; border: 1.5px solid; }
+  .pf i.k-s { border-color: var(--accent); background: var(--accent-bg); } .pf i.k-c { border-color: var(--signal); background: var(--signal-bg); } .pf i.k-o { border-color: var(--rule); background: var(--paper); }
+  .pf .pflede { font-size: 0.95rem; }
+  .pf .flow { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 1rem; margin-top: 0.5rem; }
+  .pf .lanes, .pf .row { display: grid; grid-template-columns: 2rem repeat(3, minmax(0, 1fr)); column-gap: 1.7rem; }
+  .pf .lanes { padding-bottom: 0.5rem; border-bottom: 2px solid var(--ink); margin-bottom: 0.9rem; }
+  .pf .lanes span { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+  .pf .row { align-items: stretch; margin-bottom: 0.5rem; }
+  .pf .n { font-family: var(--mono); font-size: 0.8rem; font-weight: 700; color: var(--accent); padding-top: 0.55rem; }
+  .pf .cell { position: relative; border: 1.5px solid var(--rule); background: var(--raised); border-radius: 8px; padding: 0.55rem 0.7rem; }
+  .pf .cell.s { border-color: var(--accent); background: var(--accent-bg); }
+  .pf .cell.c { border-color: var(--signal); background: var(--signal-bg); }
+  .pf .cell.empty { visibility: hidden; }
+  .pf .cell.arr::before, .pf .cell.back::before { content: "→"; position: absolute; left: -1.35rem; top: 0.5rem; width: 1.1rem; text-align: center; color: var(--ink-faint); font-size: 1.05rem; line-height: 1.2; }
+  .pf .cell.back::before { content: "←"; }
+  .pf .cell b { display: block; font-family: var(--mono); font-size: 0.8rem; word-break: break-word; }
+  .pf .cell span.t { display: block; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.4; margin-top: 0.2rem; }
+  .pf .cell span.t b { display: inline; font-family: inherit; font-size: inherit; color: var(--ink); }
+  .pf .cell small { display: block; font-family: var(--mono); font-size: 0.66rem; color: var(--ink-faint); margin-top: 0.3rem; }
+  .pf .outs { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.45rem; }
+  .pf .o { font-family: var(--mono); font-size: 0.66rem; padding: 0.1rem 0.4rem; border-radius: 4px; border: 1px solid var(--rule); background: var(--raised); color: var(--ink-soft); }
+  .pf .o.bad { background: var(--alarm-bg); border-color: var(--alarm); color: var(--alarm); }
+  .pf .o.wait { background: var(--sunk); }
+  .pf .o.ok { background: var(--signal-bg); border-color: var(--signal); color: var(--signal); }
+  .pf .dn { text-align: center; color: var(--ink-faint); font-size: 0.8rem; margin: 0.1rem 0 0.5rem; font-family: var(--mono); }
+  .pf .dn b { color: var(--accent); }
+  .pf .full { grid-column: 2 / -1; }
+  .pf .caption { font-size: 0.85rem; color: var(--ink-faint); margin-top: 0.8rem; max-width: none; }
+  .pf table { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin-top: 0.75rem; }
+  .pf th { text-align: left; font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); padding: 0.4rem 0.6rem; border-bottom: 2px solid var(--ink); }
+  .pf td { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--rule); vertical-align: top; color: var(--ink-soft); }
+  .pf td:first-child { font-family: var(--mono); font-size: 0.78rem; color: var(--ink); }
+  .pf .pin { color: var(--signal); font-weight: 700; font-family: var(--mono); } .pf .pout { color: var(--accent); font-weight: 700; font-family: var(--mono); }
+  @media (max-width: 760px) {
+    .pf .lanes { display: none; }
+    .pf .row { grid-template-columns: 1.8rem minmax(0, 1fr); row-gap: 0.4rem; }
+    .pf .row .cell { grid-column: 2; } .pf .cell.empty { display: none; }
+    .pf .cell.arr::before, .pf .cell.back::before { content: none; } .pf .full { grid-column: 2; }
+  }
+
+  /* ---------- merged: evaluation tests ---------- */
+  .tt-head, .tt { display: grid; grid-template-columns: minmax(0, 1.5fr) 7rem minmax(0, 1fr); gap: 0.9rem; align-items: start; }
+  .tt-head { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); padding: 1rem 0 0.4rem; border-bottom: 2px solid var(--ink); }
+  .tt { padding: 0.9rem 0; border-bottom: 1px solid var(--rule); }
+  .tt .cmd { margin: 0; max-width: none; }
+  .tt .cmd pre, .res .cmd pre { white-space: pre-wrap; word-break: break-all; }
+  .tt .code { font-family: var(--mono); font-size: 0.8rem; font-weight: 700; text-align: center; border-radius: 6px; padding: 0.3rem 0.25rem; background: var(--signal-bg); color: var(--signal); }
+  .tt .code.c3 { background: var(--accent-bg); color: var(--accent); } .tt .code.c4 { background: var(--alarm-bg); color: var(--alarm); }
+  .tt .code.cx { background: var(--sunk); color: var(--ink-soft); font-weight: 400; font-size: 0.72rem; }
+  .tt .why { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.5; }
+  @media (max-width: 760px) { .tt-head { display: none; } .tt { grid-template-columns: minmax(0, 1fr) 6rem; } .tt .why { grid-column: 1 / -1; } }
+
+  /* ---------- merged: live request panel ---------- */
+  .res { position: static; }
+  .res .cmd { margin: 0.3rem 0 0.6rem; max-width: none; }
+  .res .cmd pre { max-height: none; margin-top: 0; font-size: 0.74rem; padding-right: 4rem; }
+  .res pre.buf { max-height: 9rem; margin-top: 0.3rem; }
+  .res .sep { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+
+  .foot { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: 0.8rem; color: var(--ink-faint); }
+
+  @media (max-width: 960px) {
+    .md, .stage, .live { grid-template-columns: minmax(0, 1fr); }
+    .mdlist { position: static; flex-direction: row; flex-wrap: wrap; }
+    .mdi { padding: 0.4rem 0.7rem; } .mdi small, .mdgrp { display: none; }
+    .pane { padding: 1.4rem 1.25rem; min-height: 0; }
+    .map { grid-template-columns: 1fr 1fr; }
+    .n-client, .n-server, .n-conn, .n-parser, .n-router, .n-response, .n-cgi, .n-script { grid-column: auto; grid-row: auto; }
+    .stg { grid-template-columns: 1.6rem minmax(0, 1fr); }
+    .stg .nm, .stg .dt, .stg .rf { grid-column: 2; }
+    .form .wide { grid-column: auto; } .cols2 { grid-template-columns: 1fr; }
+    .res { position: static; } .brand { display: none; }
+  }
+  @media print {
+    .bar, .scen, .ctl, .presets, .theme, .mdnav, .copy { display: none !important; }
+    .view { display: block !important; break-before: page; animation: none; }
+    #v-live { display: none !important; }
+    body { background: #fff; color: #000; font-size: 11pt; }
+    :root { --paper: #fff; --raised: #fff; --sunk: #f1f1f1; --ink: #000; --ink-soft: #333; --rule: #bbb; }
+    .md { grid-template-columns: 1fr; } .mdlist { display: none; } .pane { min-height: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="barin">
+    <div class="brand">web<span>serv</span></div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Sections"></div>
+    <button class="theme" id="theme" type="button" aria-label="Toggle light or dark theme">theme</button>
+  </div>
+</div>
+
+<main>
+
+<!-- ============================================================ START -->
+<section class="view" id="v-start" role="tabpanel">
+  <div class="hero">
+    <div class="eyebrow">42 · webserv · belinore &amp; lawences</div>
+    <h1>An HTTP server,<br>built from scratch.</h1>
+    <p class="sub">C++98 and the POSIX socket API, no libraries. One thread and one <code>poll()</code> serve every client, every listening socket and every CGI pipe, and nothing ever waits for anyone.</p>
+    <div class="stack"><span class="chip">C++98</span><span class="chip">POSIX sockets</span><span class="chip">non-blocking I/O</span><span class="chip">HTTP/1.1</span><span class="chip">CGI</span><span class="chip">NGINX-style config</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>1</b><span>thread, one <code>poll()</code> for every client and pipe</span></div>
+    <div class="stat"><b>4,018</b><span>lines of C++98 in <code>src/</code> and <code>includes/</code></span></div>
+    <div class="stat"><b>12</b><span>regression and unit test scripts</span></div>
+    <div class="stat"><b>512</b><span>clients served; the next ones get a clean 503</span></div>
+  </div>
+  <div class="eyebrow" style="margin-top:2.2rem">Where would you like to go?</div>
+  <div class="paths" id="paths"></div>
+  <p class="runit">Run it: <code>make &amp;&amp; ./webserv config/default.conf</code>, then open <code>http://127.0.0.1:8080/Webserv_Guide/INTERACTIVE.html</code>. Keys <kbd>1</kbd>–<kbd>7</kbd> switch tabs. Print the page for a PDF handout.</p>
+</section>
+
+<!-- ============================================================ DESIGN -->
+<section class="view" id="v-design" role="tabpanel">
+  <div class="vh"><div class="eyebrow">How it is built</div><h2>Architecture and decisions</h2><p class="lede">Pick a topic on the left. Each one explains what the code does, why it was done that way, and what it costs.</p></div>
+  <div class="md"><div class="mdlist" id="design-list"></div><div class="card pane" id="design-pane"></div></div>
+</section>
+
+<!-- ============================================================ JOURNEY -->
+<section class="view" id="v-journey" role="tabpanel">
+  <div class="vh"><div class="eyebrow">Request journey</div><h2>Watch a request travel through the server</h2><p class="lede">Choose a situation, then step through it. The map lights up the code that is running, and the panel on the right shows what the server holds in memory: connection state, the <code>poll()</code> table and both buffers.</p></div>
+  <div class="scen" id="scen" role="group" aria-label="Scenario"></div>
+  <div class="card map" id="map" aria-label="Server components"></div>
+  <div class="stage">
+    <div class="card narr" id="narr" aria-live="polite"></div>
+    <div class="card mem">
+      <div><div class="lbl">Connection state (Connection.hpp:31)</div><div class="states" id="states"></div></div>
+      <div><div class="lbl">poll_fds_ — what the next poll() will watch</div><table class="tbl" id="fds"></table></div>
+      <div class="cols2">
+        <div><div class="lbl">in_buffer_ (received)</div><pre class="buf" id="inb"></pre></div>
+        <div><div class="lbl">out_buffer_ (to send)</div><pre class="buf" id="outb"></pre></div>
+      </div>
+      <div class="wire" id="wirebox"><div class="lbl" id="wirelbl" style="padding-left:0.6rem">Data in flight</div><pre class="buf" id="wire"></pre></div>
+    </div>
+  </div>
+  <div class="ctl">
+    <button class="btn" id="prev" type="button">← Back</button>
+    <button class="btn pri" id="next" type="button">Next →</button>
+    <button class="btn" id="play" type="button">▶ Auto-play</button>
+    <button class="btn" id="reset" type="button">Restart</button>
+    <div class="dots" id="dots" role="group" aria-label="Steps"></div>
+  </div>
+  <p class="hint" style="margin-top:0.7rem">Keyboard: <kbd>←</kbd> <kbd>→</kbd> step, <kbd>space</kbd> auto-play. Response header order and the fd numbers 5, 6, 7 are illustrative; everything else follows the code.</p>
+</section>
+
+<!-- ============================================================ ROUTING -->
+<section class="view" id="v-routing" role="tabpanel">
+  <div class="vh"><div class="eyebrow">Routing</div><h2>Where does this request end up?</h2><p class="lede">The same decisions as <code>Router::routeRequest()</code>, in the same order, applied to the shipped <code>config/default.conf</code>. Change any field and the stages update. It stops where the code starts touching the disk, because whether a file exists is not in the config.</p></div>
+  <div class="card">
+    <div class="form">
+      <div><label for="r-port">Port</label><select id="r-port"><option>8080</option><option>8081</option></select></div>
+      <div><label for="r-host">Host header</label><input id="r-host" list="hosts" value="webserv_host" autocomplete="off"><datalist id="hosts"><option value="webserv_host"><option value="other.local"><option value="127.0.0.1"></datalist></div>
+      <div><label for="r-method">Method</label><select id="r-method"><option>GET</option><option>POST</option><option>DELETE</option><option>HEAD</option><option>PATCH</option><option>FOO</option></select></div>
+      <div class="wide"><label for="r-path">Path</label><input id="r-path" value="/static/a.txt" autocomplete="off" spellcheck="false"></div>
+      <div><label for="r-body">Body bytes</label><input id="r-body" type="number" min="0" value="0"></div>
+    </div>
+    <div class="presets" id="presets"></div>
+  </div>
+  <div class="card stages" id="stages"></div>
+  <div class="card outcome" id="outcome"></div>
+  <p class="fine">Mirrors Router.cpp:33 (path check), :76 (location) and :444 (order of checks). CGI extension matching is simplified.</p>
+</section>
+
+<!-- ============================================================ LIVE -->
+<section class="view" id="v-live" role="tabpanel">
+  <div class="vh"><div class="eyebrow">Live</div><h2>Send real requests to the server</h2><p class="lede">Each button sends a real request from your browser to the server that served this page. The panel shows <b>what the client asked</b> (the raw HTTP text, plus the same request as <code>curl</code> and as <code>nc</code> so you can repeat it from a terminal) and <b>what the server answered</b>. Keep <code>tail -f webserv.log</code> open: every response appears there as <code>response_queued … status=</code>.</p></div>
+  <div id="livebanner"></div>
+  <div class="live">
+    <div class="card tlist" id="tlist"></div>
+    <div class="card res" id="res"><div class="hint">Press a Send button to see the response here.</div></div>
+  </div>
+</section>
+
+<!-- ============================================================ EVALUATION -->
+<section class="view" id="v-eval" role="tabpanel">
+  <div class="vh"><div class="eyebrow">Evaluation</div><h2>The evaluation sheet, in order</h2><p class="lede">Every check on the sheet as a copy-paste command with the status code to expect. The status codes were observed on this build with <code>config/default.conf</code>; expectations for siege and the leak tools come from the sheet itself. Pick a section on the left.</p></div>
+  <div class="md"><div class="mdlist" id="eval-list"></div><div class="card pane" id="eval-pane"></div></div>
+</section>
+
+<!-- ============================================================ Q&A -->
+<section class="view" id="v-qa" role="tabpanel">
+  <div class="vh"><div class="eyebrow">Defence Q&amp;A</div><h2>Questions the evaluation will ask</h2><p class="lede">Each answer starts with the short version, then explains, and ends with a command you can run to show it. The first three are grade-zero rules on the evaluation sheet.</p></div>
+  <div class="md"><div class="mdlist" id="qa-list"></div><div class="card pane" id="qa-pane"></div></div>
+  <p class="fine">Every command from the evaluation sheet, with the status code to expect: <a href="#eval">Evaluation tab</a>. POLLIN and POLLOUT step by step: <a href="#design/3">Design tab</a>.</p>
+</section>
+
+<div class="foot">webserv · line numbers refer to the repository when this page was written; re-check with <code>grep -n "functionName" src/*.cpp</code> if the code has moved.</div>
+</main>
+
+<template id="tpl-pf"><div class="pf">
+<div class="pfnav" role="group" aria-label="Flow view"><button type="button" data-pf="loop" aria-pressed="true">The loop</button><button type="button" data-pf="pollin" aria-pressed="false">POLLIN · accept and read</button><button type="button" data-pf="cgi" aria-pressed="false">CGI branch</button><button type="button" data-pf="pollout" aria-pressed="false">POLLOUT · send</button><button type="button" data-pf="flips" aria-pressed="false">Who flips the event</button></div>
+<div class="legend"><span><i class="k-s"></i>Server (<code>Server.cpp</code>, <code>ServerCgi.cpp</code>)</span><span><i class="k-c"></i>Connection and its parser (<code>Connection.cpp</code>, <code>RequestParser.cpp</code>)</span><span><i class="k-o"></i>Router, Response, CgiProcess</span></div>
+<div class="pfp on" data-pfp="loop">
+<p class="pflede">Each turn calls <code>poll()</code> once, then handles every fd that is ready. Which handler runs depends on what kind of fd it is.</p>
+  <div class="flow">
+    <div class="lanes"><span></span><span>Server</span><span>Connection</span><span>Router / Response / Cgi</span></div>
+    <div class="row">
+      <div class="n">·</div>
+      <div class="cell s full"><b>runServer() — while (!shutdownRequested_)</b><span class="t"><code>poll(&amp;poll_fds_[0], size, 100 ms)</code> → <code>processEvents()</code> → <code>checkCgiChildren()</code> → <code>checkClientTimeouts()</code> → <code>log_.flush()</code></span><small>Server.cpp:476 · :482 · :423</small></div>
+    </div>
+    <div class="dn">↓ for each fd with <b>revents ≠ 0</b>, first match wins</div>
+    <div class="row">
+      <div class="n"></div>
+      <div class="cell s"><b>CGI pipe?</b><span class="t"><code>getCgiOwner(fd)</code> → <code>handleCgiEvent()</code></span><small>ServerCgi.cpp:78 · see CGI</small></div>
+      <div class="cell s"><b>Listener?</b><span class="t"><code>getListener(fd)</code> → <code>handleListenerEvent()</code></span><small>Server.cpp:389 · see 1–2</small></div>
+      <div class="cell s"><b>Otherwise a client</b><span class="t"><code>handleConnectionEvent()</code>: POLLIN reads, POLLOUT writes</span><small>Server.cpp:348 · see 3–8, POLLOUT</small></div>
+    </div>
+    <p class="caption">A client that returns <code>CLOSE_CONNECTION</code> is collected in <code>dead_fds</code> and removed together at the end of <code>processEvents()</code> by <code>cleanDeadFds()</code> (Server.cpp:110).</p>
+  </div>
+</div>
+<div class="pfp" data-pfp="pollin">
+<p class="pflede">The path of one request from a readable socket to a queued response. Steps 1–2 run on a listener fd, steps 3–8 on a client fd.</p>
+  <div class="flow">
+    <div class="lanes"><span></span><span>Server</span><span>Connection / parser</span><span>Router / Response</span></div>
+
+    <div class="row">
+      <div class="n">1</div>
+      <div class="cell s"><b>handleListenerEvent()</b><span class="t">Listener is readable: a client is waiting. Call <code>acceptConnection()</code>: <code>accept()</code>, then non-blocking.</span><small>Server.cpp:389 → :71</small>
+        <div class="outs"><span class="o bad">accept fails: nothing created</span></div></div>
+      <div class="cell empty"></div><div class="cell empty"></div>
+    </div>
+    <div class="dn">↓</div>
+    <div class="row">
+      <div class="n">2</div>
+      <div class="cell s"><b>limits, then new Connection</b><span class="t">Register the new fd in poll for <b>POLLIN</b>.</span><small>Server.cpp:400–418</small>
+        <div class="outs"><span class="o bad">≥ 520 clients: close</span><span class="o bad">&gt; 512: 503, POLLOUT</span></div></div>
+      <div class="cell c arr"><b>Connection(fd, ip, listener)</b><span class="t">State <code>CONN_NEW</code>. Default config = first server block on this listener.</span><small>Connection.cpp:12</small></div>
+      <div class="cell empty"></div>
+    </div>
+    <div class="dn"><b>— later, the client sends bytes: its fd becomes readable —</b></div>
+
+    <div class="row">
+      <div class="n">3</div>
+      <div class="cell s"><b>handleConnectionEvent()</b><span class="t">Check <code>revents</code> first, then POLLIN.</span><small>Server.cpp:348</small>
+        <div class="outs"><span class="o bad">POLLERR/NVAL: close</span><span class="o wait">POLLHUP: close after reply</span></div></div>
+      <div class="cell c arr"><b>readFromSocket()</b><span class="t">Exactly one <code>recv()</code> of up to 4096 bytes, appended to <code>in_buffer_</code>.</span><small>Connection.cpp:185</small>
+        <div class="outs"><span class="o bad">&lt; 0: close</span><span class="o wait">0: client closed, finish reply then close</span><span class="o ok">&gt; 0: go on</span></div></div>
+      <div class="cell empty"></div>
+    </div>
+    <div class="dn">↓ data read</div>
+    <div class="row">
+      <div class="n">4</div>
+      <div class="cell s"><b>processBufferedRequest()</b><span class="t">Drives the request through its states.</span><small>Server.cpp:300</small></div>
+      <div class="cell c arr"><b>processRequestHeaders()</b><span class="t"><code>CONN_READING_HEADERS</code>. The parser reads the request line and headers from <code>in_buffer_</code>.</span><small>Connection.cpp:280 → RequestParser.cpp:198</small>
+        <div class="outs"><span class="o wait">no blank line yet: wait for next POLLIN</span><span class="o bad">400 / 501</span><span class="o ok">complete → READING_BODY</span></div></div>
+      <div class="cell empty"></div>
+    </div>
+    <div class="dn">↓ headers complete</div>
+    <div class="row">
+      <div class="n">5</div>
+      <div class="cell s"><b>selectServerConfig()</b><span class="t">Match the <code>Host</code> header to a <code>server_name</code> on this listener. No match: first block.</span><small>Server.cpp:246</small></div>
+      <div class="cell c"><b>setRequestBodyLimit()</b><span class="t">Body cap taken from the matched location's <code>client_max_body_size</code>.</span><small>Connection.cpp:306</small></div>
+      <div class="cell arr"><b>Router::findLocation()</b><span class="t">Longest matching prefix wins.</span><small>Router.cpp:76</small>
+        <div class="outs"><span class="o bad">no location: 404</span></div></div>
+    </div>
+    <div class="dn">↓</div>
+    <div class="row">
+      <div class="n">6</div>
+      <div class="cell empty"></div>
+      <div class="cell c"><b>processRequestBody()</b><span class="t">Content-Length or chunked body, appended to the Request.</span><small>Connection.cpp:311 → RequestParser.cpp:344</small>
+        <div class="outs"><span class="o wait">body incomplete: wait for next POLLIN</span><span class="o bad">too large: 413</span><span class="o ok">complete → READY_TO_ROUTE</span></div></div>
+      <div class="cell empty"></div>
+    </div>
+    <div class="dn">↓ full request in memory</div>
+    <div class="row">
+      <div class="n">7</div>
+      <div class="cell s"><b>routeConnectionRequest()</b><span class="t">Builds a <code>Router</code> for the chosen server and asks it. A thrown status int becomes an error <code>Response</code> (custom <code>error_page</code> if set).</span><small>Server.cpp:273</small></div>
+      <div class="cell empty"></div>
+      <div class="cell arr"><b>Router::routeRequest()</b><span class="t">Check the path, find the location, apply limit, redirect, allowed methods. Then CGI, POST, DELETE or GET.</span><small>Router.cpp:444</small>
+        <div class="outs"><span class="o bad">400 · 403 · 404 · 405 · 413 · 500</span><span class="o ok">Response filled in</span><span class="o wait">ROUTE_CGI: see CGI</span></div></div>
+    </div>
+    <div class="dn">↓ a Response (not CGI)</div>
+    <div class="row">
+      <div class="n">8</div>
+      <div class="cell s"><b>events = POLLOUT</b><span class="t">Back in <code>processBufferedRequest()</code>, the fd is switched to write interest.</span><small>Server.cpp:323</small></div>
+      <div class="cell c back"><b>queueResponse()</b><span class="t">State <code>CONN_WRITING_RESPONSE</code>. Adds <code>Connection: close</code> if needed, appends the serialized text to <code>out_buffer_</code>.</span><small>Connection.cpp:231</small></div>
+      <div class="cell back"><b>Response::serialize()</b><span class="t">Status line, headers, body.</span><small>Response.cpp</small></div>
+    </div>
+    <p class="caption">Steps 4 to 8 usually all run inside the same loop turn when the whole request arrived in one <code>recv()</code>. If it did not, the function returns at the "wait" tag and picks up again on the next POLLIN, because the parser and state live in the Connection.</p>
+  </div>
+</div>
+<div class="pfp" data-pfp="cgi">
+<p class="pflede">The response is not ready yet, so the script's pipes join the same <code>poll()</code>. The client fd keeps waiting for POLLIN while it runs.</p>
+  <div class="flow">
+    <div class="lanes"><span></span><span>Server</span><span>Connection</span><span>CgiProcess</span></div>
+
+    <div class="row">
+      <div class="n">a</div>
+      <div class="cell s"><b>startCgi()</b><span class="t">Collect fds the child must close, then add the pipe fds to poll: stdout <b>POLLIN</b>, and stdin <b>POLLOUT</b> only when the request has a body. Client fd stays <b>POLLIN</b>.</span><small>ServerCgi.cpp:51</small></div>
+      <div class="cell c arr"><b>Connection::startCgi()</b><span class="t">State <code>CONN_RUNNING_CGI</code>.</span><small>Connection.cpp:109</small></div>
+      <div class="cell arr"><b>CgiProcess::startCgi()</b><span class="t"><code>pipe</code> ×2, <code>fork</code>; child does <code>dup2</code>, <code>chdir</code>, <code>execve</code>.</span><small>CgiProcess.cpp:308</small>
+        <div class="outs"><span class="o bad">fail: 500</span></div></div>
+    </div>
+    <div class="dn">↓ later loop turns</div>
+    <div class="row">
+      <div class="n">b</div>
+      <div class="cell s"><b>handleCgiEvent()</b><span class="t">stdin pipe writable: one <code>write</code> of the body. stdout pipe readable: one <code>read</code>.</span><small>ServerCgi.cpp:78</small></div>
+      <div class="cell c arr"><b>writeToCGIPipe() / readFromCGIPipe()</b><span class="t">Body is sent from a saved offset; output collects in a buffer.</span><small>Connection.cpp:173 · :154</small></div>
+      <div class="cell arr"><b>writeToPipe() / readFromPipe()</b><span class="t"><code>read == 0</code> means the script closed stdout: it is done.</span><small>CgiProcess.cpp:154 · :133</small>
+        <div class="outs"><span class="o bad">read error / output &gt; 128 MB: 500</span></div></div>
+    </div>
+    <div class="dn">↓ output complete</div>
+    <div class="row">
+      <div class="n">c</div>
+      <div class="cell s"><b>updatePollEvents(client, POLLOUT)</b><span class="t">Pipes removed from poll. The client is now ready to be written to.</span><small>ServerCgi.cpp:30</small></div>
+      <div class="cell c back"><b>checkCgiChild()</b><span class="t"><code>waitpid(WNOHANG)</code>, then build the <code>Response</code> from the script's headers and body, then <code>queueResponse()</code>.</span><small>Connection.cpp:140</small>
+        <div class="outs"><span class="o bad">script exit ≠ 0 or bad output: 500</span></div></div>
+      <div class="cell back"><b>finishCgi()</b><span class="t">Parses <code>Status:</code> and headers.</span><small>CgiProcess.cpp</small></div>
+    </div>
+    <p class="caption">If the child is still running after the pipe closed, <code>checkCgiChildren()</code> (ServerCgi.cpp:157) retries each loop turn. A script that runs longer than 30 s is killed and answered with 504.</p>
+  </div>
+</div>
+<div class="pfp" data-pfp="pollout">
+<p class="pflede">The client fd is writable and has bytes waiting in <code>out_buffer_</code>.</p>
+  <div class="flow">
+    <div class="lanes"><span></span><span>Server</span><span>Connection</span><span>What happens next</span></div>
+
+    <div class="row">
+      <div class="n">1</div>
+      <div class="cell s"><b>handleConnectionEvent()</b><span class="t">POLLOUT is set in <code>revents</code>: go to the write path.</span><small>Server.cpp:348 → :326</small></div>
+      <div class="cell c arr"><b>sendResponse()</b><span class="t">Exactly one <code>send()</code> from <code>bytes_sent_</code> to the end of <code>out_buffer_</code>.</span><small>Connection.cpp:210</small>
+        <div class="outs"><span class="o bad">≤ 0: SEND_FAILED</span><span class="o wait">partial: SEND_PENDING</span><span class="o ok">all sent: SEND_COMPLETE</span></div></div>
+      <div class="cell"><b>by result</b><span class="t"><span style="color:var(--alarm)">FAILED</span>: close the connection.<br><span style="color:var(--ink-soft)">PENDING</span>: stay on POLLOUT, back to <code>poll()</code>; the next turn sends the rest.<br><span style="color:var(--signal)">COMPLETE</span>: step 2.</span></div>
+    </div>
+    <div class="dn">↓ SEND_COMPLETE</div>
+    <div class="row">
+      <div class="n">2</div>
+      <div class="cell s"><b>handleConnectionWrite()</b><span class="t">Was the connection marked to close?</span><small>Server.cpp:326</small></div>
+      <div class="cell c"><b>state after send</b><span class="t"><code>CONN_CLOSING</code> if the reply was <code>Connection: close</code> (HTTP/1.0, errors, client asked). Otherwise <code>CONN_WAITING_FOR_REQUEST</code>.</span><small>Connection.cpp:210</small></div>
+      <div class="cell"><b>CLOSING</b><span class="t"><code>CLOSE_CONNECTION</code> → <code>cleanDeadFds()</code>: leave poll, close socket, kill any CGI child, delete the Connection.</span><small>Server.cpp:110</small></div>
+    </div>
+    <div class="dn">↓ keep-alive</div>
+    <div class="row">
+      <div class="n">3</div>
+      <div class="cell s"><b>events = POLLIN</b><span class="t">If <code>in_buffer_</code> is empty, go back to waiting for the next request.</span><small>Server.cpp:336</small></div>
+      <div class="cell c back"><b>resetForNewRequest()</b><span class="t">Fresh Request, parser reset, server block back to the listener default.</span><small>Connection.cpp:70</small></div>
+      <div class="cell"><b>pipelined bytes already buffered?</b><span class="t"><code>processBufferedRequest()</code> runs the next request at once (POLLIN steps 4 to 8), then sets POLLIN or POLLOUT by the new state.</span><small>Server.cpp:339</small></div>
+    </div>
+  </div>
+</div>
+<div class="pfp" data-pfp="flips">
+<p class="pflede">A client fd waits for <span class="pin">POLLIN</span> or <span class="pout">POLLOUT</span>, never both. That is why one loop turn does at most one <code>recv</code> or one <code>send</code> on it.</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>Moment</th><th>Event set</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Client accepted</td><td><span class="pin">POLLIN</span></td><td>Server.cpp:418 <code>addFdToPoll(fd, POLLIN)</code></td></tr>
+      <tr><td>Response queued (static, error, redirect, upload, delete)</td><td><span class="pout">POLLOUT</span></td><td>Server.cpp:323 in <code>processBufferedRequest()</code></td></tr>
+      <tr><td>Soft limit reached: 503 queued at accept</td><td><span class="pout">POLLOUT</span></td><td>Server.cpp:414–415</td></tr>
+      <tr><td>CGI started</td><td><span class="pin">POLLIN</span> (client stays)</td><td>ServerCgi.cpp:75</td></tr>
+      <tr><td>CGI finished, timed out or failed</td><td><span class="pout">POLLOUT</span></td><td><code>updatePollEvents()</code> in ServerCgi.cpp</td></tr>
+      <tr><td>Whole response sent, keep-alive</td><td><span class="pin">POLLIN</span></td><td>Server.cpp:336</td></tr>
+      <tr><td>Whole response sent, close</td><td>fd removed</td><td><code>cleanDeadFds()</code> Server.cpp:110</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+</div></template>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var fmt = function (s) { return esc(s).replace(/\r\n/g, '<span class="crlf">\\r\\n</span>\n'); };
+  function mk(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+
+  /* theme */
+  $('#theme').addEventListener('click', function () {
+    var r = document.documentElement;
+    var dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+  });
+
+  /* copy buttons (delegated) */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.copy') : null;
+    if (!b) return;
+    var text = b.parentNode.querySelector('pre').textContent;
+    var done = function () { b.textContent = 'copied'; setTimeout(function () { b.textContent = 'copy'; }, 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done);
+    else { var a = document.createElement('textarea'); a.value = text; document.body.appendChild(a); a.select(); document.execCommand('copy'); document.body.removeChild(a); done(); }
+  });
+
+  /* sub-views inside the merged POLL_FLOW topic */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-pf]') : null;
+    if (!b) return;
+    var pf = b.closest('.pf');
+    Array.prototype.forEach.call(pf.querySelectorAll('[data-pf]'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    Array.prototype.forEach.call(pf.querySelectorAll('.pfp'), function (p) { p.className = 'pfp' + (p.getAttribute('data-pfp') === b.getAttribute('data-pf') ? ' on' : ''); });
+  });
+
+  /* ===================================================================
+     NAVIGATION  (#view or #view/sub)
+     =================================================================== */
+  var VIEWS = [
+    { id: 'start',   label: 'Start' },
+    { id: 'design',  label: 'Design' },
+    { id: 'journey', label: 'Request journey' },
+    { id: 'routing', label: 'Routing' },
+    { id: 'live',    label: 'Live' },
+    { id: 'eval',    label: 'Evaluation' },
+    { id: 'qa',      label: 'Q&A' }
+  ];
+  var active = 'start';
+  var tabsEl = $('#tabs');
+  VIEWS.forEach(function (v, i) {
+    var b = mk('button', '', esc(v.label) + '<i>' + (i + 1) + '</i>');
+    b.type = 'button'; b.setAttribute('role', 'tab'); b.id = 'tab-' + v.id;
+    b.addEventListener('click', function () { go(v.id); });
+    tabsEl.appendChild(b);
+  });
+
+  function setHash(h) { try { history.replaceState(null, '', '#' + h); } catch (e) { /* file:// */ } }
+  function go(id, sub) {
+    stop();
+    active = id;
+    VIEWS.forEach(function (v) {
+      $('#v-' + v.id).className = 'view' + (v.id === id ? ' on' : '');
+      $('#tab-' + v.id).setAttribute('aria-selected', v.id === id ? 'true' : 'false');
+    });
+    if (id === 'design') DESIGN.select(sub != null ? sub : DESIGN.cur);
+    if (id === 'qa') QA.select(sub != null ? sub : QA.cur);
+    if (id === 'eval') EVAL.select(sub != null ? sub : EVAL.cur);
+    if (id === 'journey') {
+      if (sub) { var p = /^(\d+)-(\d+)$/.exec(sub); if (p && SCENARIOS[+p[1] - 1]) { cur = +p[1] - 1; idx = Math.max(0, Math.min(SCENARIOS[cur].steps.length - 1, +p[2] - 1)); } }
+      renderJourney();
+    }
+    if (id === 'routing') doResolve();
+    if (id === 'start' || id === 'routing' || id === 'live') setHash(id);
+    window.scrollTo(0, 0);
+  }
+
+  /* ===================================================================
+     MASTER / DETAIL
+     =================================================================== */
+  function masterDetail(name, listEl, paneEl, items, buildPane) {
+    var obj = { cur: 0 };
+    var buttons = [];
+    var lastGroup = null;
+    items.forEach(function (it, i) {
+      if (it.group && it.group !== lastGroup) { listEl.appendChild(mk('div', 'mdgrp', esc(it.group))); lastGroup = it.group; }
+      var b = mk('button', 'mdi' + (it.g0 ? ' g0' : ''), '<span class="mdn">' + (i + 1) + '</span><span>' + esc(it.t) + (it.tag ? '<small>' + esc(it.tag) + '</small>' : '') + '</span>');
+      b.type = 'button';
+      b.addEventListener('click', function () { obj.select(i); });
+      listEl.appendChild(b); buttons.push(b);
+    });
+    obj.select = function (i) {
+      i = Math.max(0, Math.min(items.length - 1, i));
+      obj.cur = i;
+      buttons.forEach(function (b, k) { b.setAttribute('aria-current', k === i ? 'true' : 'false'); });
+      paneEl.innerHTML = buildPane(items[i], i, items.length);
+      paneEl.classList.remove('swap'); void paneEl.offsetWidth; paneEl.classList.add('swap');
+      Array.prototype.forEach.call(paneEl.querySelectorAll('[data-step]'), function (x) {
+        x.addEventListener('click', function () { obj.select(i + (+x.getAttribute('data-step'))); window.scrollTo(0, 0); });
+      });
+      if (active === name) setHash(name + '/' + (i + 1));
+    };
+    return obj;
+  }
+
+  function codeBlock(c) { return '<figure class="code"><figcaption>' + esc(c.cap) + '</figcaption><pre>' + esc(c.text) + '</pre></figure>'; }
+  function cmdBlock(text) { return '<div class="cmd"><pre>' + esc(text) + '</pre><button class="copy" type="button">copy</button></div>'; }
+  function codeClass(e) {
+    var bad = /[45]\d\d/.test(e), good = /[2]\d\d/.test(e), redir = /3\d\d/.test(e);
+    if (bad && (good || redir)) return 'c3';
+    if (bad) return 'c4';
+    if (redir) return 'c3';
+    if (good) return '';
+    return 'cx';
+  }
+  function testsHtml(ts) {
+    return '<div class="tt-head"><span>Command</span><span>Expect</span><span>What it shows</span></div>' + ts.map(function (t) {
+      return '<div class="tt"><div class="cmd"><pre>' + esc(t.c) + '</pre><button class="copy" type="button">copy</button></div><div class="code ' + codeClass(t.e) + '">' + esc(t.e) + '</div><div class="why">' + t.w + '</div></div>';
+    }).join('');
+  }
+  function navRow(i, n) {
+    return '<div class="mdnav"><button class="btn" type="button" data-step="-1"' + (i === 0 ? ' disabled' : '') + '>← Previous topic</button><button class="btn" type="button" data-step="1"' + (i === n - 1 ? ' disabled' : '') + '>Next topic →</button></div>';
+  }
+  function paneHtml(it, i, n) {
+    var h = '<div class="pk">' + esc(it.k) + (it.g0 ? '<span class="g0tag">GRADE 0 IF WRONG</span>' : '') + '</div><h3>' + esc(it.t) + '</h3><p class="lead">' + it.lead + '</p>';
+    (it.body || []).forEach(function (p) { h += p.charAt(0) === '<' ? p : '<p>' + p + '</p>'; });
+    if (it.html) h += it.html;
+    if (it.tpl) h += $('#' + it.tpl).innerHTML;
+    if (it.tests) h += testsHtml(it.tests);
+    (it.code || []).forEach(function (c) { h += codeBlock(c); });
+    if (it.show) { h += '<h4>Show it</h4>' + cmdBlock(it.show); }
+    if (it.tr) h += '<div class="tr"><b>Trade-off</b>' + it.tr + '</div>';
+    if (it.box) h += '<div class="tr"><b>' + esc(it.box[0]) + '</b>' + it.box[1] + '</div>';
+    if (it.where) h += '<div class="where">' + esc(it.where) + '</div>';
+    return h + navRow(i, n);
+  }
+
+  /* ===================================================================
+     START — path cards
+     =================================================================== */
+  var PATHS = [
+    ['design',  '01', 'How is it built?', 'Architecture and the engineering decisions behind it: one thread, a state machine per connection, bounded everything. One topic at a time.'],
+    ['journey', '02', 'Follow a request', 'Seven situations step by step: a page, an upload, a CGI, a 404, a split request, pipelining, a silent client. With the server’s memory shown.'],
+    ['routing', '03', 'Change the config, see the route', 'Type a port, host, method and path and watch the router’s checks run in order.'],
+    ['live',    '04', 'Try it on the real server', 'Upload a file, read it back, delete it, run a CGI, trigger a 404 and a 405, all from this page.'],
+    ['eval',    '05', 'Prepare for the evaluation', 'Every check on the evaluation sheet as a copy-paste command with the status code to expect: configuration, basic checks, browser, ports, siege, bonus.'],
+    ['qa',      '06', 'Defence questions', 'The questions the evaluation sheet makes you answer, with a short answer, an explanation and a command to prove it.']
+  ];
+  PATHS.forEach(function (p) {
+    var b = mk('button', 'path', '<span class="pn">' + p[1] + '</span><h3>' + p[2] + '</h3><p>' + p[3] + '</p><span class="go">Open →</span>');
+    b.type = 'button'; b.addEventListener('click', function () { go(p[0]); });
+    $('#paths').appendChild(b);
+  });
+
+  /* ===================================================================
+     DESIGN — topics
+     =================================================================== */
+  var DESIGN_ITEMS = [
+    { t: 'Architecture', tag: 'who owns what', k: 'Topic 1 · the big picture',
+      lead: 'Eight pieces, each with one job. The server owns the sockets and connections; each connection owns everything about its one client.',
+      body: ['Ownership is explicit. When a client disconnects, one object is responsible for cleaning up: its Connection, which closes the socket, aborts any CGI child and releases its buffers. A Router is created per request from the chosen server block, and the logger is only borrowed.'],
+      html: '<div class="tree"><b>Server</b>                      <i>poll() loop, listeners, virtual-host choice</i>\n├─ Listener ×N              <i>one per host:port, shared by its server blocks</i>\n├─ Connection ×clients      <i>state machine, in/out buffers, timeouts</i>\n│   ├─ RequestParser        <i>incremental: headers, Content-Length, chunked</i>\n│   ├─ Request              <i>method, path, query, headers, body</i>\n│   └─ CgiProcess           <i>pipes, fork/execve, waitpid, kill</i>\n├─ Router (per request)     <i>location match → file / upload / delete / redirect / CGI</i>\n└─ Log                      <i>bounded queue, one write per loop turn</i></div>' +
+        '<h4>Responsibilities</h4><ul><li><b>Server</b>: runs the <code>poll()</code> loop, accepts clients, picks the server block by <code>Host</code>, starts CGIs, times out slow clients.</li><li><b>Connection</b>: the state of one client and its input and output buffers.</li><li><b>RequestParser</b>: turns buffered bytes into a Request, across as many reads as it takes.</li><li><b>Router</b>: given a Request and a server block, decides the answer.</li><li><b>CgiProcess</b>: everything about one script: pipes, fork, environment, timeout, reaping.</li><li><b>Response</b>: status, headers and body, serialized to HTTP, with custom error pages.</li><li><b>Config parser</b>: reads the NGINX-style file into <code>ServerConfig</code> and <code>LocationConfig</code>.</li></ul>',
+      where: 'includes/Server.hpp · includes/Connection.hpp · README.md "Architecture"' },
+
+    { t: 'One thread, one poll()', tag: 'the event loop', k: 'Topic 2 · concurrency model',
+      lead: 'The whole server is a loop around one call. <code>poll()</code> sleeps until some descriptor can be read or written, and the loop services only those.',
+      body: [
+        'A single array, <code>poll_fds_</code>, holds three kinds of descriptor: the listening sockets, one socket per connected client, and the pipes of every running CGI script. Nothing else is ever waited on.',
+        'When <code>poll()</code> returns, <code>processEvents()</code> walks the entries that have <code>revents</code> set and hands each to exactly one handler: <code>handleCgiEvent</code> for a CGI pipe, <code>handleListenerEvent</code> to accept a client, <code>handleConnectionEvent</code> for a client. Each handler does at most one <code>recv</code> or one <code>send</code> and returns.',
+        'A client’s entry is on <code>POLLIN</code> while the server waits for it to speak and is switched to <code>POLLOUT</code> once a response is queued, so read and write interest live in the same call. <code>poll()</code> wakes at least every 100 ms, so timeouts and CGI reaping are noticed even when nobody is talking.',
+        'Ctrl-C only sets a flag that the loop checks. Shutdown is the normal exit path: the destructor closes the listeners, deletes the connections and flushes the log.'],
+      code: [{ cap: 'src/Server.cpp:476  Server::runServer()', text: 'while (!shutdownRequested_)\n{\n    int ready = poll(&poll_fds_[0], poll_fds_.size(), POLL_TIMEOUT_MS);\n    if (ready < 0)\n        continue ;\n    if (ready > 0)\n        processEvents();\n    checkCgiChildren();\n    checkClientTimeouts();\n    log_.flush();\n}' }],
+      tr: 'Disk files are exempt from polling under the subject, so a very large static file is read in one go and briefly occupies the loop. For this project that is acceptable; a larger system would stream it.',
+      where: 'Server.cpp:476 runServer() · :423 processEvents() · main.cpp signal(SIGINT, …)' },
+
+    { t: 'POLLIN and POLLOUT, step by step', tag: 'the full event path', k: 'the loop in detail', tpl: 'tpl-pf',
+      lead: 'The same loop one level down: from a readable socket to a queued response, and from a writable socket to keep-alive or close.',
+      body: ['Choose a view below. Read each one top to bottom: the number is the order, the column is who does it, and the small tags are where a step can stop, wait or fail. For the same path with the server’s memory shown, use the <b>Request journey</b> tab.'],
+      where: 'Server.cpp:348 handleConnectionEvent() · :300 processBufferedRequest() · Connection.cpp:185 / :210' },
+
+    { t: 'A state machine per connection', tag: 'partial reads, keep-alive', k: 'Topic 3 · handling slow and split requests',
+      lead: 'Requests do not arrive whole, so each connection remembers where it stopped and the parser works on whatever has been buffered so far.',
+      body: [
+        'The state decides what poll watches (<code>POLLIN</code> while reading, <code>POLLOUT</code> while writing), which deadline applies (headers 10 s, body 60 s, idle 30 s) and what the next bytes mean.',
+        'The parser is incremental. Given the buffered bytes it either finds a complete request or reports "incomplete" and consumes nothing. The next <code>POLLIN</code> appends more bytes and the same call runs again, so a request split across many packets behaves exactly like one that arrived whole.',
+        'After a response, keep-alive resets the connection to <code>WAITING_FOR_REQUEST</code> with a fresh parser. If bytes of the next request are already buffered, they are processed at once, which is how pipelining works with no extra <code>recv()</code>.'],
+      html: '<h4>The eight states</h4><table class="lim"><thead><tr><th>State</th><th>Meaning</th><th>poll interest</th></tr></thead><tbody>' +
+        '<tr><td>NEW</td><td>Accepted, nothing received yet. The header deadline (10 s) is already running.</td><td>POLLIN</td></tr>' +
+        '<tr><td>WAITING_FOR_REQUEST</td><td>Keep-alive: a response was sent and the connection waits for the next request.</td><td>POLLIN</td></tr>' +
+        '<tr><td>READING_HEADERS</td><td>Some bytes are buffered but the blank line has not arrived.</td><td>POLLIN</td></tr>' +
+        '<tr><td>READING_BODY</td><td>Headers parsed and the server block chosen; waiting for the rest of the body. The body deadline (60 s) applies.</td><td>POLLIN</td></tr>' +
+        '<tr><td>READY_TO_ROUTE</td><td>The whole request is in memory. The Router runs, in the same loop turn.</td><td>—</td></tr>' +
+        '<tr><td>RUNNING_CGI</td><td>A script is running. Its pipes are in poll; the client fd keeps watching for a disconnect.</td><td>client POLLIN + pipes</td></tr>' +
+        '<tr><td>WRITING_RESPONSE</td><td>The response is in <code>out_buffer_</code> and goes out one <code>send()</code> per turn.</td><td>POLLOUT</td></tr>' +
+        '<tr><td>CLOSING</td><td>The connection is closed after the last byte, or is being closed now.</td><td>—</td></tr></tbody></table>',
+      code: [{ cap: 'includes/Connection.hpp:31  ConnectionState', text: 'enum ConnectionState\n{\n    CONN_NEW,\n    CONN_WAITING_FOR_REQUEST,\n    CONN_READING_HEADERS,\n    CONN_READING_BODY,\n    CONN_READY_TO_ROUTE,\n    CONN_RUNNING_CGI,\n    CONN_WRITING_RESPONSE,\n    CONN_CLOSING\n};' }],
+      tr: 'More state to keep consistent than in a blocking design. Half-closed clients, pipelined requests and connections waiting on a CGI are the places where a state is easiest to get wrong, which is why <code>tests/</code> targets partial reads, pipelining, disconnects and shutdown.',
+      where: 'Connection.hpp:31 · Server.cpp:300 processBufferedRequest() · RequestParser.cpp:198' },
+
+    { t: 'Routing and errors as status codes', tag: 'one order, one catch', k: 'Topic 4 · deciding the answer',
+      lead: 'Routing is a short list of checks in a fixed order, and any check that fails throws the HTTP status as an int.',
+      body: [
+        '<code>routeRequest()</code> runs the path check, finds the location (longest matching prefix), checks the body limit, applies a redirect, checks the method and only then looks at CGI, POST, DELETE or GET. The order matters: a disallowed method is refused with 405 before any file is touched, and a redirect needs no root at all.',
+        'Deeper functions throw as well: a missing file is <code>throw 404</code>, an unreadable one <code>throw 500</code>. One <code>catch</code> in <code>Server::routeConnectionRequest()</code> turns the number into a Response with the server block’s <code>error_page</code>, so error pages are written once instead of in every route.'],
+      html: '<h4>What the router can produce</h4><table class="lim"><thead><tr><th>Situation</th><th>Result</th><th>Status</th></tr></thead><tbody>' +
+        '<tr><td>location has <code>return</code></td><td>Redirect with a <code>Location</code> header</td><td>301</td></tr>' +
+        '<tr><td>method not listed</td><td>Refused before touching the disk</td><td>405</td></tr>' +
+        '<tr><td>GET a file</td><td>File body with a Content-Type from the extension</td><td>200</td></tr>' +
+        '<tr><td>GET a directory</td><td>No trailing slash: redirect to add it. Then the <code>index</code> file, else autoindex if on, else not found.</td><td>301 / 200 / 404</td></tr>' +
+        '<tr><td>POST with <code>upload_store</code></td><td>Body written to the upload directory</td><td>201</td></tr>' +
+        '<tr><td>DELETE</td><td>Only files inside the location’s <code>upload_store</code></td><td>200 / 404 / 403</td></tr>' +
+        '<tr><td><code>cgi_extension</code> match</td><td>The script is executed, not served</td><td>the script’s own</td></tr></tbody></table>',
+      code: [{ cap: 'src/Router.cpp:444  Router::routeRequest()', text: 'validateUrlPath(request.getPath());\nLocationConfig *location = findLocation(request.getPath());\nif (!location)\n    throw 404;\nif (location->maxBodySize_ != 0 && request.getBody().size() > location->maxBodySize_)\n    throw 413;\nif (location->returnCode_ != 0)\n    return routeRedirect(request, response, location->returnCode_, location->returnTarget_);\nif (!isValidMethod(request.getMethod(), location))\n    throw 405;\nif (!location->cgiHandlers_.empty() && buildCgiInfo(cgiInfo, request, location))\n    return routeCgi();\nif (request.getMethod() == "POST")\n    return routePost(request, location, response);\nif (request.getMethod() == "DELETE")\n    return routeDelete(request, location, response);\nif (request.getMethod() == "GET")\n    return routeGet(request, location, response);\nthrow 405;' }],
+      tr: 'An int is not a type, and a status nobody catches would escape. All routing goes through one function that does catch it. Exceptions as control flow is a deliberate simplification here.',
+      where: 'Router.cpp:444 routeRequest() · Server.cpp:273 routeConnectionRequest() · Response.cpp:103 setDefaultErrorBody()' },
+
+    { t: 'Everything is bounded', tag: 'limits and deadlines', k: 'Topic 5 · surviving bad clients',
+      lead: 'Every wait and every buffer has a limit, so a misbehaving client costs a bounded amount of memory and time.',
+      body: ['These are the numbers that appear in the code. Most are named constants, and the body limit is configurable per location.'],
+      html: '<table class="lim"><thead><tr><th>What</th><th>Limit and what happens</th><th>Where</th></tr></thead><tbody>' +
+        '<tr><td>Clients</td><td>512 served. Up to 8 more get a <code>503</code> reply, then the socket is closed.</td><td>webserv.hpp:5–6 · Server.cpp:400</td></tr>' +
+        '<tr><td>Headers</td><td>10 s to finish them: the Slowloris guard.</td><td>webserv.hpp:9</td></tr>' +
+        '<tr><td>Body</td><td>60 s to finish; size capped per location by <code>client_max_body_size</code> (<code>413</code>).</td><td>webserv.hpp:10 · Router.cpp:450</td></tr>' +
+        '<tr><td>Idle</td><td>30 s without activity closes the connection.</td><td>webserv.hpp:8</td></tr>' +
+        '<tr><td>CGI run time</td><td>30 s, then <code>SIGKILL</code> and a <code>504</code>.</td><td>CgiProcess.hpp:13</td></tr>' +
+        '<tr><td>CGI output</td><td>128 MB, then a <code>500</code>.</td><td>CgiProcess.hpp:12</td></tr>' +
+        '<tr><td>Log</td><td>512 bytes per entry, 32 KiB queue, 4 KiB written per loop turn; new messages are dropped when full.</td><td>Log.cpp · README</td></tr></tbody></table>',
+      code: [{ cap: 'includes/webserv.hpp:4', text: '#define DEFAULT_PORT 8080\n#define MAX_CONNECTIONS 512\n#define MAX_OVERLOAD_CONNECTIONS 8\n#define MAX_PENDING_CONNECTIONS 256\n#define CLIENT_IDLE_TIMEOUT_SECONDS 30\n#define CLIENT_HEADER_DEADLINE_SECONDS 10\n#define CLIENT_BODY_DEADLINE_SECONDS 60' }],
+      tr: 'Fixed limits can reject a legitimate but unusual client, for example a very large upload. They are named constants and the body size can be raised in the config.',
+      where: 'includes/webserv.hpp · includes/CgiProcess.hpp:12 · Server.cpp:449 checkClientTimeouts()' },
+
+    { t: 'CGI without blocking', tag: 'fork, pipes, reaping', k: 'Topic 6 · running other programs',
+      lead: 'A CGI is a separate process, so the server must start it, feed it, read it and eventually collect it without ever waiting.',
+      body: [
+        '<ol><li><code>pipe()</code> twice, then <code>fork()</code>. This is the only <code>fork()</code> in the project.</li><li>In the child: <code>dup2</code> the pipes onto stdin and stdout, <b>close every other inherited descriptor</b> (the listener, other clients, the log), <code>chdir</code> to the script’s folder, then <code>execve</code>. The request reaches the script as environment variables.</li><li>In the parent: the stdout pipe is set non-blocking and added to the <b>same</b> <code>poll_fds_</code>, and its output is read one <code>read()</code> per turn. The stdin pipe joins poll only when the request has a body, which is then written one <code>write()</code> per turn; with no body it is closed at once.</li><li><code>read()</code> returning 0 means the script closed its output. <code>waitpid(WNOHANG)</code> collects the exit status without blocking, and the output becomes the Response.</li><li>A script that runs past 30 s is killed with <code>SIGKILL</code> and the client gets a <code>504</code>. If the client leaves first, the pipes are dropped and the child is killed.</li></ol>',
+        'A Connection that still owns a running child is not deleted immediately. It moves to <code>closingConnections_</code> and is deleted only once <code>waitpid</code> reports the child has been reaped, so no zombie is ever left behind.'],
+      code: [{ cap: 'src/CgiProcess.cpp:116  CgiProcess::checkChild()', text: 'pid_t result = waitpid(pid_, &status, WNOHANG); //non-blocking\nif (result == 0)\n    return false; // child is still running' },
+             { cap: 'src/CgiProcess.cpp:91  CgiProcess::abort()', text: 'if (!killSent_)\n{\n    kill(pid_, SIGKILL);\n    killSent_ = true;\n}\nif (!checkChild())\n    return CGI_CLEANUP_PENDING;' }],
+      tr: 'Deferred cleanup means a second list (<code>closingConnections_</code>) to reason about, but it is what lets the loop stay non-blocking while still reaping every child.',
+      where: 'CgiProcess.cpp:308 startCgi() · ServerCgi.cpp:78 handleCgiEvent() · :157 checkCgiChildren()' },
+
+    { t: 'Configuration that fails fast', tag: 'NGINX-style file', k: 'Topic 7 · config and virtual hosts',
+      lead: 'The configuration is parsed and validated before any socket is opened. A mistake stops the program with a message that names the problem.',
+      body: [
+        'The file uses NGINX-style <code>server { }</code> and <code>location { }</code> blocks. <code>ConfigSplitter</code> cuts it into blocks and <code>ConfigParser</code> turns each directive into a field of <code>ServerConfig</code> or <code>LocationConfig</code>. An unknown directive, a bad port, or a method list with an unsupported method is an error.',
+        'Several server blocks may share a port. The one whose <code>server_name</code> matches the request’s <code>Host</code> header serves it; if none matches, the first block for that port is the default. Two blocks on the same port with no <code>server_name</code> to tell them apart are refused at startup.',
+        'Inside a server, the location with the <b>longest matching prefix</b> wins, and its <code>root</code> replaces the matched prefix. <code>/static/a.txt</code> with <code>location /static</code> and <code>root ./www/static</code> maps to <code>./www/static/a.txt</code>.'],
+      code: [{ cap: 'config/default.conf', text: 'location /upload {\n    root            ./www/upload;\n    allowed_methods GET POST DELETE;\n    upload_store    ./www/upload;\n    client_max_body_size 5000000;\n}' },
+             { cap: 'what the server prints for two unnamed blocks on one port', text: 'config: multiple unnamed server blocks on 127.0.0.1:8090' }],
+      tr: 'One typo stops the whole server instead of running with part of the config. That is intentional: a site that is silently missing is worse than one that refuses to start.',
+      where: 'ConfigSplitter.cpp · ConfigParser.cpp · Server.cpp:246 selectServerConfig() · Router.cpp:76 findLocation()' },
+
+    { t: 'How it is tested', tag: 'tests/ and manual checks', k: 'Topic 8 · evidence',
+      lead: 'Twelve scripts cover the parts that are hardest to get right, and the manual checks from the evaluation sheet cover the rest.',
+      body: [
+        '<h4>Automated, in tests/</h4><ul><li><code>basic_http_tests.sh</code>: basic request validation over raw sockets.</li><li><code>body_tests.sh</code>: Content-Length, chunked bodies, limits and framing edge cases.</li><li><code>upload_test.sh</code> and <code>delete_test.sh</code>: upload, read back, delete.</li><li><code>cgi_env_test.sh</code>: the environment a script sees.</li><li><code>cgi_post_test.sh</code>: large and concurrent POST bodies through a CGI.</li><li><code>cgi_disconnect_test.sh</code>: the client leaves while the script runs.</li><li><code>cgi_fd_inheritance_test.py</code>: the child closes inherited descriptors.</li><li><code>cgi_shutdown_test.sh</code>: Ctrl-C while CGI children are running.</li><li><code>chunked_buffer_limit_test.py</code>: the input buffer stays bounded on chunked requests.</li><li><code>log_tests.cpp</code> and <code>log_tests.py</code>: the logger’s limits and failure modes.</li></ul>',
+        '<h4>Manual</h4><p>Browser, <code>curl</code>, <code>nc</code> and <code>telnet</code> against <code>config/default.conf</code>, as listed on the evaluation sheet. The <a href="#eval">Evaluation</a> tab has every command with the status code to expect, and the <b>Live</b> tab sends the same requests from the browser.</p>',
+        '<h4>Memory and descriptors</h4><p>The Makefile has <code>make val</code> (valgrind with fd tracking) and <code>make macleaks</code> (<code>leaks --atExit</code>).</p>'],
+      show: './tests/basic_http_tests.sh   # needs the server running\n./tests/body_tests.sh           # starts and stops its own server',
+      box: ['Not implemented', 'Cookies and sessions, a bonus item on the evaluation sheet. There are no tests for them because there is nothing to test.'],
+      where: 'tests/ · Makefile (val, macleaks)' }
+  ];
+  DESIGN_ITEMS.forEach(function (it, i) { it.k = 'Topic ' + (i + 1) + ' · ' + it.k.replace(/^Topic \d+ · /, ''); });
+  var DESIGN = masterDetail('design', $('#design-list'), $('#design-pane'), DESIGN_ITEMS, paneHtml);
+
+  /* ===================================================================
+     Q&A
+     =================================================================== */
+  var QA_ITEMS = [
+    { g0: true, group: 'Grade-zero rules', t: 'Which function multiplexes I/O, and how?', k: 'Question 1',
+      lead: '<code>poll()</code>: one call that sleeps until any watched descriptor is ready, and tells us which.',
+      body: ['We keep one array of <code>pollfd</code> (<code>poll_fds_</code>) with every listening socket, client socket and CGI pipe. Each entry says what we want to know, readable or writable. <code>poll()</code> fills in <code>revents</code> and we touch only the descriptors it marked, so no read or write can block. It wakes at least every 100 ms even when nothing is ready, which is how timeouts and CGI reaping happen.'],
+      show: 'grep -n "poll(" src/*.cpp', where: 'Server.cpp:476 runServer() · :482 poll()' },
+    { g0: true, t: 'One poll? Read and write checked together?', k: 'Question 2',
+      lead: 'Yes: a single <code>poll()</code> in the main loop, with read and write interest in the same array.',
+      body: ['A client is on <code>POLLIN</code> while we wait for its request and is switched to <code>POLLOUT</code> once a response is queued. A CGI’s stdout pipe is in the same list on <code>POLLIN</code>, and its stdin pipe on <code>POLLOUT</code> when the request has a body. The Request journey tab shows the exact moments the interest changes, and the Design tab (POLLIN and POLLOUT, step by step) has them as a table.'],
+      show: 'grep -n "POLLIN\\|POLLOUT" src/Server.cpp src/ServerCgi.cpp', where: 'Server.cpp:323, :336, :415, :418 · ServerCgi.cpp:64, :75' },
+    { g0: true, t: 'Is errno checked after read / recv / write / send?', k: 'Question 3',
+      lead: 'No. The four I/O sites decide only from the return value.',
+      body: ['<code>errno</code> appears in the code only after <code>waitpid</code>, <code>stat</code>, <code>remove</code>, <code>opendir</code> and <code>strtol</code>, never after socket or pipe I/O. A failing CGI pipe is decided by the return value alone: a negative result is simply an error and the pipe is closed.'],
+      show: 'grep -n errno src/*.cpp', where: 'Connection.cpp:188, :218 · CgiProcess.cpp:136, :158' },
+    { group: 'Reading and writing', t: 'One read or one write per client per poll?', k: 'Question 4',
+      lead: 'Yes. A client has one interest at a time, and each handler does a single <code>recv()</code> or a single <code>send()</code>.',
+      body: ['<code>handleConnectionEvent()</code> calls <code>readFromSocket()</code> once on <code>POLLIN</code>, or <code>handleConnectionWrite()</code> once on <code>POLLOUT</code>. If <code>send()</code> takes only part of the reply, the offset (<code>bytes_sent_</code>) is saved and the rest goes out on a later turn.'],
+      show: 'sed -n 348,388p src/Server.cpp', where: 'Server.cpp:348 → Connection.cpp:185 / :210' },
+    { t: 'What if recv or send returns 0 or -1?', k: 'Question 5',
+      lead: 'Both are checked, and each one removes or closes the client.',
+      body: ['<code>recv &lt; 0</code> is an error and the client is removed. <code>recv == 0</code> means the client closed its side: we finish any reply already queued, then close. <code>send &lt;= 0</code> is a failure and the client is removed. In every case the descriptor is cleaned up in the same loop turn by <code>cleanDeadFds()</code>: removed from poll, closed, CGI aborted, object deleted.'],
+      show: 'sed -n 185,207p src/Connection.cpp', where: 'Connection.cpp:185 · :210 · Server.cpp:110 cleanDeadFds()' },
+    { t: 'Is any fd read or written without poll?', k: 'Question 6',
+      lead: 'Sockets and CGI pipes: never. Regular disk files are the exception, and the subject allows it.',
+      body: ['Static files, uploads and the log are read and written directly because disk files are exempt from readiness polling. Everything that can block on a peer (clients and CGI pipes) goes through <code>poll()</code> first.'],
+      show: 'grep -n "recv(\\|send(\\|read(\\|write(" src/*.cpp', where: 'Router.cpp:277 serveFile() · :186 writeToFile() · Log.cpp:97 flush()' },
+    { t: 'Why is everything non-blocking?', k: 'Question 7',
+      lead: 'One thread serves everyone, so a read on a descriptor with no data would freeze every other client.',
+      body: ['Listening sockets, client sockets and CGI pipes are set non-blocking with <code>fcntl</code> and are only touched when poll says they are ready. On macOS the subject allows only <code>F_SETFL</code> with <code>O_NONBLOCK</code>, which is what <code>set_non_blocking()</code> uses.'],
+      show: 'grep -n "set_non_blocking" src/*.cpp', where: 'utils.cpp:17 set_non_blocking()' },
+    { group: 'Build', t: 'Does it compile without relinking?', k: 'Question', lead: 'Yes: run <code>make</code> twice and the second run has nothing to do.',
+      body: ['The Makefile tracks the object files, so an unchanged tree is neither recompiled nor relinked. The flags are <code>-Wall -Wextra -Werror -std=c++98</code>, and <code>make re</code> forces a clean rebuild.'],
+      show: 'make\nmake', where: 'Makefile' },
+    { group: 'Robustness', t: 'A CGI never ends, or the client leaves mid-script', k: 'Question 8',
+      lead: 'After 30 s the script is killed and the client gets a 504. If the client leaves first, the child is killed and reaped.',
+      body: ['Every loop turn <code>checkCgiChildren()</code> looks at each running script. On timeout it sends <code>SIGKILL</code> and queues a 504. On a disconnect the pipes are removed from poll, the child is killed, and the Connection is deleted only after <code>waitpid(WNOHANG)</code> has reaped it. <code>waitpid</code> is never called in blocking mode inside the loop.'],
+      show: './tests/cgi_disconnect_test.sh\n./tests/cgi_shutdown_test.sh', where: 'ServerCgi.cpp:157 checkCgiChildren() · CgiProcess.cpp:91 abort()' },
+    { t: 'Slow, silent or too many clients?', k: 'Question 9',
+      lead: 'Every wait has a deadline and every client slot is limited.',
+      body: ['10 s to finish the headers (the Slowloris guard), 60 s for a body, 30 s idle. Up to 512 connections are served; the next ones get a 503 and past 520 the socket is closed at once. Request bodies are capped by <code>client_max_body_size</code> and answered with 413.'],
+      show: 'grep -n "TIMEOUT\\|DEADLINE\\|MAX_CONN" includes/*.hpp', where: 'webserv.hpp:5–10 · Server.cpp:389, :449' },
+    { t: 'The same port twice in the config?', k: 'Question 10',
+      lead: 'Two blocks may share a port only if their <code>server_name</code> differs. Two unnamed ones are refused at startup.',
+      body: ['That is how virtual hosts work: the default config has two blocks on 8080, told apart by <code>webserv_host</code> and <code>other.local</code>. Starting a second process on a port that is already taken fails in <code>bind()</code> and exits, while the first keeps serving.'],
+      show: 'printf \'server {\\n listen 8090;\\n host 127.0.0.1;\\n location / { root ./www; allowed_methods GET; }\\n}\\nserver {\\n listen 8090;\\n host 127.0.0.1;\\n location / { root ./www/other; allowed_methods GET; }\\n}\\n\' > /tmp/dup.conf\n./webserv /tmp/dup.conf',
+      where: 'ConfigParser.cpp · Server.cpp:161 bindSocket()' },
+    { t: 'How do you know where a request ends?', k: 'Question 11',
+      lead: 'Three cases: no body, a Content-Length, or chunked.',
+      body: ['No body: the blank line ends the request. <code>Content-Length: N</code>: read exactly N bytes. <code>Transfer-Encoding: chunked</code>: read hex-sized chunks until a zero-sized one. Chunked bodies are un-chunked before a CGI sees them. If the bytes have not all arrived, the state stays and the next <code>POLLIN</code> continues where it stopped.'],
+      show: './tests/body_tests.sh', where: 'RequestParser.cpp:225 copyByLength() · :303 copyByChunks() · :344 parseRequestBody()' }
+  ];
+  QA_ITEMS.forEach(function (it, i) { it.k = 'Question ' + (i + 1); });
+  var QA = masterDetail('qa', $('#qa-list'), $('#qa-pane'), QA_ITEMS, paneHtml);
+
+  /* ===================================================================
+     EVALUATION  (from the evaluation sheet)
+     =================================================================== */
+  var EVAL_ITEMS = [
+    { t: 'Before you start', tag: 'build and launch', k: 'Section',
+      lead: 'Three things the sheet checks first: it compiles, it does not relink, and it starts.',
+      body: ['The sheet also says you should never have to edit a file except the configuration file, and that memory can be checked with <code>leaks</code>, <code>valgrind</code> or <code>e_fence</code>. This project has <code>make val</code> and <code>make macleaks</code> for that.'],
+      tests: [
+        { c: 'make\nmake', e: 'Nothing to be done', w: 'No relink: the second run has nothing to rebuild. Flags: <code>-Wall -Wextra -Werror -std=c++98</code>.' },
+        { c: './webserv config/default.conf', e: 'listening', w: 'Listens on <code>127.0.0.1:8080</code> (two virtual hosts) and <code>:8081</code>. Ctrl-C stops it cleanly.' },
+        { c: 'tail -f webserv.log', e: 'log lines', w: 'Keep it open: every response appears as <code>response_queued … status=</code>.' },
+        { c: 'brew install siege', e: 'installed', w: 'The sheet asks for siege to be installed with Homebrew before the stress test.' }] },
+
+    { t: 'Configuration', tag: 'ports, hosts, errors, limits', k: 'Section',
+      lead: 'Each check from the sheet’s Configuration block, run against the shipped <code>config/default.conf</code>.',
+      body: ['Look the status codes up while you test: a wrong status code means the related point is not given.'],
+      tests: [
+        { c: 'curl -i http://127.0.0.1:8080/\ncurl -i http://127.0.0.1:8081/', e: '200 / 200', w: '<b>Multiple servers, different ports.</b> Two listeners from one config file.' },
+        { c: 'curl -i --resolve other.local:8080:127.0.0.1 http://other.local:8080/\ncurl -i --resolve webserv_host:8080:127.0.0.1 http://webserv_host:8080/', e: '200 / 200', w: '<b>Different hostnames, same port.</b> The first serves <code>www/other/index.html</code>, the second the main site. An unknown Host falls back to the first block.' },
+        { c: 'curl -i http://127.0.0.1:8080/nope\ncurl -i http://127.0.0.1:8081/nope -o /dev/null -D -', e: '404 / 404', w: '<b>Custom error page.</b> 8080 returns <code>errors/404.html</code>; 8081 returns a GIF (<code>Content-Type: image/gif</code>). Edit the <code>error_page 404</code> line and restart to change it.' },
+        { c: 'curl -i -X POST -H "Content-Type: plain/text" --data "short" http://127.0.0.1:8081/', e: '200', w: '<b>Body under the limit.</b> Server 3 has <code>client_max_body_size 100</code>.' },
+        { c: 'curl -i -X POST -H "Content-Type: plain/text" --data "$(printf \'x%.0s\' $(seq 1 200))" http://127.0.0.1:8081/', e: '413', w: '<b>Body over the limit.</b> 200 bytes against a 100-byte limit.' },
+        { c: 'curl -i http://127.0.0.1:8080/about.html\ncurl -i http://127.0.0.1:8080/static/a.txt\ncurl -i http://127.0.0.1:8080/Webserv_Guide/', e: '200 ×3', w: '<b>Routes to different directories.</b> <code>/</code> maps to <code>./www</code>, <code>/static</code> to <code>./www/static</code>, <code>/Webserv_Guide</code> to <code>./Webserv_Guide</code>.' },
+        { c: 'curl -i http://127.0.0.1:8080/', e: '200', w: '<b>Default file for a directory.</b> <code>index index.html</code> is served for <code>/</code>.' },
+        { c: 'curl -i -X DELETE http://127.0.0.1:8080/about.html\ncurl -i -X POST --data "x" http://127.0.0.1:8080/', e: '405 / 405', w: '<b>Methods per route, without permission.</b> <code>location /</code> allows GET only. The allowed case is the upload and delete pair in Basic checks.' }] },
+
+    { t: 'Basic checks', tag: 'GET, POST, DELETE, unknown', k: 'Section',
+      lead: 'Using telnet, curl or prepared files: every feature works, every status code is right, and nothing crashes.',
+      tests: [
+        { c: 'curl -i http://127.0.0.1:8080/', e: '200', w: '<b>GET.</b>' },
+        { c: 'printf \'hello from webserv\\n\' > /tmp/webserv-example.txt\ncurl -i --data-binary @/tmp/webserv-example.txt http://127.0.0.1:8080/upload/example.txt', e: '201', w: '<b>POST and upload.</b> The file lands in <code>www/upload/</code>; the response has a <code>Location</code> header.' },
+        { c: 'curl -i http://127.0.0.1:8080/upload/example.txt', e: '200', w: '<b>Get it back.</b> The body is <code>hello from webserv</code>.' },
+        { c: 'curl -i -X DELETE http://127.0.0.1:8080/upload/example.txt\ncurl -i -X DELETE http://127.0.0.1:8080/upload/example.txt', e: '200 / 404', w: '<b>DELETE with permission.</b> The second call finds nothing left to delete.' },
+        { c: 'curl -i -X FOO http://127.0.0.1:8080/\ncurl -i -X PATCH http://127.0.0.1:8080/', e: '501 / 405', w: '<b>Unknown method, no crash.</b> A method we do not know is 501; a real method we do not allow is 405.' },
+        { c: String.raw`(printf 'GARBAGE\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080`, e: '400', w: '<b>Not HTTP at all.</b> The server answers and keeps running.' },
+        { c: String.raw`(printf 'GET / HTTP/1.1\r\nHost: x\r\n\r\nGET /about.html HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n'; sleep 1) | nc 127.0.0.1 8080 | grep -a '^HTTP'`, e: '200 / 200', w: '<b>Keep-alive and pipelining.</b> Two requests on one connection, two answers.' },
+        { c: 'curl -i -H "Transfer-Encoding: chunked" --data-binary "chunked body" http://127.0.0.1:8080/cgi-bin/post_echo.py', e: '200', w: '<b>Chunked request body</b>, un-chunked before the CGI reads it.' },
+        { c: 'curl -i --path-as-is http://127.0.0.1:8080/../Makefile\ncurl -i http://127.0.0.1:8080/%2e%2e/Makefile', e: '400 / 400', w: '<b>Path traversal</b> is refused, plain or percent-encoded.' }] },
+
+    { t: 'Check with a browser', tag: 'network panel, static site', k: 'Section',
+      lead: 'Open the browser’s network panel first, then click through. Read the request and response headers of each entry.',
+      body: ['These links open in a new tab and only work when this page was served by webserv on port 8080.'],
+      html: '<table class="lim"><thead><tr><th>Open</th><th>What you should see</th><th>Status</th></tr></thead><tbody>' +
+        '<tr><td><a href="/" target="_blank" rel="noopener">/</a></td><td>The static site: HTML with <code>Content-Type: text/html</code>, <code>Content-Length</code> and <code>Date</code>. <a href="/dog.jpeg" target="_blank" rel="noopener">/dog.jpeg</a> is served as an image.</td><td>200</td></tr>' +
+        '<tr><td><a href="/does-not-exist" target="_blank" rel="noopener">/does-not-exist</a></td><td>A wrong URL: the custom 404 page.</td><td>404</td></tr>' +
+        '<tr><td><a href="/static/" target="_blank" rel="noopener">/static/</a></td><td>A directory listing (<code>autoindex on</code>). <a href="/static/autoindex-test/" target="_blank" rel="noopener">/static/autoindex-test/</a> has names with <code>&lt;</code>, <code>&amp;</code> and quotes, escaped in the page and encoded in the links.</td><td>200</td></tr>' +
+        '<tr><td><a href="/old-page" target="_blank" rel="noopener">/old-page</a></td><td>A redirected URL: <code>Location: /</code>, then the home page.</td><td>301 → 200</td></tr>' +
+        '<tr><td><a href="/static" target="_blank" rel="noopener">/static</a></td><td>A directory without the trailing slash is redirected to <code>/static/</code>.</td><td>301 → 200</td></tr>' +
+        '<tr><td><a href="/private/" target="_blank" rel="noopener">/private/</a></td><td>A directory with no index and autoindex off: nothing is listed.</td><td>404</td></tr>' +
+        '<tr><td><a href="/cgi-bin/hello.py?name=42" target="_blank" rel="noopener">/cgi-bin/hello.py?name=42</a></td><td>CGI output: <code>HELLO FROM CGI</code> and the query string.</td><td>200</td></tr></tbody></table>' },
+
+    { t: 'Port issues', tag: 'several ports, same port twice', k: 'Section',
+      lead: 'Several ports with different sites work, the same port twice does not, and a second instance does not break the first.',
+      tests: [
+        { c: 'open http://127.0.0.1:8080/   # main site\nopen http://127.0.0.1:8081/   # second server: its own error pages and body limit', e: '200 / 200', w: '<b>Multiple ports, different sites.</b> For a visibly different site use the virtual host: <code>curl -H "Host: other.local" http://127.0.0.1:8080/</code>.' },
+        { c: String.raw`printf 'server {\n listen 8090;\n host 127.0.0.1;\n location / { root ./www; index index.html; allowed_methods GET; }\n}\nserver {\n listen 8090;\n host 127.0.0.1;\n location / { root ./www/other; index index.html; allowed_methods GET; }\n}\n' > /tmp/dup.conf
+./webserv /tmp/dup.conf`, e: 'refuses to start', w: '<b>Same port twice.</b> Prints <code>config: multiple unnamed server blocks on 127.0.0.1:8090</code> and exits. Two blocks may share a port only when <code>server_name</code> tells them apart, which is what the default config does on 8080.' },
+        { c: '# terminal 1\n./webserv config/default.conf\n# terminal 2\n./webserv config/default.conf', e: '2nd exits', w: '<b>Two instances, common ports.</b> The second prints <code>Failed to bind socket</code> and stops; the first keeps serving. The whole instance stops instead of running with part of its config, so a typo never leaves a site silently down.' }] },
+
+    { t: 'Siege and stress', tag: 'availability, memory, hanging connections', k: 'Section',
+      lead: 'Three terminals: the server, siege, and a watcher for memory and open descriptors.',
+      body: ['The expectations below come from the sheet; run the commands during the evaluation to produce the numbers.'],
+      tests: [
+        { c: 'siege -b -t 60S http://127.0.0.1:8080/', e: '> 99.5 %', w: '<b>Availability</b> in siege’s summary. Run it again without restarting the server.' },
+        { c: 'while true; do ps -o rss= -p $(pgrep -x webserv); sleep 1; done', e: 'flat', w: '<b>No leak.</b> Resident memory (KB) settles and stops climbing while siege runs.' },
+        { c: 'lsof -a -p $(pgrep -x webserv) -i -P', e: '2 LISTEN lines', w: '<b>No hanging connection.</b> Once siege stops and the idle timeout (30 s) passes, only the two listening sockets remain.' },
+        { c: 'make macleaks      # macOS: leaks --atExit, then Ctrl-C the server\nmake val           # Linux: valgrind with fd tracking', e: '0 leaks', w: '<b>Heap freed at exit.</b> Ctrl-C triggers the controlled shutdown, which deletes every connection and closes every listener.' }],
+      box: ['Why it should hold', 'Nothing blocks (every socket and pipe is non-blocking and polled), everything is bounded (512 connections, body limits, CGI output cap) and everything times out (10 s headers, 60 s body, 30 s idle, 30 s CGI), so descriptors always come back.'] },
+
+    { t: 'Bonus', tag: 'two CGI types; no cookies', k: 'Section',
+      lead: 'The sheet has two bonus items. This project implements one of them: more than one CGI system. Cookies and sessions are <b>not implemented</b>.',
+      tests: [
+        { c: 'curl -i "http://127.0.0.1:8080/cgi-bin/hello.py?name=42"\ncurl -i "http://127.0.0.1:8080/cgi-bin/hello.sh?name=42"', e: '200 / 200', w: '<b>More than one CGI.</b> <code>.py</code> runs under <code>/usr/bin/python3</code>, <code>.sh</code> under <code>/bin/sh</code>, chosen by extension in the config.' },
+        { c: 'curl -i -H "Content-Type: text/plain" --data-binary "hello from CGI POST" http://127.0.0.1:8080/cgi-bin/post_echo.py', e: '200', w: '<b>CGI with a POST body</b> delivered on the script’s stdin.' }],
+      box: ['Not implemented', 'Cookies and sessions. There is no session or cookie handling in the code, so this bonus item should be marked “No”.'] },
+
+    { t: 'The project’s own tests', tag: 'tests/', k: 'Section',
+      lead: 'Twelve scripts in <code>tests/</code>. Some need the server running; the lifecycle suites start and stop their own, so stop yours first.',
+      body: ['What each one covers is listed in the <b>Design</b> tab, topic “How it is tested”.'],
+      tests: [
+        { c: './tests/basic_http_tests.sh\n./tests/upload_test.sh\n./tests/delete_test.sh example.txt\n./tests/cgi_post_test.sh\n./tests/cgi_env_test.sh', e: 'pass / fail', w: '<b>With the server running.</b>' },
+        { c: './tests/body_tests.sh\n./tests/cgi_shutdown_test.sh\npython3 tests/cgi_fd_inheritance_test.py ./webserv', e: 'pass / fail', w: '<b>They start their own server</b>, so run them without another instance bound to the configured ports.' },
+        { c: 'python3 tests/log_tests.py --unit-only\npython3 tests/log_tests.py', e: 'pass / fail', w: '<b>Logger tests:</b> the unit tests alone, then the full suite with temporary servers on automatic ports.' }] }
+  ];
+  EVAL_ITEMS.forEach(function (it, i) { it.k = 'Section ' + (i + 1) + ' · ' + it.tag; });
+  var EVAL = masterDetail('eval', $('#eval-list'), $('#eval-pane'), EVAL_ITEMS, paneHtml);
+
+  /* ===================================================================
+     REQUEST JOURNEY
+     =================================================================== */
+  var NODES = {
+    client:   { name: 'Client',        sub: 'browser · curl · nc' },
+    server:   { name: 'Server',        sub: 'poll() loop · Server.cpp' },
+    conn:     { name: 'Connection',    sub: 'state + buffers · Connection.cpp' },
+    parser:   { name: 'RequestParser', sub: 'bytes → Request · RequestParser.cpp' },
+    router:   { name: 'Router',        sub: 'config decides · Router.cpp' },
+    response: { name: 'Response',      sub: 'status + headers + body · Response.cpp' },
+    cgi:      { name: 'CgiProcess',    sub: 'pipes, fork, waitpid · CgiProcess.cpp' },
+    script:   { name: 'CGI script',    sub: 'child process (execve)' }
+  };
+  var STATES = ['CONN_NEW', 'CONN_WAITING_FOR_REQUEST', 'CONN_READING_HEADERS', 'CONN_READING_BODY', 'CONN_READY_TO_ROUTE', 'CONN_RUNNING_CGI', 'CONN_WRITING_RESPONSE', 'CONN_CLOSING'];
+
+  function st(at, title, text, ref, set, extra) {
+    var s = { at: at, title: title, text: text, ref: ref || '', set: set || {} };
+    if (extra) for (var k in extra) s[k] = extra[k];
+    return s;
+  }
+  var L = function (ev) { return { fd: 3, what: 'listener :8080', ev: ev }; };
+  var C = function (ev) { return { fd: 5, what: 'client socket', ev: ev }; };
+  var P = function (fd, what, ev) { return { fd: fd, what: what, ev: ev }; };
+
+  function prefix() {
+    return [
+      st('client', 'A client connects',
+        'The kernel finishes the TCP handshake and parks the new connection on the listening socket. webserv has done nothing yet: it is asleep inside <code>poll()</code>, watching one fd (the listener).',
+        '', { state: null, fds: [L('POLLIN')], inb: '', outb: '' }),
+      st('server', 'poll() says the listener is readable',
+        '<code>poll()</code> returns because fd 3 has <code>POLLIN</code>: for a listening socket that means "a client is waiting". <code>processEvents()</code> checks the ready fd: not a CGI pipe, but a Listener.',
+        'Server.cpp:482 poll() · :423 processEvents()', {}, { ready: [3] }),
+      st('server', 'accept() and create the Connection',
+        '<code>handleListenerEvent()</code> calls <code>accept()</code> once, makes the new fd non-blocking, checks the connection limits (over 512: a 503; over 520: closed) and creates a <code>Connection</code>. The new fd is registered for <code>POLLIN</code> only.',
+        'Server.cpp:389 handleListenerEvent() · :71 acceptConnection() · :418',
+        { state: 'CONN_NEW', fds: [L('POLLIN'), C('POLLIN')] })
+    ];
+  }
+  function sendStep(label, data, title, text) {
+    return st('client', title || 'The client sends the request',
+      text || 'The bytes land in the socket’s kernel buffer. webserv does nothing with them until <code>poll()</code> reports this fd readable.',
+      '', {}, { wire: { label: label || 'client → server', data: data } });
+  }
+  function readPoll() {
+    return st('server', 'poll() says fd 5 is readable',
+      '<code>revents</code> has <code>POLLIN</code> for fd 5. It is not a CGI pipe and not a listener, so it is a client: <code>handleConnectionEvent()</code>.',
+      'Server.cpp:482 · :348 handleConnectionEvent()', {}, { ready: [5] });
+  }
+  function recvStep(inb, text) {
+    return st('conn', 'recv() into in_buffer_',
+      text || 'Exactly one <code>recv()</code> (up to 4096 bytes). The bytes are appended to <code>in_buffer_</code>; nothing is parsed here.',
+      'Connection.cpp:185 readFromSocket()', { inb: inb },
+      { evalnote: 'One recv() per client per poll(). Its return value is checked for &lt; 0 and for 0. errno is never read.' });
+  }
+  function writeSteps(outb, skipSwitch) {
+    var a = [];
+    if (!skipSwitch) a.push(st('server', 'Switch the fd to POLLOUT',
+      'The reply is waiting in <code>out_buffer_</code>. Back in <code>processBufferedRequest()</code> the fd’s interest changes from <code>POLLIN</code> to <code>POLLOUT</code>: the next <code>poll()</code> will say when the socket can take data.',
+      'Server.cpp:323', { fds: [L('POLLIN'), C('POLLOUT')] }));
+    a.push(st('server', 'poll() says fd 5 is writable',
+      'The socket has room. <code>handleConnectionEvent()</code> sees <code>POLLOUT</code> and calls <code>handleConnectionWrite()</code>.',
+      'Server.cpp:348 → :326 handleConnectionWrite()', {}, { ready: [5] }));
+    a.push(st('conn', 'send() the response',
+      'Exactly one <code>send()</code> starting at <code>bytes_sent_</code>. If the socket took only part of it the result is <code>SEND_PENDING</code>, the offset is saved and we continue on a later turn. A result of 0 or below closes the connection.',
+      'Connection.cpp:210 sendResponse()', { outb: '' },
+      { wire: { label: 'server → client', data: outb }, evalnote: 'One send() per client per poll(). Failure removes the client in the same loop turn.' }));
+    return a;
+  }
+  function keepAlive() {
+    return st('conn', 'Keep-alive: ready for the next request',
+      '<code>SEND_COMPLETE</code>. The reply did not say <code>Connection: close</code>, so <code>resetForNewRequest()</code> gives the Connection a fresh Request and parser and sets <code>CONN_WAITING_FOR_REQUEST</code>. <code>in_buffer_</code> is empty, so the fd goes back to <code>POLLIN</code>. It stays open until the client closes it or 30 s pass without activity.',
+      'Connection.cpp:70 resetForNewRequest() · Server.cpp:336',
+      { state: 'CONN_WAITING_FOR_REQUEST', fds: [L('POLLIN'), C('POLLIN')] });
+  }
+  function selectStep(why) {
+    return st('server', 'Pick the server block by Host', 'Listener :8080 has two server blocks. ' + why, 'Server.cpp:246 selectServerConfig()');
+  }
+
+  var HOST = 'Host: webserv_host\r\n';
+  var LOGLINE = function (m, p, s) { return '[INFO] Connection: response_queued fd=5 port=8080 method=' + m + ' path=' + p + ' status=' + s; };
+  var SCENARIOS = [];
+
+  (function () { /* 1 static */
+    var REQ = 'GET /about.html HTTP/1.1\r\n' + HOST + '\r\n';
+    var RESP = 'HTTP/1.1 200 OK\r\nContent-Length: …\r\nContent-Type: text/html\r\nDate: …\r\n\r\n<!DOCTYPE html>…';
+    SCENARIOS.push({ label: 'Static page', sub: 'GET /about.html', steps: prefix().concat([
+      sendStep('client → server', REQ), readPoll(), recvStep(REQ),
+      st('parser', 'Parse the headers',
+        '<code>processBufferedRequest()</code> asks the Connection to parse. State goes <code>NEW → READING_HEADERS</code>; the parser finds the blank line and reads method <code>GET</code>, path <code>/about.html</code>, version <code>HTTP/1.1</code> and the <code>Host</code> header. Those bytes are erased from <code>in_buffer_</code>. HTTP/1.1 means keep-alive unless the client says <code>close</code>.',
+        'Server.cpp:300 · Connection.cpp:280 → RequestParser.cpp:198', { state: 'CONN_READING_BODY', inb: '' }),
+      selectStep('Host <code>webserv_host</code> equals the <code>server_name</code> of block 1. A Host that matched nothing would also land on block 1, because the first block is the default for its port.'),
+      st('router', 'Find the location',
+        '<code>findLocation("/about.html")</code>: every location whose prefix matches is a candidate and the longest one wins. Only <code>/</code> matches here (root <code>./www</code>). Its <code>client_max_body_size</code> becomes this request’s body limit.',
+        'Router.cpp:76 findLocation() · Connection.cpp:306 setRequestBodyLimit()'),
+      st('parser', 'No body: the request is complete',
+        'A GET has no body, so <code>processRequestBody()</code> finishes at once and the state becomes <code>READY_TO_ROUTE</code>.',
+        'Connection.cpp:311 · RequestParser.cpp:344', { state: 'CONN_READY_TO_ROUTE' }),
+      st('router', 'Route the request',
+        '<code>routeRequest()</code> runs its checks in order: clean path, location found, body size, redirect, method allowed (GET is), CGI extension (none). So <code>routeGet()</code>: <code>mapRootPath()</code> swaps the matched prefix for the root, giving <code>./www/about.html</code>. It is a regular file, so it is read (disk files are exempt from poll) and the Content-Type comes from the extension.',
+        'Server.cpp:273 · Router.cpp:444 routeRequest() · :430 routeGet() · :58 mapRootPath()'),
+      st('response', 'Build the response and queue it',
+        'A <code>Response</code> with status 200 and the file as body. <code>queueResponse()</code> sets <code>WRITING_RESPONSE</code> and appends the serialized text to <code>out_buffer_</code>.',
+        'Connection.cpp:231 queueResponse() · Response.cpp:135 serialize()',
+        { state: 'CONN_WRITING_RESPONSE', outb: RESP }, { log: LOGLINE('GET', '/about.html', 200) })
+    ]).concat(writeSteps(RESP)).concat([keepAlive()]) });
+  })();
+
+  (function () { /* 2 upload */
+    var REQ = 'POST /upload/demo.txt HTTP/1.1\r\n' + HOST + 'Content-Length: 11\r\n\r\nhello world';
+    var RESP = 'HTTP/1.1 201 Created\r\nContent-Length: 21\r\nContent-Type: text/plain\r\nLocation: /upload/demo.txt\r\nDate: …\r\n\r\nPOST request received';
+    SCENARIOS.push({ label: 'Upload', sub: 'POST /upload/demo.txt', steps: prefix().concat([
+      sendStep('client → server', REQ, 'The client sends headers and body together',
+        'Small requests often arrive in one packet. The server does not rely on that: a body arriving later is handled the same way as in the "Request in two pieces" scenario.'),
+      readPoll(), recvStep(REQ),
+      st('parser', 'Parse the headers',
+        'Method <code>POST</code>, path <code>/upload/demo.txt</code>, and <code>Content-Length: 11</code>. The header bytes are erased from <code>in_buffer_</code>; what remains is the start of the body.',
+        'Connection.cpp:280 → RequestParser.cpp:198', { state: 'CONN_READING_BODY', inb: 'hello world' }),
+      selectStep('Host <code>webserv_host</code> selects block 1.'),
+      st('router', 'Find the location',
+        'Both <code>/</code> and <code>/upload</code> are prefixes of the path; <code>/upload</code> is longer, so it wins. This location sets <code>client_max_body_size 5000000</code>, which becomes the limit for this body.',
+        'Router.cpp:76 findLocation() · Connection.cpp:306'),
+      st('parser', 'Read the body by length',
+        '<code>copyByLength()</code> needs 11 bytes and 11 are buffered, so the body is complete and moves into the Request. If it were still arriving, the state would stay <code>READING_BODY</code> and the next <code>POLLIN</code> would continue here. Over the limit would be a 413.',
+        'Connection.cpp:311 · RequestParser.cpp:225 copyByLength()', { state: 'CONN_READY_TO_ROUTE', inb: '' }),
+      st('router', 'Route: upload',
+        '<code>/upload</code> allows POST and has <code>upload_store ./www/upload</code>, so <code>routePost()</code> calls <code>routeUpload()</code>. <code>mapUploadPath()</code> requires exactly one file name after the prefix (another <code>/</code> is a 400) and builds <code>./www/upload/demo.txt</code>. The body is written with an <code>ofstream</code>: a disk file, exempt from poll.',
+        'Router.cpp:444 · :233 routePost() · :224 routeUpload() · :203 mapUploadPath()'),
+      st('response', 'Build the response and queue it',
+        '<code>201 Created</code> with a <code>Location</code> header pointing at the new file. Queued like any other response.',
+        'Connection.cpp:231 queueResponse()', { state: 'CONN_WRITING_RESPONSE', outb: RESP }, { log: LOGLINE('POST', '/upload/demo.txt', 201) })
+    ]).concat(writeSteps(RESP)).concat([keepAlive()]) });
+  })();
+
+  (function () { /* 3 CGI */
+    var REQ = 'GET /cgi-bin/hello.py?name=42 HTTP/1.1\r\n' + HOST + '\r\n';
+    var OUT = 'Content-Type: text/plain\r\n\r\nHELLO FROM CGI\nQuery: name=42\n';
+    var RESP = 'HTTP/1.1 200 OK\r\nContent-Length: 30\r\nContent-Type: text/plain\r\nDate: …\r\n\r\nHELLO FROM CGI\nQuery: name=42\n';
+    var pipes = function () { return [L('POLLIN'), C('POLLIN'), P(6, 'CGI stdout pipe', 'POLLIN')]; };
+    SCENARIOS.push({ label: 'CGI script', sub: 'GET /cgi-bin/hello.py?name=42', steps: prefix().concat([
+      sendStep('client → server', REQ), readPoll(), recvStep(REQ),
+      st('parser', 'Parse the headers', 'Path <code>/cgi-bin/hello.py</code>, query string <code>name=42</code> (split at the <code>?</code>).',
+        'Connection.cpp:280 → RequestParser.cpp:198', { state: 'CONN_READING_BODY', inb: '' }),
+      selectStep('Host <code>webserv_host</code> selects block 1.'),
+      st('router', 'Find the location',
+        'Longest prefix: <code>/cgi-bin</code> (root <code>./www/cgi-bin</code>). Its config has <code>cgi_extension .py /usr/bin/python3</code> and <code>.sh /bin/sh</code>.',
+        'Router.cpp:76 findLocation()'),
+      st('parser', 'No body: the request is complete', 'Nothing more to read.', 'Connection.cpp:311', { state: 'CONN_READY_TO_ROUTE' }),
+      st('router', 'Route: this is a CGI, not a file',
+        '<code>routeRequest()</code> reaches the CGI check before POST/DELETE/GET: the location has handlers and the path contains <code>.py</code>, so <code>buildCgiInfo()</code> fills a <code>CgiInfo</code> (interpreter, script file, working directory, server name and port) and the result is <code>ROUTE_CGI</code>. There is no Response yet.',
+        'Router.cpp:444 · :146 buildCgiInfo() · :121 routeCgi()'),
+      st('server', 'Start the CGI: two pipes and a fork',
+        '<code>Server::startCgi()</code> lets <code>CgiProcess</code> create two pipes and <code>fork()</code>. The parent keeps the read end of the child’s stdout, non-blocking, and adds it <b>to the same <code>poll_fds_</code></b>. This GET has no body, so the parent closes the stdin pipe at once and the script sees end-of-file. With a POST body, the stdin pipe’s write end would join poll too, on <code>POLLOUT</code>, and be fed one <code>write()</code> per turn. The client fd stays on <code>POLLIN</code> so a disconnect is noticed. State: <code>RUNNING_CGI</code>.',
+        'ServerCgi.cpp:51 startCgi() · CgiProcess.cpp:308 startCgi()', { state: 'CONN_RUNNING_CGI', fds: pipes() }),
+      st('script', 'The child becomes the script',
+        'In the child: <code>dup2</code> the pipes onto stdin and stdout, close every other inherited fd (so it cannot hold the listener or other clients), <code>chdir</code> to the script’s folder, then <code>execve("/usr/bin/python3", hello.py)</code>. The request reaches the script as environment variables: <code>REQUEST_METHOD</code>, <code>QUERY_STRING=name=42</code>, <code>SCRIPT_NAME</code>, … A script that never ends is killed after 30 s and the client gets a 504.',
+        'CgiProcess.cpp:333–357', {}, { from: 'cgi' }),
+      st('cgi', 'stdout pipe is readable',
+        'The script printed its headers, a blank line and the body. <code>handleCgiEvent()</code> does one <code>read()</code> per turn into a buffer (capped at 128 MB).',
+        'ServerCgi.cpp:110 · CgiProcess.cpp:133 readFromPipe()', {}, { ready: [6], from: 'script', wire: { label: 'script stdout → pipe', data: OUT } }),
+      st('cgi', 'EOF: the script has finished',
+        '<code>read()</code> returned 0: the script closed stdout. <code>checkCgiChild()</code> calls <code>waitpid(WNOHANG)</code>, which never blocks. Exit status 0 means <code>finishCgi()</code> turns the script’s headers and body into a <code>Response</code>, which is queued. The pipes leave poll and the client fd switches to <code>POLLOUT</code>. A non-zero exit or bad output would be a 500.',
+        'Connection.cpp:140 checkCgiChild() · CgiProcess.cpp:229 finishCgi()',
+        { state: 'CONN_WRITING_RESPONSE', fds: [L('POLLIN'), C('POLLOUT')], outb: RESP }, { log: LOGLINE('GET', '/cgi-bin/hello.py', 200) })
+    ]).concat(writeSteps(RESP, true)).concat([keepAlive()]) });
+  })();
+
+  (function () { /* 4 404 */
+    var REQ = 'GET /nope HTTP/1.1\r\n' + HOST + '\r\n';
+    var RESP = 'HTTP/1.1 404 Not Found\r\nContent-Length: …\r\nContent-Type: text/html\r\nDate: …\r\n\r\n<div class="error-page …">404 …';
+    SCENARIOS.push({ label: 'Not found', sub: 'GET /nope → 404', steps: prefix().concat([
+      sendStep('client → server', REQ), readPoll(), recvStep(REQ),
+      st('parser', 'Parse the headers', 'A perfectly valid request for a path that does not exist.', 'Connection.cpp:280 → RequestParser.cpp:198', { state: 'CONN_READING_BODY', inb: '' }),
+      selectStep('Host <code>webserv_host</code> selects block 1.'),
+      st('router', 'Find the location', 'The location <code>/</code> matches every path, so a location is found. The 404 will not come from here; it comes from the disk.', 'Router.cpp:76 findLocation()'),
+      st('parser', 'No body: the request is complete', 'Nothing more to read.', 'Connection.cpp:311', { state: 'CONN_READY_TO_ROUTE' }),
+      st('router', 'The file does not exist: throw 404',
+        '<code>routeGet()</code> maps the path to <code>./www/nope</code> and calls <code>stat()</code>, which fails. The router reports problems by <b>throwing the status code as an int</b>.',
+        'Router.cpp:430 routeGet() · :58 mapRootPath()'),
+      st('server', 'Catch it and build the error response',
+        '<code>routeConnectionRequest()</code> catches the int, creates <code>Response(404)</code>, attaches the server block’s <code>error_page</code> map and calls <code>setDefaultErrorBody()</code>, which loads the configured page <code>./errors/404.html</code>. If that file cannot be read, a WARN is logged.',
+        'Server.cpp:273 routeConnectionRequest() · Response.cpp:103 setDefaultErrorBody()'),
+      st('response', 'Queue the error like any other response',
+        'There is no special error path: it is a normal Response, queued and sent the same way. 404s are logged at INFO, 5xx at ERROR.',
+        'Connection.cpp:231 queueResponse()', { state: 'CONN_WRITING_RESPONSE', outb: RESP }, { log: LOGLINE('GET', '/nope', 404) })
+    ]).concat(writeSteps(RESP)).concat([keepAlive()]) });
+  })();
+
+  (function () { /* 5 partial */
+    var P1 = 'GET /about.html HTT';
+    var P2 = 'P/1.1\r\n' + HOST + '\r\n';
+    SCENARIOS.push({ label: 'Request in two pieces', sub: 'partial reads', steps: prefix().concat([
+      sendStep('client → server (packet 1)', P1, 'The first piece arrives', 'A slow network, a telnet user or a deliberately bad client: the request comes in pieces. The server must cope without waiting.'),
+      readPoll(), recvStep(P1),
+      st('parser', 'No blank line yet: wait',
+        '<code>parseRequest()</code> looks for the end of the headers and does not find it: <code>PARSE_INCOMPLETE</code>. Nothing is consumed and <b>nothing blocks</b>. The partial request stays in <code>in_buffer_</code>, the state stays <code>READING_HEADERS</code>, and the server returns to <code>poll()</code> to serve everyone else. The 10 s header deadline is running.',
+        'Connection.cpp:280 · RequestParser.cpp:198 · Connection.cpp:88 headerDeadlineExpired()',
+        { state: 'CONN_READING_HEADERS' }, { evalnote: 'This is why a non-blocking server needs a state machine: the connection remembers where it stopped.' }),
+      sendStep('client → server (packet 2)', P2, 'The rest arrives later', 'Some time later the remaining bytes arrive.'),
+      readPoll(),
+      recvStep(P1 + P2, 'One more <code>recv()</code>. The new bytes are appended after the ones already waiting, so <code>in_buffer_</code> now holds the whole request.'),
+      st('parser', 'Now the headers are complete',
+        'The same <code>parseRequest()</code> runs again over the whole buffer and this time finds the blank line. State: <code>READING_BODY</code>.',
+        'Connection.cpp:280 → RequestParser.cpp:198', { state: 'CONN_READING_BODY', inb: '' }),
+      st('router', 'From here it is the static-page scenario',
+        'Server block by Host, location, route, response, send, keep-alive: nothing about the rest depends on how the bytes arrived. Open the "Static page" scenario at its step 7.', '')
+    ]) });
+  })();
+
+  (function () { /* 6 pipelined */
+    var R1 = 'GET / HTTP/1.1\r\nHost: x\r\n\r\n';
+    var R2 = 'GET /about.html HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n';
+    var RESP1 = 'HTTP/1.1 200 OK\r\nContent-Length: …\r\nContent-Type: text/html\r\nDate: …\r\n\r\n<!DOCTYPE html>…';
+    var RESP2 = 'HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: …\r\n…';
+    SCENARIOS.push({ label: 'Pipelined, then close', sub: 'two requests, Connection: close', steps: prefix().concat([
+      sendStep('client → server', R1 + R2, 'Two requests in one packet', 'HTTP/1.1 lets a client send the next request before the first answer arrives (pipelining). The second one asks for the connection to be closed afterwards.'),
+      readPoll(), recvStep(R1 + R2),
+      st('parser', 'Parse request 1 only', 'The parser consumes exactly the first request’s bytes. Request 2 stays in <code>in_buffer_</code>, untouched.',
+        'Connection.cpp:280 · RequestParser.cpp:198', { state: 'CONN_READING_BODY', inb: R2 }),
+      st('response', 'Route request 1 and queue the reply',
+        'Same path as a static page: location <code>/</code>, <code>index.html</code>. The reply is queued and the fd switches to <code>POLLOUT</code>. Request 2 is not looked at yet: replies must go out in order.',
+        'Server.cpp:300 → :273 · Connection.cpp:231', { state: 'CONN_WRITING_RESPONSE', outb: RESP1, fds: [L('POLLIN'), C('POLLOUT')] })
+    ]).concat(writeSteps(RESP1, true)).concat([
+      st('server', 'Request 2 is already buffered',
+        '<code>SEND_COMPLETE</code> → <code>resetForNewRequest()</code>. <code>hasBufferedInput()</code> is true, so <code>handleConnectionWrite()</code> calls <code>processBufferedRequest()</code> straight away: no extra <code>recv()</code> is needed. Request 2 is parsed, and <code>Connection: close</code> sets <code>closeAfterResponse_</code>. It is routed and queued.',
+        'Server.cpp:339 · Connection.cpp:261 applyConnectionClosePolicy()',
+        { state: 'CONN_WRITING_RESPONSE', inb: '', outb: RESP2, fds: [L('POLLIN'), C('POLLOUT')] }),
+      st('server', 'poll() says fd 5 is writable', 'Second reply goes out the same way.', 'Server.cpp:326', {}, { ready: [5] }),
+      st('conn', 'send() the second response', 'One <code>send()</code>.', 'Connection.cpp:210 sendResponse()', { outb: '' }, { wire: { label: 'server → client', data: RESP2 } }),
+      st('server', 'Close the connection',
+        '<code>sendResponse()</code> finished and the state is <code>CONN_CLOSING</code>, so <code>handleConnectionWrite()</code> returns <code>CLOSE_CONNECTION</code>. <code>processEvents()</code> collects the fd and <code>cleanDeadFds()</code> removes it from <code>poll_fds_</code>, closes the socket, aborts any CGI child and deletes the Connection. Only the listener remains.',
+        'Server.cpp:326 · :110 cleanDeadFds()', { state: null, fds: [L('POLLIN')], inb: '', outb: '' })
+    ]) });
+  })();
+
+  (function () { /* 7 silent */
+    SCENARIOS.push({ label: 'Silent client', sub: 'timeouts', steps: prefix().concat([
+      st('client', 'The client says nothing',
+        'No bytes ever arrive. The Connection sits in <code>CONN_NEW</code> with its header deadline running. While idle, fd 5 is just one more entry in <code>poll_fds_</code> and costs nothing.', 'Connection.cpp:88', {}),
+      st('server', 'Every loop turn: checkClientTimeouts()',
+        'After handling events, <code>runServer()</code> checks every connection: <b>10 s</b> to finish the headers, <b>60 s</b> to finish a body, <b>30 s</b> idle. <code>poll()</code> itself wakes at least every 100 ms, so these are noticed even when the server is otherwise quiet.',
+        'Server.cpp:476 runServer() · :449 checkClientTimeouts()'),
+      st('conn', 'The header deadline expires',
+        '<code>headerDeadlineExpired()</code> is true. A WARN goes to the log and the fd is handed to <code>cleanDeadFds()</code>: closed, removed from poll, Connection deleted. This is what stops a Slowloris-style client from holding descriptors forever.',
+        'Connection.cpp:88 · Server.cpp:110', { state: null, fds: [L('POLLIN')] },
+        { log: '[WARN] Connection: fd=5 header deadline expired', evalnote: 'Siege: no hanging connections. Every wait has a deadline.' })
+    ]) });
+  })();
+
+  var cur = 0, idx = 0, timer = null;
+  var mapEl = $('#map'), nodeEls = {}, scenEl = $('#scen'), stEl = $('#states');
+  ['client', 'server', 'conn', 'parser', 'router', 'response', 'cgi', 'script'].forEach(function (k) {
+    var n = mk('div', 'node n-' + k, '<b>' + NODES[k].name + '</b><span>' + NODES[k].sub + '</span>');
+    if (k === 'conn') { var p = mk('div', 'pill'); p.id = 'connpill'; n.appendChild(p); }
+    if (k === 'server') { var q = mk('div', 'pill'); q.id = 'srvpill'; n.appendChild(q); }
+    mapEl.appendChild(n); nodeEls[k] = n;
+  });
+  SCENARIOS.forEach(function (sc, i) {
+    var b = mk('button', '', esc(sc.label) + '<small>' + esc(sc.sub) + '</small>'); b.type = 'button';
+    b.addEventListener('click', function () { stop(); cur = i; idx = 0; renderJourney(); });
+    scenEl.appendChild(b);
+  });
+  STATES.forEach(function (s) { stEl.appendChild(mk('span', 'st', s.replace('CONN_', ''))); });
+
+  function stateAt(sc, i) {
+    var s = { state: null, fds: [], inb: '', outb: '' };
+    for (var k = 0; k <= i; k++) for (var key in sc.steps[k].set) s[key] = sc.steps[k].set[key];
+    return s;
+  }
+  function renderJourney() {
+    var sc = SCENARIOS[cur], step = sc.steps[idx], S = stateAt(sc, idx), total = sc.steps.length;
+    Array.prototype.forEach.call(scenEl.children, function (b, i) { b.setAttribute('aria-pressed', i === cur ? 'true' : 'false'); });
+    for (var k in nodeEls) nodeEls[k].className = 'node n-' + k + (k === step.at ? ' on' : (k === step.from ? ' from' : ' idle'));
+    $('#connpill').textContent = S.state ? S.state.replace('CONN_', '') : 'no connection';
+    $('#srvpill').textContent = 'poll_fds_: ' + S.fds.length + ' fd' + (S.fds.length === 1 ? '' : 's');
+    var h = '<div class="stepno">Step ' + (idx + 1) + ' of ' + total + '</div><h3>' + esc(step.title) + '</h3>';
+    if (step.text) h += '<p>' + step.text + '</p>';
+    if (step.ref) h += '<span class="ref">' + esc(step.ref) + '</span>';
+    if (step.evalnote) h += '<div class="evalnote"><b>Evaluation</b>' + step.evalnote + '</div>';
+    if (step.log) h += '<div class="logline">webserv.log   ' + esc(step.log) + '</div>';
+    $('#narr').innerHTML = h;
+    Array.prototype.forEach.call(stEl.children, function (e, i) { e.className = 'st' + (S.state === STATES[i] ? ' cur' : ''); });
+    var ready = step.ready || [];
+    var rows = '<tr><td colspan="3" style="font-family:var(--sans);color:var(--ink-faint)">(no fds)</td></tr>';
+    if (S.fds.length) rows = S.fds.map(function (f) {
+      return '<tr' + (ready.indexOf(f.fd) >= 0 ? ' class="rdy"' : '') + '><td>fd ' + f.fd + '</td><td style="font-family:var(--sans)">' + esc(f.what) + '</td><td class="' + (f.ev === 'POLLIN' ? 'ev-in' : 'ev-out') + '">' + f.ev + '</td></tr>';
+    }).join('');
+    $('#fds').innerHTML = rows;
+    $('#inb').innerHTML = fmt(S.inb); $('#outb').innerHTML = fmt(S.outb);
+    var w = step.wire;
+    $('#wirelbl').textContent = w ? 'Data in flight · ' + w.label : 'Data in flight';
+    $('#wire').innerHTML = w ? fmt(w.data) : '';
+    $('#wirebox').className = 'wire' + (w ? ' has' : '');
+    var dots = $('#dots'); dots.innerHTML = '';
+    sc.steps.forEach(function (s, i) {
+      var d = mk('button', 'dot' + (i < idx ? ' done' : '') + (i === idx ? ' cur' : '')); d.type = 'button';
+      d.title = (i + 1) + '. ' + s.title; d.setAttribute('aria-label', 'Step ' + (i + 1) + ': ' + s.title);
+      d.addEventListener('click', function () { stop(); idx = i; renderJourney(); });
+      dots.appendChild(d);
+    });
+    $('#prev').disabled = idx === 0; $('#next').disabled = idx === total - 1;
+    if (active === 'journey') setHash('journey/' + (cur + 1) + '-' + (idx + 1));
+  }
+  function jNext() { if (idx < SCENARIOS[cur].steps.length - 1) { idx++; renderJourney(); } else stop(); }
+  function jPrev() { if (idx > 0) { idx--; renderJourney(); } }
+  function stop() { if (timer) { clearInterval(timer); timer = null; $('#play').textContent = '▶ Auto-play'; } }
+  function play() {
+    if (timer) { stop(); return; }
+    if (idx >= SCENARIOS[cur].steps.length - 1) idx = 0;
+    renderJourney(); $('#play').textContent = '❚❚ Pause';
+    timer = setInterval(function () { if (idx >= SCENARIOS[cur].steps.length - 1) stop(); else jNext(); }, 3500);
+  }
+  $('#next').addEventListener('click', function () { stop(); jNext(); });
+  $('#prev').addEventListener('click', function () { stop(); jPrev(); });
+  $('#play').addEventListener('click', play);
+  $('#reset').addEventListener('click', function () { stop(); idx = 0; renderJourney(); });
+
+  document.addEventListener('keydown', function (e) {
+    var t = e.target.tagName;
+    if (t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
+    var n = parseInt(e.key, 10);
+    if (n >= 1 && n <= VIEWS.length) { go(VIEWS[n - 1].id); return; }
+    var dir = e.key === 'ArrowRight' ? 1 : (e.key === 'ArrowLeft' ? -1 : 0);
+    if (!dir) { if (e.key === ' ' && active === 'journey' && t !== 'BUTTON') { e.preventDefault(); play(); } return; }
+    e.preventDefault();
+    if (active === 'journey') { stop(); if (dir > 0) jNext(); else jPrev(); }
+    else if (active === 'design') DESIGN.select(DESIGN.cur + dir);
+    else if (active === 'qa') QA.select(QA.cur + dir);
+    else if (active === 'eval') EVAL.select(EVAL.cur + dir);
+  });
+
+  /* ===================================================================
+     ROUTING  (mirrors config/default.conf + Router::routeRequest)
+     =================================================================== */
+  var SERVERS = [
+    { id: 1, port: 8080, names: ['webserv_host'], limit: 1000000,
+      errors: { 404: './errors/404.html', 500: './errors/50x.html', 502: './errors/50x.html', 503: './errors/50x.html' },
+      locs: [
+        { path: '/', root: './www', index: 'index.html', methods: ['GET'], autoindex: false },
+        { path: '/static', root: './www/static', methods: ['GET'], autoindex: true },
+        { path: '/Webserv_Guide', root: './Webserv_Guide', index: '00_INDEX.html', methods: ['GET'], autoindex: false },
+        { path: '/upload', root: './www/upload', methods: ['GET', 'POST', 'DELETE'], store: './www/upload', limit: 5000000 },
+        { path: '/cgi-bin', root: './www/cgi-bin', methods: ['GET', 'POST'], cgi: { '.py': '/usr/bin/python3', '.sh': '/bin/sh' } },
+        { path: '/old-page', ret: [301, '/'], methods: [] },
+        { path: '/private', root: './www/private', methods: ['GET'], autoindex: false }
+      ] },
+    { id: 2, port: 8080, names: ['other.local'], limit: 1000000, dflt: true, errors: {},
+      locs: [{ path: '/', root: './www/other', index: 'index.html', methods: ['GET'] }] },
+    { id: 3, port: 8081, names: [], limit: 100,
+      errors: { 404: './errors/cat-no.gif', 500: './errors/cat-no.gif', 502: './errors/cat-no.gif', 503: './errors/cat-no.gif', 400: './errors/images2.jpeg' },
+      locs: [{ path: '/', root: './www', index: 'index.html', methods: ['GET', 'POST'] }] }
+  ];
+  var KNOWN = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH'];
+
+  function findLoc(srv, path) {
+    var best = null;
+    srv.locs.forEach(function (l) {
+      if (path.indexOf(l.path) !== 0) return;
+      var ok = path.length === l.path.length || l.path === '/' || l.path.slice(-1) === '/' || path.charAt(l.path.length) === '/';
+      if (ok && (!best || l.path.length > best.path.length)) best = l;
+    });
+    return best;
+  }
+  function upName(loc, path) {
+    var fn = path.slice(loc.path.length);
+    if (loc.path.slice(-1) !== '/') { if (!fn || fn.charAt(0) !== '/') return null; fn = fn.slice(1); }
+    if (!fn || fn.indexOf('/') >= 0) return null;
+    return fn;
+  }
+  function resolve(inp) {
+    var rows = [], outcome = null, dead = false;
+    function stage(name, ref, fn) {
+      if (dead) { rows.push({ cls: 'skip', ic: '·', name: name, dt: 'not reached', ref: ref }); return; }
+      var r = fn();
+      rows.push({ cls: r.stop ? 'stop' : 'ok', ic: r.stop ? '✕' : '✓', name: name, dt: r.dt, ref: ref });
+      if (r.stop) { dead = true; outcome = r.stop; }
+    }
+    var srv, loc, path = inp.path, errPage = function () { return ''; };
+    stage('Method known', 'RequestParser.cpp:43', function () {
+      if (KNOWN.indexOf(inp.method) < 0) return { dt: '<code>' + esc(inp.method) + '</code> is not an HTTP method the parser knows.', stop: { code: 501, text: 'Rejected by the parser before routing.' } };
+      return { dt: '<code>' + esc(inp.method) + '</code> is a known method.' };
+    });
+    stage('Server block', 'Server.cpp:246', function () {
+      var cands = SERVERS.filter(function (s) { return s.port === inp.port; });
+      var host = inp.host.toLowerCase().replace(/:\d+$/, '');
+      var hit = cands.filter(function (s) { return s.names.indexOf(host) >= 0; })[0];
+      srv = hit || cands[0];
+      errPage = function (code) { return srv.errors[code] ? 'custom page <code>' + srv.errors[code] + '</code>' : 'built-in error page'; };
+      return { dt: 'Port ' + inp.port + ' has ' + cands.length + ' block' + (cands.length > 1 ? 's' : '') + '. ' + (hit ? 'Host <code>' + esc(host || '(none)') + '</code> matches <code>server_name</code> of block ' + srv.id + '.' : 'No server_name matches <code>' + esc(host || '(none)') + '</code>: the first block (' + srv.id + ') is the default.') };
+    });
+    stage('Path check', 'Router.cpp:33', function () {
+      var dec;
+      try { dec = decodeURIComponent(path.split('?')[0]); } catch (e) { dec = null; }
+      var bad = function (d) { return { dt: d, stop: { code: 400, text: 'Bad Request: ' + errPage(400) + '.' } }; };
+      if (dec === null) return bad('Bad percent-encoding.');
+      path = dec;
+      if (!path || path.charAt(0) !== '/') return bad('Path must start with <code>/</code>.');
+      for (var i = 0; i < path.length; i++) { var c = path.charCodeAt(i); if (c < 32 || c >= 127) return bad('Control or non-ASCII byte in the decoded path.'); }
+      var segs = path.split('/');
+      for (var j = 1; j < segs.length; j++) if (segs[j] === '.' || segs[j] === '..') return bad('A <code>' + segs[j] + '</code> segment: path traversal. Checked after one percent-decode, so <code>%2e%2e</code> is caught too.');
+      return { dt: 'Decoded once, no <code>.</code> or <code>..</code> segments.' };
+    });
+    stage('Location', 'Router.cpp:76', function () {
+      loc = findLoc(srv, path);
+      if (!loc) return { dt: 'No location prefix matches <code>' + esc(path) + '</code>.', stop: { code: 404, text: 'Not Found: ' + errPage(404) + '.' } };
+      var n = srv.locs.filter(function (l) { return path.indexOf(l.path) === 0; }).length;
+      return { dt: 'Longest matching prefix: <code>location ' + loc.path + '</code>' + (n > 1 ? ' (' + n + ' prefixes match, the longest wins)' : '') + '.' };
+    });
+    stage('Body limit', 'Router.cpp:450', function () {
+      var lim = loc.limit != null ? loc.limit : srv.limit;
+      if (lim == null) return { dt: 'No <code>client_max_body_size</code> set for this block.' };
+      if (lim !== 0 && inp.body > lim) return { dt: 'Body is ' + inp.body + ' bytes, the limit here is ' + lim + '.', stop: { code: 413, text: 'Payload Too Large: ' + errPage(413) + '.' } };
+      return { dt: 'Body ' + inp.body + ' bytes ≤ limit ' + lim + (loc.limit == null && srv.dflt ? ' (the built-in default: this block sets no <code>client_max_body_size</code>)' : '') + '.' };
+    });
+    stage('Redirect', 'Router.cpp:452', function () {
+      if (loc.ret) return { dt: 'This location has <code>return ' + loc.ret[0] + ' ' + loc.ret[1] + '</code>.', stop: { code: loc.ret[0], ok: true, text: 'Redirect with <code>Location: ' + loc.ret[1] + '</code>. Nothing is read from disk.' } };
+      return { dt: 'No <code>return</code> directive.' };
+    });
+    stage('Method allowed', 'Router.cpp:454', function () {
+      if (loc.methods.indexOf(inp.method) < 0) return { dt: '<code>allowed_methods ' + (loc.methods.join(' ') || '(none)') + '</code> does not include <code>' + inp.method + '</code>.', stop: { code: 405, text: 'Method Not Allowed: ' + errPage(405) + '. Refused before touching the disk.' } };
+      return { dt: '<code>' + inp.method + '</code> is in <code>allowed_methods ' + loc.methods.join(' ') + '</code>.' };
+    });
+    stage('Handler', 'Router.cpp:456–464', function () {
+      var rest = loc.path === '/' ? path : path.slice(loc.path.length);
+      if (loc.cgi && (inp.method === 'GET' || inp.method === 'POST')) {
+        for (var ext in loc.cgi) {
+          var i = rest.indexOf(ext);
+          if (i >= 0 && (i + ext.length === rest.length || rest.charAt(i + ext.length) === '/')) {
+            var script = loc.root + '/' + rest.slice(0, i + ext.length).replace(/^\//, '');
+            return { dt: 'Path contains <code>' + ext + '</code> → CGI.', stop: { code: 'CGI', ok: true, text: 'Runs <code>' + loc.cgi[ext] + ' ' + script + '</code>. The script’s own output becomes the response. A missing script or a non-zero exit is a 500; a script still running after 30 s is a 504.' } };
+          }
+        }
+      }
+      if (inp.method === 'POST') {
+        if (!loc.store) return { dt: 'POST without <code>upload_store</code>.', stop: { code: 200, ok: true, text: 'Body is read and discarded; replies <code>POST request received</code>.' } };
+        var fn = upName(loc, path);
+        if (fn === null) return { dt: 'Upload needs exactly one file name after <code>' + loc.path + '</code>.', stop: { code: 400, text: 'Bad Request: ' + errPage(400) + '.' } };
+        return { dt: 'POST with <code>upload_store ' + loc.store + '</code>.', stop: { code: 201, ok: true, text: 'Writes the body to <code>' + loc.store + '/' + esc(fn) + '</code> and answers <code>201 Created</code> with a <code>Location</code> header.' } };
+      }
+      if (inp.method === 'DELETE') {
+        if (!loc.store) return { dt: 'DELETE needs <code>upload_store</code>: only files that could have been uploaded can be deleted.', stop: { code: 403, text: 'Forbidden: ' + errPage(403) + '.' } };
+        var fd = upName(loc, path);
+        if (fd === null) return { dt: 'Needs exactly one file name after <code>' + loc.path + '</code>.', stop: { code: 400, text: 'Bad Request: ' + errPage(400) + '.' } };
+        return { dt: 'DELETE inside <code>upload_store ' + loc.store + '</code>.', stop: { code: '200 / 404 / 403', ok: true, text: 'Removes <code>' + loc.store + '/' + esc(fd) + '</code>: 200 if it was a regular file, 404 if missing, 403 if it is not a regular file.' } };
+      }
+      if (inp.method === 'GET') {
+        return { dt: 'GET → <code>mapRootPath()</code> swaps the prefix for the root: <code>' + esc(loc.root + rest) + '</code>.', stop: { code: 'GET', ok: true, text: 'Decided on disk: <b>file</b> → 200 with its Content-Type · <b>directory without trailing /</b> → 301 · <b>directory</b> → <code>' + (loc.index || 'index') + '</code> if present, else ' + (loc.autoindex ? 'a generated listing (autoindex on)' : '404 (autoindex off)') + ' · <b>missing</b> → 404.' } };
+      }
+      return { dt: inp.method + ' has no handler.', stop: { code: 405, text: 'Method Not Allowed.' } };
+    });
+    return { stages: rows, outcome: outcome };
+  }
+  var PRESETS = [['GET', '/about.html'], ['GET', '/static/'], ['GET', '/old-page'], ['POST', '/upload/a.txt'], ['DELETE', '/upload/a.txt'], ['GET', '/cgi-bin/hello.py'], ['DELETE', '/about.html'], ['GET', '/../Makefile'], ['GET', '/nope'], ['FOO', '/']];
+  PRESETS.forEach(function (p) {
+    var b = mk('button', '', p[0] + ' ' + esc(p[1])); b.type = 'button';
+    b.addEventListener('click', function () { $('#r-method').value = p[0]; $('#r-path').value = p[1]; doResolve(); });
+    $('#presets').appendChild(b);
+  });
+  function reason(c) { return { 200: 'OK', 201: 'Created', 301: 'Moved Permanently', 400: 'Bad Request', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 413: 'Payload Too Large', 501: 'Not Implemented' }[c] || ''; }
+  function doResolve() {
+    var r = resolve({ port: +$('#r-port').value, host: $('#r-host').value.trim(), method: $('#r-method').value, path: $('#r-path').value.trim(), body: Math.max(0, +$('#r-body').value || 0) });
+    $('#stages').innerHTML = r.stages.map(function (s, i) {
+      return '<div class="stg ' + s.cls + '"><div class="ic">' + s.ic + '</div><div class="nm">' + (i + 1) + ' · ' + s.name + '</div><div class="dt">' + s.dt + '</div><div class="rf">' + s.ref + '</div></div>';
+    }).join('');
+    var o = r.outcome, el = $('#outcome');
+    el.className = 'card outcome' + (o && typeof o.code === 'number' && o.code >= 400 ? ' err' : '');
+    el.innerHTML = '<div class="big">' + (o ? (typeof o.code === 'number' ? o.code + ' ' + reason(o.code) : o.code) : '—') + '</div><p>' + (o ? o.text : '') + '</p>';
+  }
+  ['#r-port', '#r-host', '#r-method', '#r-path', '#r-body'].forEach(function (s) { $(s).addEventListener('input', doResolve); });
+
+  /* ===================================================================
+     LIVE
+     =================================================================== */
+  var LIVE_OK = location.protocol === 'http:' || location.protocol === 'https:';
+  var TESTS = [
+    { l: 'GET /', m: 'GET', u: '/', n: 'Static site root: index.html → 200' },
+    { l: 'GET /nope', m: 'GET', u: '/nope', n: 'Missing file → custom 404 page' },
+    { l: 'GET /static/', m: 'GET', u: '/static/', n: 'autoindex on → generated listing' },
+    { l: 'GET /old-page', m: 'GET', u: '/old-page', n: 'Configured redirect; fetch follows it to /', follow: true },
+    { l: 'GET /private/', m: 'GET', u: '/private/', n: 'Directory, no index, autoindex off' },
+    { l: 'GET /../Makefile', m: 'GET', u: '/%2e%2e/Makefile', n: 'Path traversal, percent-encoded → 400' },
+    { l: 'DELETE /about.html', m: 'DELETE', u: '/about.html', n: 'Method not allowed here → 405' },
+    { l: 'GET /cgi-bin/hello.py?name=42', m: 'GET', u: '/cgi-bin/hello.py?name=42', n: 'Runs a Python script through the poll loop' },
+    { l: 'GET /cgi-bin/hello.sh', m: 'GET', u: '/cgi-bin/hello.sh?name=42', n: 'Second CGI type: /bin/sh' },
+    { l: 'POST /cgi-bin/post_echo.py', m: 'POST', u: '/cgi-bin/post_echo.py', b: 'hello from CGI POST', n: 'The body goes to the script’s stdin' },
+    { l: 'POST /upload/webserv-demo.txt', m: 'POST', u: '/upload/webserv-demo.txt', b: 'uploaded from the browser\n', n: 'Upload → 201, the file appears in www/upload/' },
+    { l: 'GET /upload/webserv-demo.txt', m: 'GET', u: '/upload/webserv-demo.txt', n: 'Get it back → 200' },
+    { l: 'DELETE /upload/webserv-demo.txt', m: 'DELETE', u: '/upload/webserv-demo.txt', n: 'Delete it → 200; again → 404' }
+  ];
+  if (!LIVE_OK) $('#livebanner').innerHTML = '<div class="banner">This page was opened as a file, so the browser cannot reach the server. Start webserv and open it from there: <code>http://127.0.0.1:8080/Webserv_Guide/INTERACTIVE.html</code></div>';
+  TESTS.forEach(function (t) {
+    var row = mk('div', 'trow', '<div><code>' + esc(t.l) + '</code><small>' + esc(t.n) + '</small></div>');
+    var b = mk('button', 'btn', 'Send'); b.type = 'button'; b.disabled = !LIVE_OK;
+    b.addEventListener('click', function () { send(t, b); });
+    row.appendChild(b); $('#tlist').appendChild(row);
+  });
+  /* What the client asked: the raw request, and the same thing as a command. */
+  function blen(s) { return encodeURIComponent(s).replace(/%[0-9A-F]{2}/gi, 'x').length; }
+  function shq(s) {
+    if (/[\r\n\t]/.test(s)) {
+      return "$'" + s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+                     .replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t') + "'";
+    }
+    return "'" + s.replace(/'/g, "'\\''") + "'";
+  }
+  function liveHost() { return location.host || '127.0.0.1:8080'; }
+  function liveOrigin() { return (location.origin && location.origin !== 'null') ? location.origin : 'http://127.0.0.1:8080'; }
+  function rawRequest(t) {
+    var lines = [t.m + ' ' + t.u + ' HTTP/1.1', 'Host: ' + liveHost()];
+    if (t.b != null) { lines.push('Content-Type: text/plain'); lines.push('Content-Length: ' + blen(t.b)); }
+    return lines.join('\r\n') + '\r\n\r\n' + (t.b != null ? t.b : '');
+  }
+  function curlFor(t) {
+    var parts = ['curl -i'];
+    if (/%|\.\./.test(t.u)) parts.push('--path-as-is');
+    if (t.m !== 'GET' && !(t.m === 'POST' && t.b != null)) parts.push('-X ' + t.m);
+    if (t.b != null) { parts.push("-H 'Content-Type: text/plain'"); parts.push('--data-binary ' + shq(t.b)); }
+    parts.push(shq(liveOrigin() + t.u));
+    return parts.join(' ');
+  }
+  function requestBlocks(t) {
+    return '<div class="lbl">Request \u2014 what the client sent</div><pre>' + fmt(rawRequest(t)) + '</pre>' +
+      '<div class="lbl" style="margin-top:0.8rem">The same request as a command</div>' + cmdBlock(curlFor(t)) +
+      '<p class="hint">That is the minimum this request needs \u2014 the exact bytes you would type after <code>telnet 127.0.0.1 8080</code>, where every <span class="crlf">\\r\\n</span> is one press of Enter. The browser adds headers of its own (<code>User-Agent</code>, <code>Accept</code>, \u2026); the server does not require them.</p>';
+  }
+
+  var BASE = LIVE_OK ? location.origin : 'http://127.0.0.1:8080';
+  var HOSTPORT = LIVE_OK ? location.host : '127.0.0.1:8080';
+  function quoteBody(b) {
+    if (b.indexOf('\n') >= 0) return "$'" + b.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') + "'";
+    return "'" + b.replace(/'/g, "'\\''") + "'";
+  }
+  function rawFor(t) {
+    var r = t.m + ' ' + t.u + ' HTTP/1.1\r\nHost: ' + HOSTPORT + '\r\n';
+    if (t.b != null) r += 'Content-Type: text/plain\r\nContent-Length: ' + new TextEncoder().encode(t.b).length + '\r\n';
+    r += 'Connection: close\r\n\r\n';
+    return t.b != null ? r + t.b : r;
+  }
+  function curlFor(t) {
+    var c = 'curl -i' + (t.follow ? 'L' : '');
+    if (t.b != null) c += " -H 'Content-Type: text/plain' --data-binary " + quoteBody(t.b);
+    else if (t.m !== 'GET') c += ' -X ' + t.m;
+    return c + " '" + BASE + t.u + "'";
+  }
+  function ncFor(t) {
+    var parts = HOSTPORT.split(':');
+    var p = rawFor(t).replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/'/g, "'\\''");
+    return "printf '" + p + "' | nc " + parts[0] + ' ' + (parts[1] || '80');
+  }
+  function askHtml(t) {
+    return '<div class="lbl">What the client asked</div><pre class="buf">' + fmt(rawFor(t)) + '</pre>' +
+      '<div class="lbl" style="margin-top:0.8rem">The same request from a terminal</div>' +
+      '<div class="cmd"><pre>' + esc(curlFor(t)) + '</pre><button class="copy" type="button">copy</button></div>' +
+      '<div class="cmd"><pre>' + esc(ncFor(t)) + '</pre><button class="copy" type="button">copy</button></div>' +
+      '<div class="hint">A browser adds more headers (User-Agent, Accept, …). This is the minimal form you can type by hand; <code>Connection: close</code> lets <code>nc</code> exit when the answer is done.</div>';
+  }
+  function send(t, btn) {
+    var res = $('#res'); btn.disabled = true;
+    var ask = askHtml(t);
+    var answer = function (h) { res.innerHTML = ask + '<div class="sep"><div class="lbl">What the server answered</div>' + h + '</div>'; };
+    answer('<div class="hint">Sending…</div>');
+    var t0 = performance.now();
+    var opts = { method: t.m, redirect: 'follow', cache: 'no-store' };
+    if (t.b != null) { opts.body = t.b; opts.headers = { 'Content-Type': 'text/plain' }; }
+    fetch(t.u, opts).then(function (r) {
+      var ms = Math.round(performance.now() - t0);
+      var ct = r.headers.get('content-type') || '';
+      var heads = []; r.headers.forEach(function (v, k) { heads.push(k + ': ' + v); });
+      var bodyP = /^(text|application\/json)/.test(ct) || !ct ? r.text() : r.blob().then(function (b) { return '[' + ct + ', ' + b.size + ' bytes]'; });
+      return bodyP.then(function (body) {
+        var cls = r.status < 300 ? 'ok' : (r.status < 400 ? 'warn' : 'bad');
+        answer('<div class="status ' + cls + '">' + r.status + ' ' + esc(r.statusText) + '</div>' +
+          '<div class="meta">' + t.m + ' ' + esc(t.u) + ' · ' + ms + ' ms' + (r.redirected ? ' · redirected to ' + esc(new URL(r.url).pathname) : '') + '</div>' +
+          '<div class="lbl">Response headers</div><pre class="buf">' + esc(heads.join('\n') || '(none exposed)') + '</pre>' +
+          '<div class="lbl" style="margin-top:0.8rem">Body' + (body.length > 600 ? ' (first 600 of ' + body.length + ' characters)' : '') + '</div><pre class="buf">' + esc(body.slice(0, 600)) + '</pre>');
+      });
+    }).catch(function (e) {
+      answer('<div class="status bad">No response</div><div class="meta">' + esc(String(e)) + '</div><p class="hint">Is webserv running, and was this page opened from it?</p>');
+    }).then(function () { btn.disabled = !LIVE_OK; });
+  }
+
+  /* ===================================================================
+     BOOT
+     =================================================================== */
+  function fromHash() {
+    var h = location.hash.replace(/^#/, '');
+    var m = /^s(\d+)-(\d+)$/.exec(h);               /* old deep links */
+    if (m) return ['journey', m[1] + '-' + m[2]];
+    var p = h.split('/');
+    for (var i = 0; i < VIEWS.length; i++) if (VIEWS[i].id === p[0]) {
+      var sub = p[1];
+      if (p[0] === 'design' || p[0] === 'qa' || p[0] === 'eval') sub = sub != null && /^\d+$/.test(sub) ? +sub - 1 : undefined;
+      return [p[0], sub];
+    }
+    return ['start'];
+  }
+  var h0 = fromHash();
+  go(h0[0], h0[1]);
+  window.addEventListener('hashchange', function () { var h = fromHash(); if (h[0] !== active || h[0] === 'journey') go(h[0], h[1]); });
+})();
+</script>
+</body>
+</html>
