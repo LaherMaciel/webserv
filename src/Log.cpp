@@ -25,7 +25,6 @@ Log::Log(const std::string &path, Level threshold)
     : fd_(-1), threshold_(threshold), offset_(0), dropped_(0), reportedDropped_(0)
 {
     pending_.reserve(MAX_QUEUE_BYTES);
-    // Non-blocking open also prevents waiting on a FIFO supplied as a log path.
     fd_ = open(path.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK, 0644);
     if (fd_ == -1)
         throw std::runtime_error("log: cannot open " + path);
@@ -103,8 +102,6 @@ bool Log::flush()
     if (remaining == 0)
         return true;
     size_t count = remaining < MAX_FLUSH_BYTES ? remaining : MAX_FLUSH_BYTES;
-    // Regular files are exempt from poll; the byte budget bounds each attempt,
-    // but a disk write can still wait on storage.
     ssize_t written = write(fd_, pending_.c_str() + offset_, count);
     if (written <= 0)
     {
